@@ -57,33 +57,15 @@
     blockAds: 'data-ka-block-ads' // page-hook.js rewrites Kick's player answer
   };
 
-  const TOGGLES = [
-    ['wakeLock', t('setting.wakeLock')],
-    ['chatOnly', t('setting.chatOnly')],
-    ['restoreDeleted', t('setting.restoreDeleted')],
-    ['linkPreviews', t('setting.linkPreviews')],
-    ['sevenTv', t('setting.sevenTv')],
-    ['sevenTvCosmetics', t('setting.sevenTvCosmetics')],
-    ['streamInfo', t('setting.streamInfo')],
-    ['savedMessages', t('setting.savedMessages')],
-    ['highlights', t('setting.highlights')],
-    ['highlightStreamer', t('setting.highlightStreamer')],
-    ['muteUsers', t('setting.muteUsers')],
-    ['collapseRepeats', t('setting.collapseRepeats')],
-    ['hideEmoteOnly', t('setting.hideEmoteOnly')],
-    ['iosInput', t('setting.iosInput')]
-  ];
-
-  const PLAYER_TOGGLES = [
-    ['nativePlayer', t('setting.nativePlayer')],
-    ['backgroundAudio', t('setting.backgroundAudio')],
-    ['popoutAudio', t('setting.popoutAudio')],
-    ['channelStrip', t('setting.channelStrip')]
-  ];
-
-  const KICK_TOGGLES = [
-    ['blockAds', t('setting.blockAds')]
-  ];
+  // Settings panel tabs, in order. Each lists its rows: a setting key is a switch,
+  // the other names are the rows buildBar makes itself.
+  const SETTINGS_TABS = {
+    general: ['wakeLock', 'chatOnly', 'streamInfo', 'channelStrip', 'blockAds'],
+    chat: ['font', 'size', 'sevenTv', 'sevenTvCosmetics', 'linkPreviews', 'restoreDeleted', 'savedMessages', 'iosInput'],
+    filters: ['highlights', 'highlightWords', 'highlightStreamer', 'hideWords', 'hideEmoteOnly', 'collapseRepeats', 'muteUsers', 'mutedUsers'],
+    player: ['nativePlayer', 'backgroundAudio', 'popoutAudio']
+  };
+  const SETTINGS_TAB_KEY = 'kickoff:settingsTab'; // last open tab, in kick.com localStorage
 
   // Network blocking runs in background.js, which reports here how it went.
   const BLOCK_STATUS_KEY = 'kickoffBlockStatus';
@@ -489,25 +471,23 @@
     panel.hidden = true;
     const details = el('div', 'ka-stream-details');
     details.hidden = true;
-    panel.append(details, el('div', 'ka-settings-section', t('section.chat')));
 
-    const addToggle = (key, label) => {
+    const switchRow = key => {
       const row = el('label', 'ka-settings-row');
       const input = el('input', 'ka-switch');
       input.type = 'checkbox';
       input.setAttribute('role', 'switch');
       input.dataset.setting = key;
       input.addEventListener('change', () => saveSettings({ [key]: input.checked }));
-      const text = el('span', 'ka-settings-label', label);
+      const text = el('span', 'ka-settings-label', t(`setting.${key}`));
       if (key === 'wakeLock') text.append(el('span', 'ka-wake-hint'));
       if (key === 'blockAds') text.append(el('span', 'ka-wake-hint ka-block-hint'));
       row.append(text, input);
-      panel.append(row);
+      return row;
     };
-    for (const [key, label] of TOGGLES) addToggle(key, label);
 
     // Word lists (highlight, hide): comma-separated, saved when the field is left or on Enter.
-    const addWordsRow = (key, label, placeholder) => {
+    const wordsRow = (key, label, placeholder) => {
       const row = el('label', 'ka-settings-row ka-words-row');
       const input = el('input', 'ka-words-input');
       input.type = 'text';
@@ -523,59 +503,99 @@
         if (event.key === 'Enter') input.blur();
       });
       row.append(el('span', 'ka-settings-label', label), input);
-      panel.append(row);
+      return row;
     };
-    addWordsRow('highlightWords', t('words.highlight'), t('words.highlightExample'));
-    addWordsRow('hideWords', t('words.hide'), t('words.hideExample'));
 
     // Muted users: chips to unmute, and a field to add names (comma-separated).
-    const muteRow = el('label', 'ka-settings-row ka-words-row');
-    const muteInput = el('input', 'ka-words-input ka-mute-input');
-    muteInput.type = 'text';
-    muteInput.placeholder = t('mute.add');
-    muteInput.autocomplete = 'off';
-    muteInput.autocapitalize = 'off';
-    muteInput.spellcheck = false;
-    muteInput.addEventListener('change', () => {
-      addMuted(muteInput.value.split(','));
-      muteInput.value = '';
-    });
-    muteInput.addEventListener('keydown', event => {
-      if (event.key === 'Enter') muteInput.blur();
-    });
-    muteRow.append(el('span', 'ka-settings-label', t('mute.label')), muteInput);
-    panel.append(muteRow, el('div', 'ka-mute-list'));
+    const mutedRows = () => {
+      const row = el('label', 'ka-settings-row ka-words-row');
+      const input = el('input', 'ka-words-input ka-mute-input');
+      input.type = 'text';
+      input.placeholder = t('mute.add');
+      input.autocomplete = 'off';
+      input.autocapitalize = 'off';
+      input.spellcheck = false;
+      input.addEventListener('change', () => {
+        addMuted(input.value.split(','));
+        input.value = '';
+      });
+      input.addEventListener('keydown', event => {
+        if (event.key === 'Enter') input.blur();
+      });
+      row.append(el('span', 'ka-settings-label', t('mute.label')), input);
+      return [row, el('div', 'ka-mute-list')];
+    };
 
-    const fontRow = el('div', 'ka-settings-row');
-    const fonts = el('span', 'ka-size-controls ka-font-choice');
-    for (const [value, label] of CHAT_FONTS) {
-      const option = el('button', 'ka-size-button ka-font-option', label);
-      option.type = 'button';
-      option.dataset.font = value;
-      option.addEventListener('click', () => saveSettings({ chatFont: value }));
-      fonts.append(option);
+    const fontRow = () => {
+      const row = el('div', 'ka-settings-row');
+      const fonts = el('span', 'ka-size-controls ka-font-choice');
+      for (const [value, label] of CHAT_FONTS) {
+        const option = el('button', 'ka-size-button ka-font-option', label);
+        option.type = 'button';
+        option.dataset.font = value;
+        option.addEventListener('click', () => saveSettings({ chatFont: value }));
+        fonts.append(option);
+      }
+      row.append(el('span', 'ka-settings-label', t('font.label')), fonts);
+      return row;
+    };
+
+    const sizeRow = () => {
+      const row = el('div', 'ka-settings-row');
+      const controls = el('span', 'ka-size-controls');
+      const minus = el('button', 'ka-size-button', '−');
+      const value = el('span', 'ka-size-value');
+      const plus = el('button', 'ka-size-button', '+');
+      const reset = el('button', 'ka-size-reset', t('size.reset'));
+      for (const button of [minus, plus, reset]) button.type = 'button';
+      minus.setAttribute('aria-label', t('size.smaller'));
+      plus.setAttribute('aria-label', t('size.larger'));
+      minus.addEventListener('click', () => stepFontSize(-1));
+      plus.addEventListener('click', () => stepFontSize(1));
+      reset.addEventListener('click', () => saveSettings({ fontSize: null }));
+      controls.append(minus, value, plus, reset);
+      row.append(el('span', 'ka-settings-label', t('size.label')), controls);
+      return row;
+    };
+
+    const ROWS = {
+      font: fontRow,
+      size: sizeRow,
+      highlightWords: () => wordsRow('highlightWords', t('words.highlight'), t('words.highlightExample')),
+      hideWords: () => wordsRow('hideWords', t('words.hide'), t('words.hideExample')),
+      mutedUsers: mutedRows
+    };
+
+    // Segmented control on top, one page of rows per tab.
+    const tabs = el('div', 'ka-settings-tabs');
+    tabs.setAttribute('role', 'tablist');
+    panel.append(details, tabs);
+    for (const [name, rows] of Object.entries(SETTINGS_TABS)) {
+      const tab = el('button', 'ka-settings-tab', t(`tab.${name}`));
+      tab.type = 'button';
+      tab.id = `ka-tab-${name}`;
+      tab.dataset.tab = name;
+      tab.setAttribute('role', 'tab');
+      tab.setAttribute('aria-controls', `ka-page-${name}`);
+      tab.addEventListener('click', () => showSettingsTab(name));
+      tab.addEventListener('keydown', event => {
+        const step = { ArrowLeft: -1, ArrowRight: 1 }[event.key];
+        if (!step) return;
+        const names = Object.keys(SETTINGS_TABS);
+        const next = names[(names.indexOf(name) + step + names.length) % names.length];
+        showSettingsTab(next);
+        tabs.querySelector(`[data-tab="${next}"]`).focus();
+      });
+      tabs.append(tab);
+      const page = el('div', 'ka-settings-page');
+      page.id = `ka-page-${name}`;
+      page.dataset.tab = name;
+      page.setAttribute('role', 'tabpanel');
+      page.setAttribute('aria-labelledby', tab.id);
+      for (const row of rows) page.append(...[].concat(ROWS[row] ? ROWS[row]() : switchRow(row)));
+      panel.append(page);
     }
-    fontRow.append(el('span', 'ka-settings-label', t('font.label')), fonts);
-    panel.append(fontRow);
-
-    const sizeRow = el('div', 'ka-settings-row');
-    const controls = el('span', 'ka-size-controls');
-    const minus = el('button', 'ka-size-button', '−');
-    const value = el('span', 'ka-size-value');
-    const plus = el('button', 'ka-size-button', '+');
-    const reset = el('button', 'ka-size-reset', t('size.reset'));
-    for (const button of [minus, plus, reset]) button.type = 'button';
-    minus.setAttribute('aria-label', t('size.smaller'));
-    plus.setAttribute('aria-label', t('size.larger'));
-    minus.addEventListener('click', () => stepFontSize(-1));
-    plus.addEventListener('click', () => stepFontSize(1));
-    reset.addEventListener('click', () => saveSettings({ fontSize: null }));
-    controls.append(minus, value, plus, reset);
-    sizeRow.append(el('span', 'ka-settings-label', t('size.label')), controls);
-    panel.append(sizeRow, el('div', 'ka-settings-section', t('section.player')));
-    for (const [key, label] of PLAYER_TOGGLES) addToggle(key, label);
-    panel.append(el('div', 'ka-settings-section', t('section.kick')));
-    for (const [key, label] of KICK_TOGGLES) addToggle(key, label);
+    // Shown only when the page script has trouble, so it stays below every tab.
     const health = el('div', 'ka-health');
     health.hidden = true;
     panel.append(health);
@@ -667,6 +687,28 @@
   function stepFontSize(delta) {
     const size = Math.min(FONT_SIZE_MAX, Math.max(FONT_SIZE_MIN, currentFontSize() + delta));
     saveSettings({ fontSize: size });
+  }
+
+  function savedSettingsTab() {
+    try {
+      const name = localStorage.getItem(SETTINGS_TAB_KEY);
+      if (name in SETTINGS_TABS) return name;
+    } catch (err) { /* storage blocked */ }
+    return Object.keys(SETTINGS_TABS)[0];
+  }
+
+  function showSettingsTab(name) {
+    if (!state.bar) return;
+    for (const tab of state.bar.querySelectorAll('.ka-settings-tab')) {
+      const selected = tab.dataset.tab === name;
+      tab.setAttribute('aria-selected', String(selected));
+      tab.tabIndex = selected ? 0 : -1;
+    }
+    for (const page of state.bar.querySelectorAll('.ka-settings-page')) page.hidden = page.dataset.tab !== name;
+    state.bar.querySelector('.ka-settings-panel').scrollTop = 0;
+    try {
+      localStorage.setItem(SETTINGS_TAB_KEY, name);
+    } catch (err) { /* storage blocked */ }
   }
 
   function isPanelOpen() {
@@ -1240,7 +1282,10 @@
   function placeBar() {
     const messageArea = document.querySelector('#chatroom-messages')?.parentElement;
     if (!messageArea) return;
-    if (!state.bar) state.bar = buildBar();
+    if (!state.bar) {
+      state.bar = buildBar();
+      showSettingsTab(savedSettingsTab());
+    }
     if (state.bar.nextElementSibling !== messageArea) {
       messageArea.before(state.bar);
       renderBar();

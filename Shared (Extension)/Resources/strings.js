@@ -34,9 +34,10 @@
       'setting.blockAds': 'Block ads & trackers',
 
       // Settings panel: other rows
-      'section.chat': 'Chat',
-      'section.player': 'Player',
-      'section.kick': 'Kick',
+      'tab.general': 'General',
+      'tab.chat': 'Chat',
+      'tab.filters': 'Filters',
+      'tab.player': 'Player',
       'words.highlight': 'Words to highlight',
       'words.highlightExample': 'e.g. giveaway, poll',
       'words.hide': 'Hide messages with',
@@ -236,9 +237,10 @@
       'setting.channelStrip': 'Kompaktowe info o kanale (strona kanału)',
       'setting.blockAds': 'Blokuj reklamy i trackery',
 
-      'section.chat': 'Czat',
-      'section.player': 'Odtwarzacz',
-      'section.kick': 'Kick',
+      'tab.general': 'Ogólne',
+      'tab.chat': 'Czat',
+      'tab.filters': 'Filtry',
+      'tab.player': 'Odtwarzacz',
       'words.highlight': 'Słowa do wyróżnienia',
       'words.highlightExample': 'np. giveaway, ankieta',
       'words.hide': 'Ukryj wiadomości ze słowami',
