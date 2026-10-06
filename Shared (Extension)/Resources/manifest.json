@@ -11,16 +11,32 @@
     "256": "images/icon-256.png",
     "512": "images/icon-512.png"
   },
-  "icon_variants": [
-    {
-      "any": "symbol:sun.max.fill"
-    }
-  ],
   "action": {
     "default_title": "Kickoff settings",
+    "default_icon": {
+      "16": "images/toolbar-light-16.png",
+      "32": "images/toolbar-light-32.png",
+      "48": "images/toolbar-light-48.png",
+      "64": "images/toolbar-light-64.png"
+    },
     "icon_variants": [
       {
-        "any": "symbol:sun.max.fill"
+        "16": "images/toolbar-light-16.png",
+        "32": "images/toolbar-light-32.png",
+        "48": "images/toolbar-light-48.png",
+        "64": "images/toolbar-light-64.png",
+        "color_schemes": [
+          "light"
+        ]
+      },
+      {
+        "16": "images/toolbar-dark-16.png",
+        "32": "images/toolbar-dark-32.png",
+        "48": "images/toolbar-dark-48.png",
+        "64": "images/toolbar-dark-64.png",
+        "color_schemes": [
+          "dark"
+        ]
       }
     ]
   },

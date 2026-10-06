@@ -1219,6 +1219,44 @@ html[data-ka-font="mono"] #channel-chatroom {
     opacity: 0.6;
 }
 
+/* Settings: Kickoff's rocket at the right end of the strip. Until the panel has
+   been opened once it carries Kick's green dot (data-hint, set by content.js). */
+.ka-settings-button {
+    position: relative;
+    padding: 0 7px;
+}
+
+.ka-rocket-icon {
+    width: 13px;
+    height: 13px;
+}
+
+.ka-settings-button[data-hint]::before {
+    content: "";
+    position: absolute;
+    top: -2px;
+    right: -2px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #53fc18;
+}
+
+/* Fingers need more than the 22px the strip buttons show: on touch screens an
+   invisible ::after grows each button's tap area to about 38px tall without
+   making the strip taller. */
+@media (pointer: coarse) {
+    .ka-strip-button {
+        position: relative;
+    }
+
+    .ka-strip-button::after {
+        content: "";
+        position: absolute;
+        inset: -8px -4px;
+    }
+}
+
 /* Chat search (same list style as the inbox) */
 .ka-search-button {
     margin-right: 4px;

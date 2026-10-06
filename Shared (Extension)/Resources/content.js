@@ -7,6 +7,9 @@
   if (window.kickoff) return; // already loaded in this tab
 
   const SETTINGS_KEY = 'kickoffSettings';
+  // Set once the settings panel has been opened; until then the rocket button
+  // in the strip carries a green dot so people find it.
+  const SETTINGS_SEEN_KEY = 'kickoffSettingsSeen';
   const DEFAULTS = {
     wakeLock: true,
     chatFont: 'sf', // one of CHAT_FONTS
@@ -98,6 +101,10 @@
   const HIDE_WORDS_ATTR = 'data-ka-hide-words'; // JSON list, read by page-hook.js
   const MUTED_USERS_ATTR = 'data-ka-muted-users'; // JSON list, read by page-hook.js
   const USERNAME = /^[\w.-]{1,40}$/;
+  const ROCKET_PATHS = [
+    'm217.2 1005.6c-12 0-22.801-9.6016-22.801-22.801 0-21.602 2.3984-58.801 9.6016-100.8l-64.801-66c-94.801 111.6-105.6 271.2-106.8 328.8 0 12 9.6016 22.801 22.801 22.801 57.602-1.1992 217.2-12 328.8-106.8l-66-64.801c-42 7.1992-79.199 8.3984-100.8 9.6016z',
+    'm918 756-2.3984-6c268.8-284.4 264-578.4 252-678-2.3984-21.602-19.199-38.398-40.801-40.801-99.602-12-393.6-16.801-678 252l-4.8008-1.1992c-93.602-43.199-202.8-22.801-276 49.199l-104.4 104.4c-24 24-16.801 63.602 13.199 76.801l169.2 78-57.602 91.199c-13.199 21.602-10.801 50.398 8.3984 69.602l252 252c18 18 46.801 21.602 69.602 8.3984l91.199-57.602 78 169.2c14.398 30 54 37.199 76.801 13.199l104.4-104.4c73.203-73.195 92.402-183.6 49.203-276zm-238.8-235.2c-50.398-50.398-50.398-130.8 0-181.2 50.398-50.398 130.8-50.398 181.2 0 50.398 50.398 49.199 130.8 0 181.2-49.199 49.199-130.8 49.199-181.2 0z'
+  ];
   const FONT_SIZE_MIN = 10;
   const FONT_SIZE_MAX = 24;
   const BAR_POLL_MS = 1500;
@@ -109,6 +116,7 @@
     wakeLock: null,
     wakeLockPending: false,
     bar: null,
+    settingsSeen: null, // null until read from storage, so the dot doesn't flash
     fontStyle: null,
     stream: null, // { live: true, channel, viewers, startedAt, title, category, categorySlug } | { live: false, channel }
     streamSlug: undefined // channel the stream info is for
@@ -525,12 +533,19 @@
     listenButton.setAttribute('aria-label', 'Listen');
     listenButton.append(playerIcon('headphones'));
     listenButton.addEventListener('click', toggleListen);
+    const settingsButton = el('button', 'ka-strip-button ka-settings-button');
+    settingsButton.type = 'button';
+    settingsButton.title = 'Kickoff settings';
+    settingsButton.setAttribute('aria-label', 'Kickoff settings');
+    settingsButton.setAttribute('aria-expanded', 'false');
+    settingsButton.append(rocketIcon());
+    settingsButton.addEventListener('click', () => setPanelOpen(!isPanelOpen()));
     const head = el('div', 'ka-settings-head');
     const actions = el('div', 'ka-channel-actions');
     actions.hidden = true;
     const listenSleep = sleepControl();
     listenSleep.classList.add('ka-listen-sleep');
-    head.append(toggle, actions, listenButton, listenSleep, searchButton, inboxButton);
+    head.append(toggle, actions, listenButton, listenSleep, searchButton, inboxButton, settingsButton);
 
     // Chat search: field, a summary line, results.
     const search = el('div', 'ka-search');
@@ -635,6 +650,12 @@
     }
     state.bar.querySelector('.ka-settings-panel').hidden = !open;
     state.bar.querySelector('.ka-settings-toggle').setAttribute('aria-expanded', String(open));
+    state.bar.querySelector('.ka-settings-button').setAttribute('aria-expanded', String(open));
+    if (open && state.settingsSeen === false) {
+      state.settingsSeen = true;
+      browser.storage.local.set({ [SETTINGS_SEEN_KEY]: true });
+      renderSettingsHint();
+    }
     state.bar.toggleAttribute('data-open', open);
     fitPanel();
   }
@@ -677,6 +698,7 @@
     renderListen();
     renderChannelActions();
     renderBlockHint();
+    renderSettingsHint();
   }
 
   function renderBlockHint() {
@@ -727,6 +749,26 @@
   // ---- Chat search UI (the messages are kept by page-hook.js) ---------------------
 
   let searchRequest = 0;
+
+  function renderSettingsHint() {
+    state.bar?.querySelector('.ka-settings-button').toggleAttribute('data-hint', state.settingsSeen === false);
+  }
+
+  // Kickoff's logo, the same rocket as the toolbar and app icon.
+  function rocketIcon() {
+    const ns = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(ns, 'svg');
+    svg.setAttribute('viewBox', '0 0 1200 1200');
+    svg.setAttribute('aria-hidden', 'true');
+    svg.classList.add('ka-rocket-icon');
+    for (const d of ROCKET_PATHS) {
+      const path = document.createElementNS(ns, 'path');
+      path.setAttribute('fill', 'currentColor');
+      path.setAttribute('d', d);
+      svg.append(path);
+    }
+    return svg;
+  }
 
   function searchIcon() {
     const ns = 'http://www.w3.org/2000/svg';
@@ -2118,6 +2160,10 @@
   }).finally(() => state.settingsLoaded());
   readMessages().then(postMessages); // in case page-hook.js asked before we were listening
   readInbox().then(applyInbox);
+  browser.storage.local.get(SETTINGS_SEEN_KEY).then(result => {
+    state.settingsSeen = Boolean(result[SETTINGS_SEEN_KEY]);
+    renderSettingsHint();
+  });
   browser.storage.local.get(BLOCK_STATUS_KEY).then(result => {
     state.blockStatus = result[BLOCK_STATUS_KEY];
     renderBlockHint();
