@@ -1219,11 +1219,15 @@
 
   // ---- Emote usage (recents and ranking) --------------------------------------
   // Counted when an emote is inserted from the picker, the emote card or
-  // autocomplete; kept in localStorage, shared across channels.
+  // autocomplete; kept in localStorage, shared across channels. Also synced to the
+  // user's other devices: sent to content.js a few seconds after a use (and once
+  // on load), and merged back in when content.js passes on what iCloud brought.
 
   const USAGE_KEY = 'kickoff:7tv:usage';
   const USAGE_LIMIT = 200; // most recently used names kept
   const RECENT_COUNT = 24;
+  const USAGE_SEND_MS = 3000;
+  let usageSendTimer = null;
 
   let usage = readUsage(); // name -> { count, last }
 
@@ -1244,9 +1248,35 @@
         .slice(0, names.length - USAGE_LIMIT)
         .forEach(old => delete usage[old]);
     }
+    writeUsage();
+    clearTimeout(usageSendTimer);
+    usageSendTimer = setTimeout(() => sendToExtension('usage:set', { usage }), USAGE_SEND_MS);
+  }
+
+  function writeUsage() {
     try {
       localStorage.setItem(USAGE_KEY, JSON.stringify(usage));
     } catch (err) { /* storage full: ranking just won't learn */ }
+  }
+
+  // Same merge as content.js and background.js: per emote the higher count and
+  // the latest use, then the USAGE_LIMIT most recent.
+  function mergeUsage(a, b) {
+    const merged = { ...a };
+    for (const [name, entry] of Object.entries(b || {})) {
+      if (!Number.isFinite(entry?.count) || !Number.isFinite(entry?.last)) continue;
+      const mine = merged[name];
+      merged[name] = mine
+        ? { count: Math.max(mine.count, entry.count), last: Math.max(mine.last, entry.last) }
+        : { count: entry.count, last: entry.last };
+    }
+    const names = Object.keys(merged);
+    if (names.length > USAGE_LIMIT) {
+      names.sort((x, y) => merged[x].last - merged[y].last)
+        .slice(0, names.length - USAGE_LIMIT)
+        .forEach(old => delete merged[old]);
+    }
+    return merged;
   }
 
   // Most recently used first, limited to emotes this channel has.
@@ -2068,6 +2098,9 @@
         }
       }
       if (messagesPanel?.isConnected && !messageDraft) renderMessages();
+    } else if (event.data.type === 'usage' && event.data.usage && typeof event.data.usage === 'object') {
+      usage = mergeUsage(readUsage(), event.data.usage);
+      writeUsage();
     } else if (event.data.type === 'jump' && typeof event.data.id === 'string') {
       guarded('jump', () => jumpTo(event.data.id, event.data.requestId));
     } else if (event.data.type === 'search') {
@@ -2087,6 +2120,7 @@
     });
   }
   sendToExtension('messages:get');
+  sendToExtension('usage:set', { usage: readUsage() }); // content.js answers with the merged list
 
   function newId() {
     return crypto.randomUUID?.() || `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
@@ -2919,9 +2953,9 @@
     }
   }
 
-  // Kick's chat store (Zustand) getState: a 0-arg function in a useMemo dependency
-  // list above the chat, returning the state with hydrateFromHistory.
-  function chatStore() {
+  // A Kick store (Zustand) getState: a 0-arg function in a useMemo dependency list
+  // above the chat, whose state passes `test`.
+  function findStore(test) {
     let fiber = list && rowFiber(list);
     for (let depth = 0; fiber && depth < 80; depth++, fiber = fiber.return) {
       for (let hook = fiber.memoizedState, n = 0; hook && n < 80; hook = hook.next, n++) {
@@ -2929,13 +2963,17 @@
         for (const candidate of deps || []) {
           if (typeof candidate !== 'function' || candidate.length > 0) continue;
           try {
-            const state = candidate();
-            if (typeof state?.hydrateFromHistory === 'function' && typeof state.reset === 'function' && Array.isArray(state.entries)) return candidate;
+            if (test(candidate())) return candidate;
           } catch (err) { /* not it */ }
         }
       }
     }
     return null;
+  }
+
+  // The chat store: the message list, with hydrateFromHistory.
+  function chatStore() {
+    return findStore(state => typeof state?.hydrateFromHistory === 'function' && typeof state.reset === 'function' && Array.isArray(state.entries));
   }
 
   // Two ids: the history API wants the channel id (messages from history carry it
@@ -3073,6 +3111,133 @@
     if (document.hidden) saveSeen();
   });
 
+  // ---- Keeping the chat connected -----------------------------------------------
+  // Kick's chat socket (Centrifugo, realtime.*.platform.kick.com) lives in a store
+  // above the chat: { app, scope, handle, connectionState, failedApp, connect, … }.
+  // When the server closes it as "not recoverable", Kick keeps that server as
+  // failedApp and won't connect to it again, so the chat freezes ("Connection to
+  // chat failed") until a reload. We remember the server and scope while connected
+  // and, once it's been down a while, ask Kick to connect again (backing off), then
+  // fill the gap from history like after sleep.
+
+  const RECONNECT_AFTER_MS = 10 * 1000; // Kick often recovers by itself before this
+  const RECONNECT_MAX_MS = 60 * 1000;
+
+  let realtime = null;      // { app, scope, channel } of the last good connection
+  let realtimeState = '';   // status line
+  let downSince = 0;
+  let downFrom = null;      // newest message seen when it went down
+  let reconnectAt = 0;
+  let reconnectDelay = RECONNECT_AFTER_MS;
+  let reconnects = 0;
+
+  function connectionStore() {
+    return findStore(state => typeof state?.connect === 'function' && 'connectionState' in state && 'failedApp' in state);
+  }
+
+  // From tick.
+  function keepConnected() {
+    const getState = connectionStore();
+    if (!getState) return;
+    const state = getState();
+    realtimeState = state.connectionState;
+    if (state.connectionState === 'connected') {
+      if (state.app && state.scope) realtime = { app: state.app, scope: state.scope, channel: channelSlug() };
+      if (downSince && downFrom) {
+        const from = downFrom;
+        setTimeout(() => catchUp(from).catch(err => { lastError = `catch-up: ${err?.message || err}`; }), CATCHUP_SETTLE_MS);
+      }
+      downSince = 0;
+      downFrom = null;
+      reconnectDelay = RECONNECT_AFTER_MS;
+      return;
+    }
+    // Kick leaving the chat also says "disconnected", but drops its handle.
+    const down = state.connectionState === 'degraded' || (state.connectionState === 'disconnected' && state.handle);
+    if (!down) return;
+    const now = Date.now();
+    if (!downSince) {
+      downSince = now;
+      downFrom = seen ? { ...seen } : null;
+      reconnectAt = now + reconnectDelay;
+      return;
+    }
+    const app = state.app || realtime?.app;
+    const scope = state.scope || realtime?.scope;
+    if (now < reconnectAt || !app || !scope || realtime?.channel !== channelSlug()) return;
+    reconnectDelay = Math.min(reconnectDelay * 2, RECONNECT_MAX_MS);
+    reconnectAt = now + reconnectDelay;
+    reconnects++;
+    state.connect(app, scope);
+  }
+
+  // ---- Bringing a crashed chat back ----------------------------------------------
+  // The whole chat (list, banners, message box) sits in one react-error-boundary
+  // (Kick's ChatExperience). When anything inside throws, it shows "We are sorry,
+  // but something went wrong" in an otherwise empty sidebar, and stays so until a
+  // reload: it has no reset keys. We keep the boundary found above the list and,
+  // when it has caught, reset it (backing off if it keeps crashing), which mounts
+  // the chat again; then fill the gap from history.
+
+  const CRASH_RESET_MS = 2000;
+  const CRASH_RESET_MAX_MS = 60 * 1000;
+  const CRASH_CALM_MS = 60 * 1000;    // up this long: the next crash starts the backoff over
+
+  let chatBoundary = null;
+  let boundaryList = null;  // the list chatBoundary was found from
+  let crashSeen = false;
+  let crashFrom = null;
+  let crashResetAt = 0;
+  let crashResetDelay = CRASH_RESET_MS;
+  let lastResetAt = 0;
+  let crashes = 0;
+  let crashMessage = '';
+
+  // From tick, while the list is there.
+  function findChatBoundary() {
+    let fiber = rowFiber(list);
+    for (let depth = 0; fiber && depth < 40; depth++, fiber = fiber.return) {
+      const node = fiber.stateNode;
+      if (typeof node?.resetErrorBoundary === 'function' && node.state && 'didCatch' in node.state) {
+        chatBoundary = node;
+        return;
+      }
+    }
+  }
+
+  function reviveChat() {
+    if (list) {
+      if (boundaryList !== list) {
+        boundaryList = list;
+        chatBoundary = null;
+        findChatBoundary();
+      }
+      return;
+    }
+    if (!chatBoundary?.state?.didCatch) return;
+    const now = Date.now();
+    if (!crashSeen) {
+      crashSeen = true;
+      crashes++;
+      crashMessage = String(chatBoundary.state.error?.message || chatBoundary.state.error || 'unknown').slice(0, 200);
+      console.error('Kickoff: Kick\'s chat crashed:', chatBoundary.state.error);
+      crashFrom = seen ? { ...seen } : null;
+      if (now - lastResetAt > CRASH_CALM_MS) crashResetDelay = CRASH_RESET_MS;
+      crashResetAt = now + crashResetDelay;
+      return;
+    }
+    if (now < crashResetAt) return;
+    crashSeen = false;
+    lastResetAt = now;
+    crashResetDelay = Math.min(crashResetDelay * 3, CRASH_RESET_MAX_MS);
+    chatBoundary.resetErrorBoundary();
+    if (crashFrom) {
+      const from = crashFrom;
+      setTimeout(() => catchupAfterLoad(from), CATCHUP_SETTLE_MS);
+    }
+    crashFrom = null;
+  }
+
   // ---- Status (shown in the settings panel by content.js) -----------------------
   // A failing step must not stop the others, and the last error is reported in
   // html[data-ka-status] so problems are visible on the phone.
@@ -3102,6 +3267,10 @@
       emoteButton: Boolean(inputFooter()?.querySelector('button svg[data-ds-icon="Smile"]')),
       ourToolbar: Boolean(toolbar?.isConnected),
       channel: channelSlug(),
+      realtime: realtimeState,
+      reconnects,
+      crashes,
+      crash: crashMessage,
       adsRemoved,
       error: [lastError, emoteError].filter(Boolean).join('\n')
     });
@@ -3126,6 +3295,8 @@
   function tick() {
     guarded('catch-up', checkCatchup);
     guarded('chat', syncList);
+    guarded('crash', reviveChat);
+    guarded('connection', keepConnected);
     guarded('history', harvest);
     guarded('bans', listenForBans);
     guarded('catch-up', saveSeen);

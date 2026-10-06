@@ -106,3 +106,169 @@ browser.storage.onChanged.addListener((changes, area) => {
 browser.runtime.onStartup?.addListener(() => syncBlocking().catch(() => {}));
 browser.runtime.onInstalled?.addListener(() => syncBlocking().catch(() => {}));
 syncBlocking().catch(error => console.error('Kickoff: blocking', error));
+
+// ---- iCloud sync ---------------------------------------------------------------
+// Safari's storage.sync doesn't sync between devices, so settings and saved
+// messages go through iCloud's key-value store in the native handler
+// (SafariWebExtensionHandler.swift), shared by the Mac and iOS extensions. Each
+// side is { updatedAt, value }; the newer one wins. Changes made here are pushed
+// right away; the other devices pull when a Kick tab opens or comes back to the
+// front (content.js asks), since Safari doesn't keep this script running.
+// Text size stays on each device: a size that suits a Mac rarely suits a phone.
+// 7TV emote usage is merged instead (`union`): every device's uses are kept.
+const MESSAGES_KEY = 'kickoffMessages';
+const USAGE_KEY = 'kickoffEmoteUsage'; // written by content.js from page-hook.js
+const USAGE_LIMIT = 200;
+const SYNC_META_KEY = 'kickoffSync'; // { settings|messages: { updatedAt, json } } of the last synced version
+const SYNC_PULL_MS = 15 * 1000; // at most one pull per this long
+const LOCAL_ONLY_SETTINGS = ['fontSize'];
+
+const SYNCED = {
+  settings: {
+    storageKey: SETTINGS_KEY,
+    pick(value) {
+      const shared = { ...(value || {}) };
+      for (const key of LOCAL_ONLY_SETTINGS) delete shared[key];
+      return shared;
+    },
+    merge(remote, local) {
+      const merged = { ...remote };
+      for (const key of LOCAL_ONLY_SETTINGS) {
+        if (local && key in local) merged[key] = local[key];
+      }
+      return merged;
+    }
+  },
+  messages: {
+    storageKey: MESSAGES_KEY,
+    pick: value => (Array.isArray(value) ? value : []),
+    merge: remote => remote
+  },
+  emoteUsage: {
+    storageKey: USAGE_KEY,
+    union: true,
+    // Sorted, so the same usage always gives the same JSON.
+    pick: value => Object.fromEntries(Object.entries(value && typeof value === 'object' ? value : {})
+      .filter(([, entry]) => Number.isFinite(entry?.count) && Number.isFinite(entry?.last))
+      .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))),
+    merge: (remote, local) => mergeUsage(SYNCED.emoteUsage.pick(remote), SYNCED.emoteUsage.pick(local))
+  }
+};
+
+// Same merge as content.js and page-hook.js: per emote the higher count and the
+// latest use, then the USAGE_LIMIT most recent.
+function mergeUsage(a, b) {
+  const merged = { ...a };
+  for (const [name, entry] of Object.entries(b)) {
+    const mine = merged[name];
+    merged[name] = mine
+      ? { count: Math.max(mine.count, entry.count), last: Math.max(mine.last, entry.last) }
+      : entry;
+  }
+  const names = Object.keys(merged);
+  if (names.length > USAGE_LIMIT) {
+    names.sort((x, y) => merged[x].last - merged[y].last)
+      .slice(0, names.length - USAGE_LIMIT)
+      .forEach(old => delete merged[old]);
+  }
+  return merged;
+}
+
+let syncQueue = Promise.resolve();
+let lastPull = 0;
+
+// One sync step at a time, so a pull and a push can't interleave.
+function queueSync(task) {
+  syncQueue = syncQueue.then(task).catch(error => console.error('Kickoff: iCloud sync', error));
+  return syncQueue;
+}
+
+function native(message) {
+  return browser.runtime.sendNativeMessage('net.smigi.Kickoff.Extension', message);
+}
+
+function parseEntry(json) {
+  try {
+    const entry = JSON.parse(json);
+    return entry && Number.isFinite(entry.updatedAt) ? entry : null;
+  } catch {
+    return null;
+  }
+}
+
+async function readSyncState() {
+  const keys = [SYNC_META_KEY, ...Object.values(SYNCED).map(spec => spec.storageKey)];
+  const stored = await browser.storage.local.get(keys);
+  return { stored, meta: stored[SYNC_META_KEY] || {} };
+}
+
+async function push(name, value, meta) {
+  const spec = SYNCED[name];
+  const shared = spec.pick(value);
+  const updatedAt = Date.now();
+  const reply = await native({ type: 'sync:push', key: name, value: JSON.stringify({ updatedAt, value: shared }) });
+  if (!reply?.ok) throw new Error(reply?.error || 'push failed');
+  meta[name] = { updatedAt, json: JSON.stringify(shared) };
+}
+
+async function pull() {
+  lastPull = Date.now();
+  const remote = await native({ type: 'sync:pull' });
+  if (!remote || remote.error) throw new Error(remote?.error || 'pull failed');
+  const { stored, meta } = await readSyncState();
+  const writes = {};
+  for (const [name, spec] of Object.entries(SYNCED)) {
+    const local = stored[spec.storageKey];
+    const localJson = JSON.stringify(spec.pick(local));
+    const known = meta[name] || { updatedAt: 0, json: null };
+    const entry = parseEntry(remote[name]);
+    if (entry && entry.updatedAt > known.updatedAt) {
+      // Another device changed it since we last synced: take theirs.
+      const json = JSON.stringify(spec.pick(entry.value));
+      meta[name] = { updatedAt: entry.updatedAt, json };
+      if (json === localJson) continue;
+      const merged = spec.merge(entry.value, local);
+      writes[spec.storageKey] = merged;
+      // A union keeps what only this device had: send the combined version back.
+      if (spec.union && JSON.stringify(spec.pick(merged)) !== json) await push(name, merged, meta);
+    } else if (local !== undefined && localJson !== known.json) {
+      // Changed here while nothing newer arrived (or never uploaded): send ours.
+      await push(name, local, meta);
+    }
+  }
+  await browser.storage.local.set({ ...writes, [SYNC_META_KEY]: meta });
+  // Safari doesn't fire storage.onChanged in the script that wrote, so the
+  // blocking rules are updated here; the Kick tabs get onChanged as usual.
+  if (SETTINGS_KEY in writes) await syncBlocking();
+}
+
+function requestPull() {
+  if (Date.now() - lastPull < SYNC_PULL_MS) return;
+  queueSync(pull);
+}
+
+// A change made in a Kick tab: push it, unless it's only text size (or the
+// version we just pulled, which matches what's already in iCloud).
+browser.storage.onChanged.addListener((changes, area) => {
+  if (area !== 'local') return;
+  for (const [name, spec] of Object.entries(SYNCED)) {
+    if (!(spec.storageKey in changes)) continue;
+    // A union is never overwritten blindly: pull, merge, and push the result.
+    if (spec.union) {
+      queueSync(pull);
+      continue;
+    }
+    queueSync(async () => {
+      const { stored, meta } = await readSyncState();
+      const value = stored[spec.storageKey];
+      if (JSON.stringify(spec.pick(value)) === meta[name]?.json) return;
+      await push(name, value, meta);
+      await browser.storage.local.set({ [SYNC_META_KEY]: meta });
+    });
+  }
+});
+
+browser.runtime.onMessage.addListener(message => {
+  if (message?.type === 'kickoff:sync') requestPull();
+});
+requestPull();

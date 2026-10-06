@@ -27,6 +27,13 @@ Safari's "describe extension" feature; now a regular Xcode project.
   in both languages, never inline. Manifest name/description are in `_locales/`;
   the app window is `Shared (App)/Resources/Base.lproj` + `pl.lproj/Main.html`.
   The "Page script" troubleshooting text in the panel stays English on purpose.
+- iCloud sync: background.js syncs settings (minus `fontSize`), saved messages and
+  7TV emote usage through `SafariWebExtensionHandler.swift` (NSUbiquitousKeyValueStore,
+  keys `settings`/`messages`/`emoteUsage`, each `{ updatedAt, value }`). Settings and
+  messages: newest wins. Usage is a union (page-hook → content.js
+  `kickoffEmoteUsage` → iCloud and back; `mergeUsage` is copied in all three files). Both extension
+  targets' entitlements share KVS id `$(TeamIdentifierPrefix)net.smigi.Kickoff.Extension`.
+  Safari's own `storage.sync` does not sync — don't switch to it.
 - Versioning: bump `MARKETING_VERSION` / `CURRENT_PROJECT_VERSION` in Xcode for
   releases; keep `manifest.json` `version` in step with `MARKETING_VERSION`.
 

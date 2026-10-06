@@ -623,6 +623,7 @@
 		48297E923074D2D000EC882D /* Debug configuration for PBXNativeTarget "Kickoff Extension (iOS)" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = "iOS (Extension)/Kickoff Extension.entitlements";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 5TA8RF548P;
@@ -657,6 +658,7 @@
 		48297E933074D2D000EC882D /* Release configuration for PBXNativeTarget "Kickoff Extension (iOS)" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = "iOS (Extension)/Kickoff Extension.entitlements";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 5TA8RF548P;
@@ -779,6 +781,7 @@
 		48297E993074D2D000EC882D /* Debug configuration for PBXNativeTarget "Kickoff Extension (macOS)" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = "macOS (Extension)/Kickoff Extension.entitlements";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 5TA8RF548P;
@@ -815,6 +818,7 @@
 		48297E9A3074D2D000EC882D /* Release configuration for PBXNativeTarget "Kickoff Extension (macOS)" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = "macOS (Extension)/Kickoff Extension.entitlements";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 5TA8RF548P;

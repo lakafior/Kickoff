@@ -174,6 +174,55 @@
     window.postMessage({ source: EXT_SOURCE, type: 'messages', items }, location.origin);
   }
 
+  // ---- 7TV emote usage: synced copy for background.js ---------------------------
+  // page-hook.js keeps usage ({ name: { count, last } }) in Kick's localStorage and
+  // sends it here; the merged copy in extension storage is what background.js
+  // syncs through iCloud, and what comes back from there is passed to the page.
+
+  const USAGE_KEY = 'kickoffEmoteUsage';
+  const USAGE_LIMIT = 200;
+
+  function postUsage(usage) {
+    window.postMessage({ source: EXT_SOURCE, type: 'usage', usage }, location.origin);
+  }
+
+  function cleanUsage(usage) {
+    const clean = {};
+    if (!usage || typeof usage !== 'object') return clean;
+    for (const [name, entry] of Object.entries(usage)) {
+      const count = Number(entry?.count);
+      const last = Number(entry?.last);
+      if (name.length <= 100 && count > 0 && Number.isFinite(count) && Number.isFinite(last)) clean[name] = { count, last };
+    }
+    return clean;
+  }
+
+  // Same merge as page-hook.js and background.js: per emote the higher count and
+  // the latest use, then the USAGE_LIMIT most recent.
+  function mergeUsage(a, b) {
+    const merged = { ...a };
+    for (const [name, entry] of Object.entries(b)) {
+      const mine = merged[name];
+      merged[name] = mine
+        ? { count: Math.max(mine.count, entry.count), last: Math.max(mine.last, entry.last) }
+        : entry;
+    }
+    const names = Object.keys(merged);
+    if (names.length > USAGE_LIMIT) {
+      names.sort((x, y) => merged[x].last - merged[y].last)
+        .slice(0, names.length - USAGE_LIMIT)
+        .forEach(old => delete merged[old]);
+    }
+    return merged;
+  }
+
+  async function storeUsage(incoming) {
+    const stored = cleanUsage((await browser.storage.local.get(USAGE_KEY))[USAGE_KEY]);
+    const merged = mergeUsage(stored, cleanUsage(incoming));
+    if (JSON.stringify(merged) !== JSON.stringify(stored)) await browser.storage.local.set({ [USAGE_KEY]: merged });
+    postUsage(merged); // the page may be missing what other devices added
+  }
+
   function cleanMessage(item) {
     const valid = item && typeof item.id === 'string' && typeof item.text === 'string'
       && item.text.trim() && item.text.length <= MESSAGE_MAX_LENGTH
@@ -188,7 +237,11 @@
     };
   }
 
-  async function handlePageRequest({ type, item, id, username }) {
+  async function handlePageRequest({ type, item, id, username, usage }) {
+    if (type === 'usage:set') {
+      await storeUsage(usage);
+      return;
+    }
     if (type === 'mute:add') {
       addMuted([username]);
       return;
@@ -644,11 +697,13 @@
     const details = [
       `Message box: ${status.inputs} found, editable ${yes(status.editableInput)}, input area ${yes(status.footer)}`,
       `Kick toolbar ${yes(status.kickToolbar)}, emote button ${yes(status.emoteButton)}, our buttons ${yes(status.ourToolbar)}`,
-      `7TV: global ${status.emoteCounts?.global ?? '?'}, channel ${status.emoteCounts?.channel ?? '?'}${loading}`
+      `7TV: global ${status.emoteCounts?.global ?? '?'}, channel ${status.emoteCounts?.channel ?? '?'}${loading}`,
+      `Chat connection: ${status.realtime || '?'}, reconnected ${status.reconnects ?? 0}×`,
+      `Chat crashes: ${status.crashes ?? 0}${status.crash ? ` (last: ${status.crash})` : ''}`
     ];
     health.textContent = [parts.join(' · '), ...details].join('\n') + (status.error ? `\nLast error: ${status.error}` : '');
     health.dataset.state = status.error || (status.rows && !status.readable) ? 'error' : 'ok';
-    health.hidden = health.dataset.state === 'ok';
+    health.hidden = health.dataset.state === 'ok' && !status.crashes && !status.reconnects;
   }
 
   function setPanelOpen(open) {
@@ -2120,6 +2175,7 @@
     if (area !== 'local') return;
     if (SETTINGS_KEY in changes) applySettings(changes[SETTINGS_KEY].newValue || {});
     if (MESSAGES_KEY in changes) postMessages(changes[MESSAGES_KEY].newValue || []);
+    if (USAGE_KEY in changes) postUsage(cleanUsage(changes[USAGE_KEY].newValue));
     if (INBOX_KEY in changes) applyInbox(changes[INBOX_KEY].newValue || {});
     if (BLOCK_STATUS_KEY in changes) {
       state.blockStatus = changes[BLOCK_STATUS_KEY].newValue;
@@ -2159,12 +2215,17 @@
   }
 
   setInterval(poll, BAR_POLL_MS);
+  // Settings and saved messages changed on another device arrive through
+  // background.js (iCloud), which pulls when asked: on load and on coming back.
+  const requestSync = () => browser.runtime.sendMessage({ type: 'kickoff:sync' }).catch(() => {});
   document.addEventListener('visibilitychange', () => {
     if (!document.hidden) {
       poll();
       renderStream();
+      requestSync();
     }
   });
+  requestSync();
   setInterval(refreshStream, STREAM_REFRESH_MS); // nothing to do without a stream to show
   setInterval(() => document.hidden || renderStream(), STREAM_TICK_MS);
 

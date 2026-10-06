@@ -69,7 +69,8 @@
     "activeTab",
     "scripting",
     "storage",
-    "declarativeNetRequest"
+    "declarativeNetRequest",
+    "nativeMessaging"
   ],
   "host_permissions": [
     "*://*.kick.com/*"

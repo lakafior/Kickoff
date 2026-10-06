@@ -75,7 +75,9 @@ Full policy: [kickoff.smigi.net/privacy](https://kickoff.smigi.net/privacy/).
 
 Kickoff collects no data. There are no accounts, analytics or servers of its own.
 Your settings, saved messages and mentions inbox stay in Safari's storage on your
-device.
+device. Settings (except text size), saved messages and your 7TV emote usage also sync between your Mac,
+iPhone and iPad through your own iCloud key-value storage, which the developer can't
+access.
 
 To do its job, the extension connects from your browser to:
 - **Kick** (`kick.com`, `web.kick.com`, `files.kick.com`) for stream info, chat
