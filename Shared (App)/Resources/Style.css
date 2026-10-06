@@ -8,26 +8,114 @@
     color-scheme: light dark;
 
     --spacing: 20px;
+    --accent: #2fa80a;
+    --muted: rgba(0, 0, 0, 0.55);
+    --card: rgba(0, 0, 0, 0.05);
 }
 
-html {
-    height: 100%;
+@media (prefers-color-scheme: dark) {
+    :root {
+        --accent: #53fc18;
+        --muted: rgba(255, 255, 255, 0.6);
+        --card: rgba(255, 255, 255, 0.07);
+    }
 }
 
 body {
     display: flex;
-    align-items: center;
-    justify-content: center;
     flex-direction: column;
-
     gap: var(--spacing);
-    margin: 0 calc(var(--spacing) * 2);
-    height: 100%;
+    max-width: 440px;
+    margin: 0 auto;
+    padding: calc(var(--spacing) + env(safe-area-inset-top)) var(--spacing) calc(var(--spacing) + env(safe-area-inset-bottom));
+    font: -apple-system-body;
+    font-family: -apple-system, system-ui, sans-serif;
+    line-height: 1.4;
+}
 
-    font: -apple-system-short-body;
+header {
     text-align: center;
 }
 
+header img {
+    border-radius: 22%;
+}
+
+h1 {
+    margin: 8px 0 0;
+    font-size: 1.6em;
+}
+
+h2 {
+    margin: 0 0 8px;
+    font-size: 1.05em;
+}
+
+.tagline {
+    margin: 4px 0 0;
+    color: var(--muted);
+}
+
+.features {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.features li {
+    position: relative;
+    padding: 4px 0 4px 20px;
+}
+
+.features li::before {
+    content: "";
+    position: absolute;
+    left: 2px;
+    top: 0.85em;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--accent);
+}
+
+.setup {
+    padding: 14px 16px;
+    border-radius: 14px;
+    background: var(--card);
+}
+
+.setup ol {
+    margin: 0;
+    padding-left: 1.3em;
+}
+
+.setup li + li {
+    margin-top: 6px;
+}
+
+.status {
+    margin: 0 0 8px;
+    color: var(--muted);
+}
+
+.note {
+    color: var(--muted);
+    font-size: 0.9em;
+}
+
+button {
+    display: block;
+    margin: 14px auto 0;
+    font-size: 1em;
+}
+
+footer {
+    text-align: center;
+    color: var(--muted);
+    font-size: 0.85em;
+}
+
+/* Which platform and extension state is shown (set by Script.js). */
 body:not(.platform-mac, .platform-ios) :is(.platform-mac, .platform-ios) {
     display: none;
 }
@@ -37,10 +125,6 @@ body.platform-ios .platform-mac {
 }
 
 body.platform-mac .platform-ios {
-    display: none;
-}
-
-body.platform-ios .platform-mac {
     display: none;
 }
 
@@ -54,8 +138,4 @@ body.state-on :is(.state-off, .state-unknown) {
 
 body.state-off :is(.state-on, .state-unknown) {
     display: none;
-}
-
-button {
-    font-size: 1em;
 }

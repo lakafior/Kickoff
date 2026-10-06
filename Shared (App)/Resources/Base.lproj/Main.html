@@ -4,17 +4,48 @@
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'">
 
-    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no, viewport-fit=cover">
 
     <link rel="stylesheet" href="../Style.css">
     <script src="../Script.js" defer></script>
 </head>
 <body>
-    <img src="../Icon.png" width="128" height="128" alt="Kickoff Icon">
-    <p class="platform-ios">You can turn on Kickoff’s Safari extension in Settings.</p>
-    <p class="platform-mac state-unknown">You can turn on Kickoff’s extension in Safari Extensions preferences.</p>
-    <p class="platform-mac state-on">Kickoff’s extension is currently on. You can turn it off in Safari Extensions preferences.</p>
-    <p class="platform-mac state-off">Kickoff’s extension is currently off. You can turn it on in Safari Extensions preferences.</p>
-    <button class="platform-mac open-preferences">Quit and Open Safari Extensions Preferences…</button>
+    <header>
+        <img src="../Icon.png" width="96" height="96" alt="">
+        <h1>Kickoff</h1>
+        <p class="tagline">A better Kick.com chat in Safari.</p>
+    </header>
+
+    <ul class="features">
+        <li><strong>Keeps the screen awake</strong> while you watch.</li>
+        <li><strong>Shows deleted messages</strong>, greyed out, instead of “Deleted by a moderator”.</li>
+        <li><strong>Link previews</strong>, 7TV emotes, mentions inbox and chat search.</li>
+        <li><strong>Apple fonts</strong> and adjustable text size.</li>
+        <li><strong>Chat-only popout</strong>, background audio and ad &amp; tracker blocking.</li>
+    </ul>
+
+    <section class="setup platform-ios">
+        <h2>Turn it on</h2>
+        <ol>
+            <li>Open <strong>Settings › Apps › Safari › Extensions</strong>.<br><span class="note">On iOS 17: Settings › Safari › Extensions.</span></li>
+            <li>Tap <strong>Kickoff</strong>, turn it on and set <strong>kick.com</strong> to <strong>Allow</strong>.</li>
+            <li>Open a stream on kick.com and tap the <strong>rocket</strong> at the top of the chat for settings.</li>
+        </ol>
+    </section>
+
+    <section class="setup platform-mac">
+        <h2>Turn it on</h2>
+        <p class="platform-mac status state-unknown">You can turn on Kickoff’s extension in Safari Extensions preferences.</p>
+        <p class="platform-mac status state-on">Kickoff’s extension is currently on. You can turn it off in Safari Extensions preferences.</p>
+        <p class="platform-mac status state-off">Kickoff’s extension is currently off. You can turn it on in Safari Extensions preferences.</p>
+        <ol>
+            <li>Turn on <strong>Kickoff</strong> in Safari’s Extensions settings.</li>
+            <li>On kick.com, click the <strong>Kickoff</strong> toolbar button and choose <strong>Always Allow on This Website</strong>.</li>
+            <li>Click the <strong>rocket</strong> at the top of the chat for settings.</li>
+        </ol>
+        <button class="platform-mac open-preferences">Quit and Open Safari Extensions Preferences…</button>
+    </section>
+
+    <footer>Kickoff is not affiliated with Kick.</footer>
 </body>
 </html>
