@@ -275,6 +275,12 @@ html[data-ka-chatonly] #chatroom-footer div:has(> #quick-emotes-holder) {
     flex: 1;
 }
 
+/* A switch that needs another one on (e.g. the native player). */
+.ka-settings-row[data-off] {
+    opacity: 0.4;
+    cursor: default;
+}
+
 /* Page script status at the bottom of the settings panel. */
 .ka-health {
     margin-top: 6px;
