@@ -242,7 +242,13 @@
       'note.edit': 'Edit',
       'note.placeholder': 'Only you can see this note about {name}',
       'note.save': 'Save',
-      'note.cancel': 'Cancel'
+      'note.cancel': 'Cancel',
+      'notes.label': 'Notes about users',
+      'notes.search': 'Search notes',
+      'notes.empty': 'No notes yet. Tap a name in chat → ✎ Add a note.',
+      'notes.noMatch': 'No matching notes',
+      'notes.delete': 'Delete',
+      'notes.deleteConfirm': 'Delete?'
     },
 
     pl: {
@@ -457,7 +463,13 @@
       'note.edit': 'Edytuj',
       'note.placeholder': 'Tylko ty widzisz tę notatkę o {name}',
       'note.save': 'Zapisz',
-      'note.cancel': 'Anuluj'
+      'note.cancel': 'Anuluj',
+      'notes.label': 'Notatki o użytkownikach',
+      'notes.search': 'Szukaj w notatkach',
+      'notes.empty': 'Brak notatek. Stuknij nick w czacie → ✎ Dodaj notatkę.',
+      'notes.noMatch': 'Brak pasujących notatek',
+      'notes.delete': 'Usuń',
+      'notes.deleteConfirm': 'Usunąć?'
     }
   };
 

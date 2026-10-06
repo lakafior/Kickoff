@@ -1143,6 +1143,81 @@ html[data-ka-user-card] #chatroom-messages button[data-ka-noted]::after {
     font-size: 0.85em;
 }
 
+/* Notes list in the settings panel (Filters tab). */
+.ka-notes-count {
+    margin-left: 6px;
+    opacity: 0.5;
+}
+
+.ka-notes-search {
+    flex: none;
+    width: 100%;
+    box-sizing: border-box;
+    margin-bottom: 4px;
+}
+
+.ka-notes-search[hidden] {
+    display: none;
+}
+
+.ka-notes-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 2px 0 6px;
+}
+
+.ka-note-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 6px 8px;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.06);
+    font-size: 13px;
+}
+
+.ka-note-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.ka-note-name {
+    flex: 1;
+    min-width: 0;
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.ka-note-action {
+    padding: 0;
+    border: 0;
+    background: none;
+    color: inherit;
+    font: inherit;
+    font-size: 12px;
+    opacity: 0.6;
+    cursor: pointer;
+}
+
+.ka-note-delete[data-confirm] {
+    color: #ff8a8a;
+    opacity: 1;
+}
+
+.ka-note-text {
+    line-height: 1.4;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    opacity: 0.85;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
 .ka-user-message-time {
     margin-right: 6px;
     font-size: 11px;

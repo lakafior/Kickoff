@@ -72,7 +72,7 @@
   const SETTINGS_TABS = {
     general: ['wakeLock', 'chatOnly', 'streamInfo', 'channelStrip', 'blockAds'],
     chat: ['font', 'size', 'readableNames', 'chatStripes', 'sevenTv', 'sevenTvCosmetics', 'linkPreviews', 'restoreDeleted', 'savedMessages', 'userCard', 'iosInput'],
-    filters: ['highlights', 'highlightWords', 'highlightUsers', 'highlightStreamer', 'hideWords', 'hideEmoteOnly', 'collapseRepeats', 'hideBots', 'muteUsers', 'mutedUsers'],
+    filters: ['highlights', 'highlightWords', 'highlightUsers', 'highlightStreamer', 'hideWords', 'hideEmoteOnly', 'collapseRepeats', 'hideBots', 'muteUsers', 'mutedUsers', 'notes'],
     player: ['nativePlayer', 'liveCatchUp', 'backgroundAudio', 'popoutAudio']
   };
   // Switches that only do something while another one is on; dimmed otherwise.
@@ -434,12 +434,78 @@
     state.notes = cleanNotes(value);
     applyAttributes();
     syncNoteCard(true);
+    renderNotesList();
+  }
+
+  // ---- Notes list (settings panel, Filters tab) ----
+  // Every note, by name, with search once there are a few. Edit in place; delete
+  // asks for a second tap.
+  const NOTES_SEARCH_FROM = 6; // notes before the search field shows
+  const DELETE_CONFIRM_MS = 3000;
+  state.noteEditing = null; // name whose note is open for editing in the list
+  state.notesQuery = '';
+
+  function renderNotesList() {
+    const list = state.bar?.querySelector('.ka-notes-list');
+    if (!list) return;
+    // Don't redraw over a note being typed (a sync can arrive meanwhile).
+    if (state.noteEditing && list.querySelector('.ka-user-note-field')) return;
+    const notes = Object.values(state.notes).filter(note => note.text)
+      .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+    state.bar.querySelector('.ka-notes-count').textContent = notes.length ? String(notes.length) : '';
+    const search = state.bar.querySelector('.ka-notes-search');
+    search.hidden = notes.length < NOTES_SEARCH_FROM;
+    const query = search.hidden ? '' : state.notesQuery.trim().toLowerCase();
+    const shown = query
+      ? notes.filter(note => note.name.toLowerCase().includes(query) || note.text.toLowerCase().includes(query))
+      : notes;
+    if (!notes.length || !shown.length) {
+      list.replaceChildren(el('span', 'ka-mute-empty', t(notes.length ? 'notes.noMatch' : 'notes.empty')));
+      return;
+    }
+    list.replaceChildren(...shown.map(note => {
+      const item = el('div', 'ka-note-item');
+      const head = el('div', 'ka-note-head');
+      head.append(el('span', 'ka-note-name', note.name));
+      if (state.noteEditing?.toLowerCase() === note.name.toLowerCase()) {
+        item.append(head, ...noteEditor(note.name, () => {
+          state.noteEditing = null;
+          renderNotesList();
+        }));
+        return item;
+      }
+      const editButton = el('button', 'ka-note-action', t('note.edit'));
+      const deleteButton = el('button', 'ka-note-action ka-note-delete', t('notes.delete'));
+      editButton.type = deleteButton.type = 'button';
+      editButton.addEventListener('click', () => {
+        state.noteEditing = note.name;
+        renderNotesList();
+      });
+      let confirmTimer = 0;
+      deleteButton.addEventListener('click', () => {
+        if (deleteButton.dataset.confirm) {
+          clearTimeout(confirmTimer);
+          saveNote(note.name, '');
+          return;
+        }
+        deleteButton.dataset.confirm = 'true';
+        deleteButton.textContent = t('notes.deleteConfirm');
+        confirmTimer = setTimeout(() => {
+          delete deleteButton.dataset.confirm;
+          deleteButton.textContent = t('notes.delete');
+        }, DELETE_CONFIRM_MS);
+      });
+      head.append(editButton, deleteButton);
+      item.append(head, el('div', 'ka-note-text', note.text));
+      return item;
+    }));
   }
 
   async function saveNote(username, text) {
     const stored = cleanNotes((await browser.storage.local.get(NOTES_KEY))[NOTES_KEY]);
     stored[username.toLowerCase()] = { name: username, text: text.trim().slice(0, NOTE_MAX), updatedAt: Date.now() };
     await browser.storage.local.set({ [NOTES_KEY]: stored });
+    if (state.noteEditing?.toLowerCase() === username.toLowerCase()) state.noteEditing = null;
     applyNotes(stored); // onChanged doesn't fire in the script that wrote
     drawNote(username, false);
   }
@@ -453,6 +519,30 @@
     return card.querySelector(USER_NAME_LINK)?.title || null;
   }
 
+  // Text field with Save / Cancel (⌘↩ / Esc), for the card and the panel's list.
+  function noteEditor(username, onCancel) {
+    const field = el('textarea', 'ka-user-note-field');
+    field.value = noteFor(username)?.text || '';
+    field.maxLength = NOTE_MAX;
+    field.rows = 3;
+    field.placeholder = t('note.placeholder', { name: username });
+    // Kick's keyboard shortcuts must not see what's typed here.
+    for (const type of ['keydown', 'keyup', 'keypress']) field.addEventListener(type, event => event.stopPropagation());
+    const save = el('button', 'ka-card-button ka-card-button--primary', t('note.save'));
+    const cancel = el('button', 'ka-card-button', t('note.cancel'));
+    save.type = cancel.type = 'button';
+    save.addEventListener('click', () => saveNote(username, field.value));
+    cancel.addEventListener('click', onCancel);
+    field.addEventListener('keydown', event => {
+      if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) save.click();
+      if (event.key === 'Escape') cancel.click();
+    });
+    const actions = el('div', 'ka-card-actions');
+    actions.append(save, cancel);
+    setTimeout(() => field.focus(), 0);
+    return [field, actions];
+  }
+
   function buildNote(username, editing) {
     const box = el('div', 'ka-user-note');
     box.dataset.user = username;
@@ -460,26 +550,7 @@
     box.dataset.state = editing ? 'edit' : 'view';
     const note = noteFor(username);
     if (editing) {
-      const field = el('textarea', 'ka-user-note-field');
-      field.value = note?.text || '';
-      field.maxLength = NOTE_MAX;
-      field.rows = 3;
-      field.placeholder = t('note.placeholder', { name: username });
-      // Kick's keyboard shortcuts must not see what's typed here.
-      for (const type of ['keydown', 'keyup', 'keypress']) field.addEventListener(type, event => event.stopPropagation());
-      const save = el('button', 'ka-card-button ka-card-button--primary', t('note.save'));
-      const cancel = el('button', 'ka-card-button', t('note.cancel'));
-      save.type = cancel.type = 'button';
-      save.addEventListener('click', () => saveNote(username, field.value));
-      cancel.addEventListener('click', () => drawNote(username, false));
-      field.addEventListener('keydown', event => {
-        if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) save.click();
-        if (event.key === 'Escape') cancel.click();
-      });
-      const actions = el('div', 'ka-card-actions');
-      actions.append(save, cancel);
-      box.append(field, actions);
-      setTimeout(() => field.focus(), 0);
+      box.append(...noteEditor(username, () => drawNote(username, false)));
     } else if (note) {
       const text = el('div', 'ka-user-note-text', note.text);
       const edit = el('button', 'ka-user-note-edit', t('note.edit'));
@@ -702,6 +773,25 @@
       return [row, list];
     };
 
+    // Notes about users: a count, a search field (when there are a few) and the list.
+    function notesRows() {
+      const head = el('div', 'ka-settings-row');
+      const label = el('span', 'ka-settings-label', t('notes.label'));
+      label.append(el('span', 'ka-notes-count'));
+      head.append(label);
+      const search = el('input', 'ka-words-input ka-notes-search');
+      search.type = 'search';
+      search.placeholder = t('notes.search');
+      search.autocomplete = 'off';
+      search.spellcheck = false;
+      search.hidden = true;
+      search.addEventListener('input', () => {
+        state.notesQuery = search.value;
+        renderNotesList();
+      });
+      return [head, search, el('div', 'ka-notes-list')];
+    }
+
     const fontRow = () => {
       const row = el('div', 'ka-settings-row');
       const fonts = el('span', 'ka-size-controls ka-font-choice');
@@ -740,7 +830,8 @@
       highlightWords: () => wordsRow('highlightWords', t('words.highlight'), t('words.highlightExample')),
       hideWords: () => wordsRow('hideWords', t('words.hide'), t('words.hideExample')),
       mutedUsers: () => userRows('mutedUsers'),
-      highlightUsers: () => userRows('highlightUsers')
+      highlightUsers: () => userRows('highlightUsers'),
+      notes: notesRows
     };
 
     // Segmented control on top, one page of rows per tab.
@@ -979,6 +1070,7 @@
     state.bar.querySelector('[data-words="highlightWords"]').disabled = !state.settings.highlights;
     state.bar.querySelector('input[data-users="highlightUsers"]').disabled = !state.settings.highlights;
     for (const key of Object.keys(USER_LISTS)) renderUserList(key);
+    renderNotesList();
     for (const option of state.bar.querySelectorAll('.ka-font-option')) {
       option.setAttribute('aria-pressed', String(option.dataset.font === state.settings.chatFont));
     }
