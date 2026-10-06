@@ -27,6 +27,8 @@
 		48297E8A3074D2D000EC882D /* ViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 48297E4B3074D2D000EC882D /* ViewController.swift */; };
 		48297E8B3074D2D000EC882D /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 48297E4C3074D2D000EC882D /* Assets.xcassets */; };
 		48297E8C3074D2D000EC882D /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 48297E4C3074D2D000EC882D /* Assets.xcassets */; };
+		48297EF13074D2D000EC882D /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = 48297EF03074D2D000EC882D /* AppIcon.icon */; };
+		48297EF23074D2D000EC882D /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = 48297EF03074D2D000EC882D /* AppIcon.icon */; };
 		48297E8D3074D2D000EC882D /* SafariWebExtensionHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 48297E4E3074D2D000EC882D /* SafariWebExtensionHandler.swift */; };
 		48297E8E3074D2D000EC882D /* SafariWebExtensionHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 48297E4E3074D2D000EC882D /* SafariWebExtensionHandler.swift */; };
 		48297EA63074D2D000EC882D /* background.js in Resources */ = {isa = PBXBuildFile; fileRef = 48297EA03074D2D000EC882D /* background.js */; };
@@ -88,6 +90,7 @@
 		48297E4A3074D2D000EC882D /* Script.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = Script.js; sourceTree = "<group>"; };
 		48297E4B3074D2D000EC882D /* ViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewController.swift; sourceTree = "<group>"; };
 		48297E4C3074D2D000EC882D /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		48297EF03074D2D000EC882D /* AppIcon.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; path = AppIcon.icon; sourceTree = "<group>"; };
 		48297E4E3074D2D000EC882D /* SafariWebExtensionHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SafariWebExtensionHandler.swift; sourceTree = "<group>"; };
 		48297E533074D2D000EC882D /* Kickoff.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Kickoff.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		48297E563074D2D000EC882D /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
@@ -152,6 +155,7 @@
 			isa = PBXGroup;
 			children = (
 				48297E4B3074D2D000EC882D /* ViewController.swift */,
+				48297EF03074D2D000EC882D /* AppIcon.icon */,
 				48297E4C3074D2D000EC882D /* Assets.xcassets */,
 				48297E453074D2D000EC882D /* Resources */,
 			);
@@ -367,6 +371,7 @@
 				48297E813074D2D000EC882D /* Main.html in Resources */,
 				48297E873074D2D000EC882D /* Script.js in Resources */,
 				48297E8B3074D2D000EC882D /* Assets.xcassets in Resources */,
+				48297EF13074D2D000EC882D /* AppIcon.icon in Resources */,
 				48297E5F3074D2D000EC882D /* Main.storyboard in Resources */,
 				48297E853074D2D000EC882D /* Style.css in Resources */,
 			);
@@ -379,6 +384,7 @@
 				48297E6B3074D2D000EC882D /* Main.storyboard in Resources */,
 				48297E883074D2D000EC882D /* Script.js in Resources */,
 				48297E8C3074D2D000EC882D /* Assets.xcassets in Resources */,
+				48297EF23074D2D000EC882D /* AppIcon.icon in Resources */,
 				48297E823074D2D000EC882D /* Main.html in Resources */,
 			);
 		};
