@@ -25,6 +25,8 @@
       'setting.highlightStreamer': 'Highlight streamer',
       'setting.muteUsers': 'Collapse muted users',
       'setting.hideBots': 'Collapse bots (BotRix, KickBot, StreamElements)',
+      'setting.readableNames': 'Readable name colours',
+      'setting.chatStripes': 'Alternating message background',
       'setting.collapseRepeats': 'Collapse repeated messages',
       'setting.hideEmoteOnly': 'Hide emote-only messages',
       'setting.iosInput': 'iOS-style message box',
@@ -216,7 +218,9 @@
       'repeat.sent': { one: 'Sent once', other: 'Sent {count} times in a row' },
       'repeat.by': 'by {who}',
       'catchup.missed': { one: '↑ {count} missed message', other: '↑ {count} missed messages' },
-      'catchup.partial': ' (older ones not loaded)'
+      'catchup.partial': ' (older ones not loaded)',
+      'catchup.newest': '↓ Back to newest',
+      'catchup.dismiss': 'Dismiss'
     },
 
     pl: {
@@ -232,6 +236,8 @@
       'setting.highlightStreamer': 'Wyróżniaj streamera',
       'setting.muteUsers': 'Zwijaj wyciszonych użytkowników',
       'setting.hideBots': 'Zwijaj boty (BotRix, KickBot, StreamElements)',
+      'setting.readableNames': 'Czytelne kolory nicków',
+      'setting.chatStripes': 'Naprzemienne tło wiadomości',
       'setting.collapseRepeats': 'Zwijaj powtórzone wiadomości',
       'setting.hideEmoteOnly': 'Ukrywaj wiadomości z samych emotek',
       'setting.iosInput': 'Pole wiadomości w stylu iOS',
@@ -407,7 +413,9 @@
       'repeat.sent': { one: 'Wysłana raz', few: 'Wysłana {count} razy z rzędu', many: 'Wysłana {count} razy z rzędu', other: 'Wysłana {count} razy z rzędu' },
       'repeat.by': 'od: {who}',
       'catchup.missed': { one: '↑ {count} przegapiona wiadomość', few: '↑ {count} przegapione wiadomości', many: '↑ {count} przegapionych wiadomości', other: '↑ {count} przegapionej wiadomości' },
-      'catchup.partial': ' (starszych nie wczytano)'
+      'catchup.partial': ' (starszych nie wczytano)',
+      'catchup.newest': '↓ Wróć do najnowszych',
+      'catchup.dismiss': 'Zamknij'
     }
   };
 

@@ -945,6 +945,18 @@ html[data-ka-input-hidden] #channel-chatroom :has(> #chatroom-messages) ~ :has([
     flex-wrap: wrap;
 }
 
+/* Readable name colours: a lighter shade of a dark name colour (page-hook.js).
+   Not over a 7TV paint, which brings its own colours. */
+html[data-ka-readable-names] #chatroom-messages button[style*="--ka-name-color"]:not([data-ka-paint]) {
+    color: var(--ka-name-color) !important;
+}
+
+/* Alternating backgrounds (page-hook.js marks every other shown row). Highlights
+   below win over it. */
+html[data-ka-stripes] [data-index][data-ka-alt] > div > div:first-child {
+    background: rgba(255, 255, 255, 0.045);
+}
+
 /* Highlights: mentions of you (green), chosen words (amber) and the streamer
    (blue), on the row's
    message box. */
@@ -1717,20 +1729,36 @@ html[data-ka-ios] .ka-reveal::before {
     }
 }
 
-/* "↑ N missed messages" after the page slept (tap: jump to the first one). */
+/* "↑ N missed messages" after the page slept (tap: jump to the first one, then
+   "↓ Back to newest"), with × to close it. */
 .ka-catchup {
     flex: 0 0 auto;
+    display: flex;
     align-self: center;
     margin: 4px auto;
-    padding: 6px 14px;
-    border: 0;
     border-radius: 16px;
     background: #53fc18;
     color: #000;
     font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
     font-size: 13px;
     font-weight: 600;
+}
+
+.ka-catchup-main,
+.ka-catchup-close {
+    padding: 6px 8px 6px 14px;
+    border: 0;
+    background: none;
+    color: inherit;
+    font: inherit;
     cursor: pointer;
+}
+
+.ka-catchup-close {
+    padding: 6px 12px 6px 8px;
+    border-left: 1px solid rgba(0, 0, 0, 0.2);
+    font-size: 16px;
+    line-height: 1;
 }
 
 /* ---- Settings panel tabs ---- */

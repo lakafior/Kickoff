@@ -40,6 +40,8 @@
   const MUTE_ATTR = 'data-ka-mute';
   const MUTED_USERS_ATTR = 'data-ka-muted-users';
   const BOTS_ATTR = 'data-ka-bots';
+  const READABLE_NAMES_ATTR = 'data-ka-readable-names';
+  const STRIPES_ATTR = 'data-ka-stripes';
   const BOT_NAMES = new Set(['botrix', 'kickbot', 'streamelements']); // lower case
   const REPEATS_ATTR = 'data-ka-repeats';
   const LIST_SELECTOR = '#chatroom-messages';
@@ -130,6 +132,8 @@
   const streamerEnabled = () => document.documentElement.hasAttribute(STREAMER_ATTR);
   const muteEnabled = () => document.documentElement.hasAttribute(MUTE_ATTR);
   const botsEnabled = () => document.documentElement.hasAttribute(BOTS_ATTR);
+  const readableNamesEnabled = () => document.documentElement.hasAttribute(READABLE_NAMES_ATTR);
+  const stripesEnabled = () => document.documentElement.hasAttribute(STRIPES_ATTR);
   const repeatsEnabled = () => document.documentElement.hasAttribute(REPEATS_ATTR);
 
   function remember(message) {
@@ -1477,7 +1481,7 @@
       return true;
     }
     if (target.closest?.('.ka-catchup')) {
-      openCatchupNotice();
+      openCatchupNotice(target);
       return true;
     }
     if (target.closest?.('.ka-reveal')) {
@@ -2778,6 +2782,105 @@
     ]);
   }
 
+  // ---- Readable name colours ---------------------------------------------------
+  // Kick sets each name's colour inline; some (dark blue, purple) are hard to read
+  // on the dark chat. Those get a lighter shade of the same hue in --ka-name-color,
+  // which kickoff.css applies; Kick's inline colour is left alone.
+
+  const MIN_NAME_LUMINANCE = 0.2; // about 4.5:1 contrast on Kick's near-black chat
+  const nameColors = new Map(); // Kick's colour -> lighter colour, or '' when fine
+
+  function luminance([r, g, b]) {
+    const channel = value => {
+      const c = value / 255;
+      return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+    };
+    return 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b);
+  }
+
+  function rgbToHsl([r, g, b]) {
+    r /= 255; g /= 255; b /= 255;
+    const max = Math.max(r, g, b), min = Math.min(r, g, b);
+    const l = (max + min) / 2;
+    if (max === min) return [0, 0, l];
+    const d = max - min;
+    const s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    const h = max === r ? (g - b) / d + (g < b ? 6 : 0) : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
+    return [h / 6, s, l];
+  }
+
+  function hslToRgb([h, s, l]) {
+    if (!s) return [l, l, l].map(v => Math.round(v * 255));
+    const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+    const p = 2 * l - q;
+    const hue = t => {
+      t = (t + 1) % 1;
+      if (t < 1 / 6) return p + (q - p) * 6 * t;
+      if (t < 1 / 2) return q;
+      if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+      return p;
+    };
+    return [hue(h + 1 / 3), hue(h), hue(h - 1 / 3)].map(v => Math.round(v * 255));
+  }
+
+  function readableColor(color) {
+    if (nameColors.has(color)) return nameColors.get(color);
+    const rgb = color.match(/\d+(\.\d+)?/g)?.slice(0, 3).map(Number);
+    let fixed = '';
+    if (rgb?.length === 3 && luminance(rgb) < MIN_NAME_LUMINANCE) {
+      const [h, s, l] = rgbToHsl(rgb);
+      let lighter = rgb;
+      for (let step = l; step <= 1 && luminance(lighter) < MIN_NAME_LUMINANCE; step += 0.04) {
+        lighter = hslToRgb([h, s, Math.min(step, 1)]);
+      }
+      fixed = `rgb(${lighter.join(', ')})`;
+    }
+    nameColors.set(color, fixed);
+    return fixed;
+  }
+
+  function applyNameColor(row) {
+    const name = nameButton(row);
+    if (!name) return;
+    const fixed = readableNamesEnabled() ? readableColor(name.style.color) : '';
+    if ((name.style.getPropertyValue('--ka-name-color') || '') === fixed) return;
+    if (fixed) name.style.setProperty('--ka-name-color', fixed);
+    else name.style.removeProperty('--ka-name-color');
+  }
+
+  // ---- Alternating backgrounds ---------------------------------------------------
+  // Each shown row gets the other shade from the shown row above it. Shades are kept
+  // per message, so they don't all flip when Kick drops the oldest rows; rows hidden
+  // by Kickoff (repeats, hidden words, emote-only) are skipped.
+
+  const shades = new Map(); // message id -> 0 | 1
+
+  function stripeRows() {
+    const enabled = stripesEnabled();
+    const rows = [...list.querySelectorAll(ROW_SELECTOR)].sort((a, b) => a.dataset.index - b.dataset.index);
+    let previous = null; // shade of the last shown row, null after a gap
+    let drawn = NaN;     // index of the last drawn row
+    for (const row of rows) {
+      const id = row.dataset.kaId;
+      const index = Number(row.dataset.index);
+      // A gap in the drawn rows: start again from what's known.
+      if (index !== drawn + 1) previous = null;
+      drawn = index;
+      const hidden = row.hasAttribute('data-ka-hidden-row') || row.hasAttribute('data-ka-dup');
+      if (!enabled || !id || hidden) {
+        row.removeAttribute('data-ka-alt');
+        continue;
+      }
+      const shade = previous != null ? 1 - previous : shades.get(id) ?? Math.abs(index) % 2;
+      if (shades.get(id) !== shade) {
+        shades.set(id, shade);
+        if (shades.size > HISTORY_LIMIT) shades.delete(shades.keys().next().value);
+      }
+      row.toggleAttribute('data-ka-alt', shade === 1);
+      previous = shade;
+    }
+  }
+
   // ---- Row processing --------------------------------------------------------
 
   function clearRow(row) {
@@ -2815,6 +2918,7 @@
     applyHighlight(row, message);
     applyHidden(row, message);
     applyCosmetics(row, message);
+    applyNameColor(row);
     applyGhosts(row, message);
   }
 
@@ -2830,6 +2934,7 @@
     // One broken row must not stop the rest.
     list.querySelectorAll(ROW_SELECTOR).forEach(row => guarded('message', () => processRow(row)));
     guarded('repeats', collapseRepeats);
+    guarded('stripes', stripeRows);
   }
 
   // Batch bursts of chat mutations. Not requestAnimationFrame: it pauses while the
@@ -2900,7 +3005,7 @@
 
   new MutationObserver(onSettingsChange).observe(document.documentElement, {
     attributes: true,
-    attributeFilter: [RESTORE_ATTR, PREVIEWS_ATTR, SEVENTV_ATTR, MESSAGES_ATTR, HIGHLIGHT_ATTR, HIGHLIGHT_WORDS_ATTR, STREAMER_ATTR, HIDE_WORDS_ATTR, MUTE_ATTR, MUTED_USERS_ATTR, BOTS_ATTR, REPEATS_ATTR, FONT_SIZE_ATTR, CHAT_FONT_ATTR, COSMETICS_ATTR, EMOTE_ONLY_ATTR]
+    attributeFilter: [RESTORE_ATTR, PREVIEWS_ATTR, SEVENTV_ATTR, MESSAGES_ATTR, HIGHLIGHT_ATTR, HIGHLIGHT_WORDS_ATTR, STREAMER_ATTR, HIDE_WORDS_ATTR, MUTE_ATTR, MUTED_USERS_ATTR, BOTS_ATTR, READABLE_NAMES_ATTR, STRIPES_ATTR, REPEATS_ATTR, FONT_SIZE_ATTR, CHAT_FONT_ATTR, COSMETICS_ATTR, EMOTE_ONLY_ATTR]
   });
 
   // ---- Catching up after the page slept ----------------------------------------
@@ -2910,7 +3015,7 @@
   // know the newest message seen before (kept per channel in localStorage, so it
   // survives a reload), read Kick's history forward from it, and rebuild Kick's list
   // in time order with its own reset + hydrateFromHistory. A notice offers a jump
-  // to the first missed message.
+  // to the first missed message, then a way back to the newest; × closes it.
   // History: web.kick.com/api/v1/chat/{channel id}/history?start_time=ISO returns
   // every message of the 5-second window (aligned to :00, :05 …) holding that time.
   // (Its `cursor` skips ahead; not used. Without start_time: the newest ~25.)
@@ -3070,27 +3175,67 @@
     schedule();
   }
 
+  // A pill above the message box: its label (jump up, or back down) and ×.
+  function setCatchupNotice(label, id) {
+    if (!catchupNotice) {
+      catchupNotice = el('div', 'ka-catchup');
+      const main = el('button', 'ka-catchup-main');
+      const close = el('button', 'ka-catchup-close', '×');
+      main.type = close.type = 'button';
+      close.setAttribute('aria-label', t('catchup.dismiss'));
+      catchupNotice.append(main, close);
+      catchupNotice.addEventListener('mousedown', event => event.preventDefault());
+    }
+    catchupNotice.dataset.id = id || '';
+    catchupNotice.firstChild.textContent = label;
+    placeAboveInput(catchupNotice);
+  }
+
   function showCatchupNotice(count, firstId, complete) {
     closeCatchupNotice();
-    catchupNotice = el('button', 'ka-catchup');
-    catchupNotice.type = 'button';
-    catchupNotice.dataset.id = firstId;
-    catchupNotice.textContent = t('catchup.missed', { count }) + (complete ? '' : t('catchup.partial'));
-    catchupNotice.addEventListener('mousedown', event => event.preventDefault());
-    placeAboveInput(catchupNotice);
+    setCatchupNotice(t('catchup.missed', { count }) + (complete ? '' : t('catchup.partial')), firstId);
     catchupNoticeTimer = setTimeout(closeCatchupNotice, CATCHUP_NOTICE_MS);
   }
 
   function closeCatchupNotice() {
     clearTimeout(catchupNoticeTimer);
+    list?.removeEventListener('scroll', onCatchupScroll);
     catchupNotice?.remove();
     catchupNotice = null;
   }
 
-  function openCatchupNotice() {
+  const AT_BOTTOM_PX = 40;
+  const atBottom = () => Boolean(list) && list.scrollHeight - list.scrollTop - list.clientHeight < AT_BOTTOM_PX;
+
+  // Back at the newest (scrolled there by hand): the way back isn't needed.
+  function onCatchupScroll() {
+    if (atBottom()) closeCatchupNotice();
+  }
+
+  // Jump up to the first missed message; the pill then offers the way back
+  // down and stays until used, closed or the chat is scrolled to the bottom.
+  async function openCatchupNotice(target) {
+    if (target.closest('.ka-catchup-close')) return closeCatchupNotice();
     const id = catchupNotice?.dataset.id;
+    if (!id) return scrollToNewest();
+    clearTimeout(catchupNoticeTimer);
+    setCatchupNotice(t('catchup.newest'), '');
+    const row = await scrollToMessage(id).catch(() => null);
+    if (row) flashRow(row);
+    if (!catchupNotice) return;
+    // After the jump has settled, so its own scrolling doesn't close the pill.
+    if (atBottom()) closeCatchupNotice();
+    else list?.addEventListener('scroll', onCatchupScroll, { passive: true });
+  }
+
+  // The virtualizer measures rows as they're drawn, so the end moves: a few passes.
+  async function scrollToNewest() {
     closeCatchupNotice();
-    if (id) scrollToMessage(id).then(row => row && flashRow(row)).catch(() => {});
+    for (let pass = 0; pass < JUMP_PASSES && list; pass++) {
+      list.scrollTop = list.scrollHeight;
+      await sleep(JUMP_PASS_MS);
+      if (atBottom()) break;
+    }
   }
 
   // From tick, before harvest: a long gap since the last tick means the page was

@@ -32,6 +32,8 @@
     sevenTvCosmetics: true,
     hideEmoteOnly: false,
     hideBots: true,
+    readableNames: true,
+    chatStripes: false,
     iosInput: true,
     fontSize: null, // null = Kick's own size
     nativePlayer: true,
@@ -55,6 +57,8 @@
     sevenTvCosmetics: 'data-ka-7tv-cosmetics',
     hideEmoteOnly: 'data-ka-emote-only',
     hideBots: 'data-ka-bots',
+    readableNames: 'data-ka-readable-names',
+    chatStripes: 'data-ka-stripes',
     iosInput: 'data-ka-ios',
     blockAds: 'data-ka-block-ads' // page-hook.js rewrites Kick's player answer
   };
@@ -63,7 +67,7 @@
   // the other names are the rows buildBar makes itself.
   const SETTINGS_TABS = {
     general: ['wakeLock', 'chatOnly', 'streamInfo', 'channelStrip', 'blockAds'],
-    chat: ['font', 'size', 'sevenTv', 'sevenTvCosmetics', 'linkPreviews', 'restoreDeleted', 'savedMessages', 'iosInput'],
+    chat: ['font', 'size', 'readableNames', 'chatStripes', 'sevenTv', 'sevenTvCosmetics', 'linkPreviews', 'restoreDeleted', 'savedMessages', 'iosInput'],
     filters: ['highlights', 'highlightWords', 'highlightStreamer', 'hideWords', 'hideEmoteOnly', 'collapseRepeats', 'hideBots', 'muteUsers', 'mutedUsers'],
     player: ['nativePlayer', 'backgroundAudio', 'popoutAudio']
   };
