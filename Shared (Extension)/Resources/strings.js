@@ -234,7 +234,15 @@
       'user.mute': 'Mute',
       'user.unmute': 'Unmute',
       'user.messages': { one: '{count} recent message', other: '{count} recent messages' },
-      'user.noMessages': 'No recent messages in this chat'
+      'user.noMessages': 'No recent messages in this chat',
+
+      // Notes about users (in Kick's user card, all channels)
+      'note.add': '✎ Add a note',
+      'note.label': 'Your note',
+      'note.edit': 'Edit',
+      'note.placeholder': 'Only you can see this note about {name}',
+      'note.save': 'Save',
+      'note.cancel': 'Cancel'
     },
 
     pl: {
@@ -442,7 +450,14 @@
       'user.mute': 'Wycisz',
       'user.unmute': 'Cofnij wyciszenie',
       'user.messages': { one: '{count} ostatnia wiadomość', few: '{count} ostatnie wiadomości', many: '{count} ostatnich wiadomości', other: '{count} ostatniej wiadomości' },
-      'user.noMessages': 'Brak ostatnich wiadomości w tym czacie'
+      'user.noMessages': 'Brak ostatnich wiadomości w tym czacie',
+
+      'note.add': '✎ Dodaj notatkę',
+      'note.label': 'Twoja notatka',
+      'note.edit': 'Edytuj',
+      'note.placeholder': 'Tylko ty widzisz tę notatkę o {name}',
+      'note.save': 'Zapisz',
+      'note.cancel': 'Anuluj'
     }
   };
 

@@ -1085,6 +1085,64 @@ html[data-ka-stripes] [data-index][data-ka-alt] > div > div:first-child {
     background: rgba(255, 255, 255, 0.08);
 }
 
+/* Your note about the user (content.js), above the tools. */
+.ka-user-note {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding-top: 8px;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    font-size: 13px;
+    text-align: left;
+}
+
+.ka-user-note-text {
+    padding: 6px 8px;
+    border-radius: 6px;
+    background: rgba(255, 214, 102, 0.12);
+    line-height: 1.4;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    max-height: 120px;
+    overflow-y: auto;
+}
+
+.ka-user-note-add,
+.ka-user-note-edit {
+    align-self: flex-start;
+    padding: 2px 0;
+    border: 0;
+    background: none;
+    color: inherit;
+    font: inherit;
+    font-size: 12px;
+    opacity: 0.7;
+    cursor: pointer;
+}
+
+.ka-user-note-field {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 6px 8px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 6px;
+    background: rgba(0, 0, 0, 0.3);
+    color: inherit;
+    font: inherit;
+    font-size: 16px; /* 16px or iOS zooms in on focus */
+    line-height: 1.4;
+    resize: vertical;
+}
+
+/* ✎ after the names of people you wrote a note about. Its own colour, so a 7TV
+   paint (transparent text) can't hide it. */
+html[data-ka-user-card] #chatroom-messages button[data-ka-noted]::after {
+    content: " ✎";
+    color: rgba(255, 214, 102, 0.8);
+    -webkit-text-fill-color: rgba(255, 214, 102, 0.8);
+    font-size: 0.85em;
+}
+
 .ka-user-message-time {
     margin-right: 6px;
     font-size: 11px;

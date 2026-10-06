@@ -397,6 +397,150 @@
     });
   });
 
+  // ---- Notes about users ---------------------------------------------------------
+  // Your own notes about chatters, for every channel: { lower-case name: { name,
+  // text, updatedAt } }. A deleted note stays as empty text, so the delete reaches
+  // your other devices (background.js merges per user, newest wins, over iCloud).
+  // Shown and edited in Kick's user card, drawn from here so the notes never go
+  // to the page; only the names with a note do (for the ✎ next to them in chat).
+  const NOTES_KEY = 'kickoffNotes';
+  const NOTE_MAX = 500;
+  const NOTED_USERS_ATTR = 'data-ka-noted-users'; // JSON list, read by page-hook.js
+  // Kick's user card: a popup on wide screens, a bottom sheet on phones (see page-hook.js).
+  const USER_CARD_SELECTOR = '#user-identity, [role="dialog"][data-vaul-drawer]';
+  const USER_NAME_LINK = 'a[title][href^="https://kick.com/"]';
+  state.notes = {};
+
+  function cleanNotes(value) {
+    const notes = {};
+    for (const [key, note] of Object.entries(value && typeof value === 'object' ? value : {})) {
+      if (typeof note?.name === 'string' && typeof note.text === 'string' && Number.isFinite(note.updatedAt)) {
+        notes[key] = { name: note.name, text: note.text.slice(0, NOTE_MAX), updatedAt: note.updatedAt };
+      }
+    }
+    return notes;
+  }
+
+  function noteFor(username) {
+    const note = state.notes[String(username).toLowerCase()];
+    return note?.text ? note : null;
+  }
+
+  function notedNames() {
+    return Object.values(state.notes).filter(note => note.text).map(note => note.name);
+  }
+
+  function applyNotes(value) {
+    state.notes = cleanNotes(value);
+    applyAttributes();
+    syncNoteCard(true);
+  }
+
+  async function saveNote(username, text) {
+    const stored = cleanNotes((await browser.storage.local.get(NOTES_KEY))[NOTES_KEY]);
+    stored[username.toLowerCase()] = { name: username, text: text.trim().slice(0, NOTE_MAX), updatedAt: Date.now() };
+    await browser.storage.local.set({ [NOTES_KEY]: stored });
+    applyNotes(stored); // onChanged doesn't fire in the script that wrote
+    drawNote(username, false);
+  }
+
+  function findUserCard() {
+    const cards = [...document.querySelectorAll(USER_CARD_SELECTOR)];
+    return cards.find(card => card.querySelector(USER_NAME_LINK)) || cards.find(card => card.id === 'user-identity') || null;
+  }
+
+  function noteCardName(card) {
+    return card.querySelector(USER_NAME_LINK)?.title || null;
+  }
+
+  function buildNote(username, editing) {
+    const box = el('div', 'ka-user-note');
+    box.dataset.user = username;
+    box.setAttribute('data-vaul-no-drag', ''); // selecting text mustn't pull the phone's sheet down
+    box.dataset.state = editing ? 'edit' : 'view';
+    const note = noteFor(username);
+    if (editing) {
+      const field = el('textarea', 'ka-user-note-field');
+      field.value = note?.text || '';
+      field.maxLength = NOTE_MAX;
+      field.rows = 3;
+      field.placeholder = t('note.placeholder', { name: username });
+      // Kick's keyboard shortcuts must not see what's typed here.
+      for (const type of ['keydown', 'keyup', 'keypress']) field.addEventListener(type, event => event.stopPropagation());
+      const save = el('button', 'ka-card-button ka-card-button--primary', t('note.save'));
+      const cancel = el('button', 'ka-card-button', t('note.cancel'));
+      save.type = cancel.type = 'button';
+      save.addEventListener('click', () => saveNote(username, field.value));
+      cancel.addEventListener('click', () => drawNote(username, false));
+      field.addEventListener('keydown', event => {
+        if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) save.click();
+        if (event.key === 'Escape') cancel.click();
+      });
+      const actions = el('div', 'ka-card-actions');
+      actions.append(save, cancel);
+      box.append(field, actions);
+      setTimeout(() => field.focus(), 0);
+    } else if (note) {
+      const text = el('div', 'ka-user-note-text', note.text);
+      const edit = el('button', 'ka-user-note-edit', t('note.edit'));
+      edit.type = 'button';
+      edit.addEventListener('click', () => drawNote(username, true));
+      box.append(el('div', 'ka-card-meta', t('note.label')), text, edit);
+    } else {
+      const add = el('button', 'ka-user-note-add', t('note.add'));
+      add.type = 'button';
+      add.addEventListener('click', () => drawNote(username, true));
+      box.append(add);
+    }
+    return box;
+  }
+
+  function drawNote(username, editing) {
+    const card = findUserCard();
+    const current = card?.querySelector('.ka-user-note');
+    if (!card) return;
+    const box = buildNote(username, editing);
+    if (current) current.replaceWith(box);
+    else placeNote(card, box);
+  }
+
+  // Under Kick's own buttons, above page-hook.js's tools (whichever comes first).
+  function placeNote(card, box) {
+    const tools = card.querySelector('.ka-user-tools');
+    if (tools) tools.before(box);
+    else (card.querySelector(USER_NAME_LINK)?.parentElement?.parentElement || card).append(box);
+  }
+
+  let noteCardObserver = null;
+
+  function syncNoteCard(redraw = false) {
+    const card = findUserCard();
+    if (!card) {
+      noteCardObserver?.disconnect();
+      noteCardObserver = null;
+      return;
+    }
+    if (noteCardObserver?.card !== card) {
+      noteCardObserver?.disconnect();
+      noteCardObserver = new MutationObserver(() => syncNoteCard());
+      noteCardObserver.card = card;
+      noteCardObserver.observe(card, { childList: true, subtree: true });
+    }
+    const current = card.querySelector('.ka-user-note');
+    const username = noteCardName(card);
+    if (!state.settings.userCard || !username) {
+      current?.remove();
+      return;
+    }
+    // Never redraw over a note being typed.
+    if (current?.dataset.user === username && (!redraw || current.dataset.state === 'edit')) return;
+    if (current && current.dataset.user !== username) current.remove();
+    drawNote(username, false);
+  }
+
+  // The card is a direct child of <body>, so watching only <body>'s children is cheap.
+  new MutationObserver(() => syncNoteCard()).observe(document.body || root, { childList: true });
+
   // ---- Wake lock -----------------------------------------------------------
 
   async function acquireWakeLock() {
@@ -2281,6 +2425,8 @@
     setAttr(MUTED_USERS_ATTR, muted.length > 0, JSON.stringify(muted));
     const highlighted = state.settings.highlightUsers;
     setAttr(HIGHLIGHT_USERS_ATTR, highlighted.length > 0, JSON.stringify(highlighted));
+    const noted = notedNames();
+    setAttr(NOTED_USERS_ATTR, noted.length > 0, JSON.stringify(noted));
     if (state.fontStyle && !state.fontStyle.isConnected) (document.head || root).append(state.fontStyle);
   }
 
@@ -2308,6 +2454,7 @@
     syncStreamSlug();
     if (!state.settings.popoutAudio) stopListen();
     syncPlayer();
+    syncNoteCard(true);
   }
 
   browser.storage.onChanged.addListener((changes, area) => {
@@ -2316,6 +2463,7 @@
     if (MESSAGES_KEY in changes) postMessages(changes[MESSAGES_KEY].newValue || []);
     if (USAGE_KEY in changes) postUsage(cleanUsage(changes[USAGE_KEY].newValue));
     if (INBOX_KEY in changes) applyInbox(changes[INBOX_KEY].newValue || {});
+    if (NOTES_KEY in changes) applyNotes(changes[NOTES_KEY].newValue);
     if (BLOCK_STATUS_KEY in changes) {
       state.blockStatus = changes[BLOCK_STATUS_KEY].newValue;
       renderBlockHint();
@@ -2373,6 +2521,7 @@
   }).finally(() => state.settingsLoaded());
   readMessages().then(postMessages); // in case page-hook.js asked before we were listening
   readInbox().then(applyInbox);
+  browser.storage.local.get(NOTES_KEY).then(result => applyNotes(result[NOTES_KEY]));
   browser.storage.local.get(SETTINGS_SEEN_KEY).then(result => {
     state.settingsSeen = Boolean(result[SETTINGS_SEEN_KEY]);
     renderSettingsHint();

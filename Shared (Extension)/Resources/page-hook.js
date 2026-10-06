@@ -44,6 +44,7 @@
   const STRIPES_ATTR = 'data-ka-stripes';
   const BOT_NAMES = new Set(['botrix', 'kickbot', 'streamelements', 'fossabot']); // lower case
   const HIGHLIGHT_USERS_ATTR = 'data-ka-highlight-users';
+  const NOTED_USERS_ATTR = 'data-ka-noted-users'; // names you wrote a note about (content.js has the notes)
   const REPEATS_ATTR = 'data-ka-repeats';
   const LIST_SELECTOR = '#chatroom-messages';
   const ROW_SELECTOR = '[data-index]';
@@ -2846,6 +2847,14 @@
     return fixed;
   }
 
+  // ✎ after the names of people you wrote a note about (kickoff.css draws it).
+  function applyNoted(row, message) {
+    const name = nameButton(row);
+    if (!name) return;
+    const noted = inNameList(NOTED_USERS_ATTR, message.sender?.username);
+    if (name.hasAttribute('data-ka-noted') !== noted) name.toggleAttribute('data-ka-noted', noted);
+  }
+
   function applyNameColor(row) {
     const name = nameButton(row);
     if (!name) return;
@@ -2889,22 +2898,35 @@
   }
 
   // ---- Kick's user card ------------------------------------------------------------
-  // Tapping a name opens Kick's card (#user-identity, added to <body> and removed on
-  // close). Below Kick's own buttons we add: @ mention, highlight and mute toggles,
-  // and that user's messages from this visit (tap one to jump to it).
+  // Tapping a name opens Kick's card, added to <body> and removed on close: a popup
+  // (#user-identity) on wide screens, a bottom sheet (a Vaul drawer dialog) on
+  // phones. Both hold a link to the user's channel with their name as its title.
+  // Below Kick's own buttons we add: @ mention, highlight and mute toggles, and that
+  // user's messages from this visit (tap one to jump to it). content.js adds your
+  // note about them above that.
 
-  const USER_CARD_SELECTOR = '#user-identity';
+  const USER_CARD_SELECTOR = '#user-identity, [role="dialog"][data-vaul-drawer]';
+  const USER_NAME_LINK = 'a[title][href^="https://kick.com/"]';
   const USER_CARD_ATTR = 'data-ka-user-card';
   const userCardEnabled = () => document.documentElement.hasAttribute(USER_CARD_ATTR);
   const USER_HISTORY_LIMIT = 50;
   let userCardObserver = null;
 
-  function userCardName(card) {
-    return card.querySelector('a[title][href^="https://kick.com/"]')?.title || null;
+  // The open card: the one with a name link, else one still loading (no link yet).
+  function findUserCard() {
+    const cards = [...document.querySelectorAll(USER_CARD_SELECTOR)];
+    return cards.find(card => card.querySelector(USER_NAME_LINK)) || cards.find(card => card.id === 'user-identity') || null;
   }
 
+  function userCardName(card) {
+    return card.querySelector(USER_NAME_LINK)?.title || null;
+  }
+
+  // The popup has a close button; the bottom sheet closes on Escape.
   function closeUserCard() {
-    document.querySelector(`${USER_CARD_SELECTOR} svg[data-ds-icon="Cross"]`)?.closest('button')?.click();
+    const close = findUserCard()?.querySelector('svg[data-ds-icon="Cross"]')?.closest('button');
+    if (close) close.click();
+    else document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', keyCode: 27, bubbles: true }));
   }
 
   function timeAgo(at) {
@@ -2933,6 +2955,7 @@
   function buildUserTools(username) {
     const tools = el('div', 'ka-user-tools');
     tools.dataset.user = username;
+    tools.setAttribute('data-vaul-no-drag', ''); // scrolling the list mustn't pull the sheet down
     const self = selfUsername(list?.querySelector(ROW_SELECTOR));
     const isSelf = Boolean(self) && self.toLowerCase() === username.toLowerCase();
 
@@ -2977,11 +3000,17 @@
 
   // Adds (or redraws) our part of the card; also after Kick re-renders the card.
   function syncUserCard(redraw = false) {
-    const card = document.querySelector(USER_CARD_SELECTOR);
+    const card = findUserCard();
     if (!card) {
       userCardObserver?.disconnect();
       userCardObserver = null;
       return;
+    }
+    if (userCardObserver?.card !== card) {
+      userCardObserver?.disconnect();
+      userCardObserver = new MutationObserver(() => guarded('user card', () => syncUserCard()));
+      userCardObserver.card = card;
+      userCardObserver.observe(card, { childList: true, subtree: true });
     }
     const current = card.querySelector('.ka-user-tools');
     if (!userCardEnabled()) {
@@ -2991,14 +3020,10 @@
     const username = userCardName(card);
     if (!username) return;
     if (current && current.dataset.user === username && !redraw) return;
-    const box = card.querySelector('a[title][href^="https://kick.com/"]').parentElement?.parentElement || card;
+    const box = card.querySelector(USER_NAME_LINK).parentElement?.parentElement || card;
     const tools = buildUserTools(username);
     if (current) current.replaceWith(tools);
     else box.append(tools);
-    if (!userCardObserver) {
-      userCardObserver = new MutationObserver(() => guarded('user card', () => syncUserCard()));
-      userCardObserver.observe(card, { childList: true, subtree: true });
-    }
   }
 
   // The card is a direct child of <body>, so watching only <body>'s children is cheap.
@@ -3043,6 +3068,7 @@
     applyHidden(row, message);
     applyCosmetics(row, message);
     applyNameColor(row);
+    applyNoted(row, message);
     applyGhosts(row, message);
   }
 
@@ -3130,7 +3156,7 @@
 
   new MutationObserver(onSettingsChange).observe(document.documentElement, {
     attributes: true,
-    attributeFilter: [RESTORE_ATTR, PREVIEWS_ATTR, SEVENTV_ATTR, MESSAGES_ATTR, HIGHLIGHT_ATTR, HIGHLIGHT_WORDS_ATTR, STREAMER_ATTR, HIDE_WORDS_ATTR, MUTE_ATTR, MUTED_USERS_ATTR, HIGHLIGHT_USERS_ATTR, USER_CARD_ATTR, BOTS_ATTR, READABLE_NAMES_ATTR, STRIPES_ATTR, REPEATS_ATTR, FONT_SIZE_ATTR, CHAT_FONT_ATTR, COSMETICS_ATTR, EMOTE_ONLY_ATTR]
+    attributeFilter: [RESTORE_ATTR, PREVIEWS_ATTR, SEVENTV_ATTR, MESSAGES_ATTR, HIGHLIGHT_ATTR, HIGHLIGHT_WORDS_ATTR, STREAMER_ATTR, HIDE_WORDS_ATTR, MUTE_ATTR, MUTED_USERS_ATTR, HIGHLIGHT_USERS_ATTR, NOTED_USERS_ATTR, USER_CARD_ATTR, BOTS_ATTR, READABLE_NAMES_ATTR, STRIPES_ATTR, REPEATS_ATTR, FONT_SIZE_ATTR, CHAT_FONT_ATTR, COSMETICS_ATTR, EMOTE_ONLY_ATTR]
   });
 
   // ---- Catching up after the page slept ----------------------------------------

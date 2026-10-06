@@ -115,10 +115,13 @@ syncBlocking().catch(error => console.error('Kickoff: blocking', error));
 // right away; the other devices pull when a Kick tab opens or comes back to the
 // front (content.js asks), since Safari doesn't keep this script running.
 // Text size stays on each device: a size that suits a Mac rarely suits a phone.
-// 7TV emote usage is merged instead (`union`): every device's uses are kept.
+// 7TV emote usage and notes about users are merged instead (`union`): every
+// device's uses are kept, and per user the newest note wins.
 const MESSAGES_KEY = 'kickoffMessages';
 const USAGE_KEY = 'kickoffEmoteUsage'; // written by content.js from page-hook.js
 const USAGE_LIMIT = 200;
+const NOTES_KEY = 'kickoffNotes'; // { lower-case name: { name, text, updatedAt } }, '' text = deleted
+const NOTE_TOMBSTONE_MS = 180 * 24 * 60 * 60 * 1000; // deleted notes are forgotten after this
 const SYNC_META_KEY = 'kickoffSync'; // { settings|messages: { updatedAt, json } } of the last synced version
 const SYNC_PULL_MS = 15 * 1000; // at most one pull per this long
 const LOCAL_ONLY_SETTINGS = ['fontSize'];
@@ -152,6 +155,22 @@ const SYNCED = {
       .filter(([, entry]) => Number.isFinite(entry?.count) && Number.isFinite(entry?.last))
       .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))),
     merge: (remote, local) => mergeUsage(SYNCED.emoteUsage.pick(remote), SYNCED.emoteUsage.pick(local))
+  },
+  notes: {
+    storageKey: NOTES_KEY,
+    union: true,
+    // Sorted, so the same notes always give the same JSON; old deletions dropped.
+    pick: value => Object.fromEntries(Object.entries(value && typeof value === 'object' ? value : {})
+      .filter(([, note]) => typeof note?.name === 'string' && typeof note.text === 'string'
+        && Number.isFinite(note.updatedAt) && (note.text || Date.now() - note.updatedAt < NOTE_TOMBSTONE_MS))
+      .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))),
+    merge(remote, local) {
+      const merged = SYNCED.notes.pick(remote);
+      for (const [key, note] of Object.entries(SYNCED.notes.pick(local))) {
+        if (!merged[key] || note.updatedAt > merged[key].updatedAt) merged[key] = note;
+      }
+      return SYNCED.notes.pick(merged);
+    }
   }
 };
 
