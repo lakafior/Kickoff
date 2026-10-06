@@ -1,0 +1,215 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public License,
+   v. 2.0. If a copy of the MPL was not distributed with this file, You can
+   obtain one at https://mozilla.org/MPL/2.0/. */
+
+/* No framework, no build step, no JavaScript of our own. Same shape as
+   dutch.smigi.net, in Kickoff's colours: Kick green on near-black. */
+
+:root {
+  --green: #53fc18;  /* the app icon's rocket */
+  --green-ink: #1f8a00; /* green text that reads on white */
+  --ink: #14161a;
+  --body: #4a5058;
+  --line: #e4e7ec;
+  --bg: #ffffff;
+  --panel: #f6f8fa;
+  --radius: 14px;
+  --wrap: 940px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --green-ink: var(--green);
+    --ink: #f2f4f7;
+    --body: #a8b0ba;
+    --line: #262a31;
+    --bg: #0b0d0e;
+    --panel: #141719;
+  }
+}
+
+* { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--body);
+  font: 17px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+        "Helvetica Neue", Arial, sans-serif;
+  text-rendering: optimizeLegibility;
+}
+
+.wrap {
+  width: 100%;
+  max-width: var(--wrap);
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+h1, h2, h3 { color: var(--ink); line-height: 1.15; margin: 0 0 .5em; }
+h1 { font-size: clamp(2.1rem, 6vw, 3.3rem); letter-spacing: -.02em; font-weight: 700; }
+h2 { font-size: clamp(1.5rem, 3.6vw, 2.1rem); letter-spacing: -.015em; font-weight: 650; }
+h3 { font-size: 1.06rem; font-weight: 650; }
+p { margin: 0 0 1em; }
+a { color: var(--green-ink); }
+
+/* ---- header ---- */
+
+header {
+  border-bottom: 1px solid var(--line);
+  position: sticky;
+  top: var(--mw-bar-h, 0px); /* clears the smigi.net titlebar when present */
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  backdrop-filter: saturate(160%) blur(12px);
+  z-index: 10;
+}
+
+/* In windowed mode the page scrolls inside the frame, so stick to its top */
+html.mw-windowed header { top: 0; }
+header .wrap {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 62px;
+  flex-wrap: wrap;
+}
+.logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 650;
+  color: var(--ink);
+  text-decoration: none;
+  font-size: 1.06rem;
+}
+.logo img { border-radius: 8px; display: block; }
+nav { display: flex; gap: 20px; flex-wrap: wrap; }
+nav a { color: var(--body); text-decoration: none; font-size: .95rem; }
+nav a:hover { color: var(--ink); }
+
+/* The language switch: set apart from the section links, as on Dutch's site. */
+nav a.lang {
+  padding: 2px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-size: .85rem;
+}
+
+/* ---- hero ---- */
+
+.hero { padding: 76px 0 40px; }
+.hero .wrap {
+  display: grid;
+  grid-template-columns: 1.15fr .85fr;
+  gap: 56px;
+  align-items: center;
+}
+.lede { font-size: 1.2rem; max-width: 36ch; }
+.tag {
+  display: inline-block;
+  font-size: .8rem;
+  font-weight: 600;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--green-ink);
+  background: rgba(83, 252, 24, .14);
+  border-radius: 999px;
+  padding: 5px 12px;
+  margin-bottom: 20px;
+}
+
+.cta { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 26px; }
+.btn {
+  display: inline-block;
+  padding: 13px 22px;
+  border-radius: 11px;
+  font-weight: 600;
+  font-size: 1rem;
+  text-decoration: none;
+  border: 1px solid transparent;
+}
+.btn-primary { color: #0b0d0e; background: var(--green); }
+.btn-secondary { color: var(--ink); border-color: var(--line); background: var(--panel); }
+/* Until the App Store listing is live: looks like the button, isn't a link. */
+.btn-soon { color: var(--body); border-color: var(--line); background: var(--panel); cursor: default; }
+
+.hero-icon {
+  display: block;
+  width: 100%;
+  max-width: 260px;
+  height: auto;
+  margin-inline: auto;
+  filter: drop-shadow(0 18px 40px rgba(83, 252, 24, .18));
+}
+
+/* ---- sections ---- */
+
+section { padding: 64px 0; }
+section.alt { background: var(--panel); border-block: 1px solid var(--line); }
+.section-head { max-width: 56ch; margin-bottom: 36px; }
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 28px 32px;
+}
+.feature p { margin: 0; font-size: .97rem; }
+.feature h3 { margin-bottom: .35em; }
+
+.split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 48px;
+  align-items: center;
+}
+
+.steps { margin: 0; padding-left: 1.3em; }
+.steps li { margin-bottom: .6em; }
+.steps h3 { margin-bottom: .6em; }
+
+.facts { list-style: none; margin: 0; padding: 0; }
+.facts li {
+  padding: 13px 0;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  font-size: .97rem;
+}
+.facts li:last-child { border-bottom: 0; }
+.facts b { color: var(--ink); font-weight: 600; text-align: right; }
+
+.note { font-size: .9rem; }
+
+/* ---- footer ---- */
+
+footer {
+  border-top: 1px solid var(--line);
+  padding: 34px 0 46px;
+  font-size: .9rem;
+}
+footer .wrap { display: flex; justify-content: space-between; gap: 18px; flex-wrap: wrap; }
+footer a { color: var(--body); }
+
+/* ---- prose (privacy) ---- */
+
+/* padding-block, not the `padding` shorthand: this class sits on the same
+   element as .wrap, and a shorthand here would reset .wrap's horizontal padding
+   to zero and run the text into the edge of the screen. */
+.prose { max-width: 68ch; padding-block: 56px 72px; }
+.prose h2 { margin-top: 1.9em; }
+.prose ul { padding-left: 1.15em; }
+.prose li { margin-bottom: .45em; }
+.prose .updated { font-size: .9rem; color: var(--body); }
+.prose code { font-size: .9em; }
+
+@media (max-width: 760px) {
+  .hero { padding-top: 48px; }
+  .hero .wrap, .split { grid-template-columns: 1fr; gap: 36px; }
+  .hero-icon { max-width: 160px; }
+  .lede { max-width: none; }
+  section { padding: 48px 0; }
+}

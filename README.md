@@ -52,7 +52,7 @@ Every feature can be switched on or off: tap the **rocket** at the top of the ch
 
 ## Getting started
 
-Kickoff is coming to the App Store.
+Kickoff is coming to the App Store. Website: [kickoff.smigi.net](https://kickoff.smigi.net).
 
 **iPhone & iPad**
 1. Install Kickoff and open **Settings › Apps › Safari › Extensions** (on iOS 17:
@@ -68,6 +68,8 @@ Kickoff is coming to the App Store.
 3. Click the **rocket** at the top of the chat.
 
 ## Privacy
+
+Full policy: [kickoff.smigi.net/privacy](https://kickoff.smigi.net/privacy/).
 
 Kickoff collects no data. There are no accounts, analytics or servers of its own.
 Your settings, saved messages and mentions inbox stay in Safari's storage on your
@@ -88,7 +90,7 @@ analytics, Datadog and Mux.
 Requirements: Xcode 26 or later.
 
 ```sh
-git clone <this repo>
+git clone https://github.com/lakafior/Kickoff.git
 open Kickoff.xcodeproj
 ```
 
