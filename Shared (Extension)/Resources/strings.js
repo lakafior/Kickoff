@@ -24,6 +24,7 @@
       'setting.highlights': 'Highlight mentions & words',
       'setting.highlightStreamer': 'Highlight streamer',
       'setting.muteUsers': 'Collapse muted users',
+      'setting.hideBots': 'Collapse bots (BotRix, KickBot, StreamElements)',
       'setting.collapseRepeats': 'Collapse repeated messages',
       'setting.hideEmoteOnly': 'Hide emote-only messages',
       'setting.iosInput': 'iOS-style message box',
@@ -206,6 +207,8 @@
       // Muted users, replies, repeats, catching up
       'muted.line': '{name} (muted) · tap to show',
       'muted.lineShown': '{name} (muted) · tap to hide',
+      'bot.line': '{name} (bot) · tap to show',
+      'bot.lineShown': '{name} (bot) · tap to hide',
       'reply.original': 'Original message',
       'reply.deleted': '(original message deleted)',
       'reply.gone': '{name} · no longer in chat',
@@ -228,6 +231,7 @@
       'setting.highlights': 'Wyróżniaj wzmianki i słowa',
       'setting.highlightStreamer': 'Wyróżniaj streamera',
       'setting.muteUsers': 'Zwijaj wyciszonych użytkowników',
+      'setting.hideBots': 'Zwijaj boty (BotRix, KickBot, StreamElements)',
       'setting.collapseRepeats': 'Zwijaj powtórzone wiadomości',
       'setting.hideEmoteOnly': 'Ukrywaj wiadomości z samych emotek',
       'setting.iosInput': 'Pole wiadomości w stylu iOS',
@@ -394,6 +398,8 @@
 
       'muted.line': '{name} (wyciszony) · stuknij, by pokazać',
       'muted.lineShown': '{name} (wyciszony) · stuknij, by ukryć',
+      'bot.line': '{name} (bot) · stuknij, by pokazać',
+      'bot.lineShown': '{name} (bot) · stuknij, by ukryć',
       'reply.original': 'Oryginalna wiadomość',
       'reply.deleted': '(oryginalna wiadomość usunięta)',
       'reply.gone': '{name} · już nie ma w czacie',

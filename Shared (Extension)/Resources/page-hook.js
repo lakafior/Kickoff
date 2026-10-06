@@ -39,6 +39,8 @@
   const HIDE_WORDS_ATTR = 'data-ka-hide-words';
   const MUTE_ATTR = 'data-ka-mute';
   const MUTED_USERS_ATTR = 'data-ka-muted-users';
+  const BOTS_ATTR = 'data-ka-bots';
+  const BOT_NAMES = new Set(['botrix', 'kickbot', 'streamelements']); // lower case
   const REPEATS_ATTR = 'data-ka-repeats';
   const LIST_SELECTOR = '#chatroom-messages';
   const ROW_SELECTOR = '[data-index]';
@@ -127,6 +129,7 @@
   const highlightsEnabled = () => document.documentElement.hasAttribute(HIGHLIGHT_ATTR);
   const streamerEnabled = () => document.documentElement.hasAttribute(STREAMER_ATTR);
   const muteEnabled = () => document.documentElement.hasAttribute(MUTE_ATTR);
+  const botsEnabled = () => document.documentElement.hasAttribute(BOTS_ATTR);
   const repeatsEnabled = () => document.documentElement.hasAttribute(REPEATS_ATTR);
 
   function remember(message) {
@@ -216,7 +219,7 @@
     }
     const slug = channelSlug();
     const entries = [...history.values()]
-      .filter(entry => entry.channel === slug && !(muteEnabled() && isMuted(entry.username)))
+      .filter(entry => entry.channel === slug && !collapsedUser(entry.username))
       .sort((a, b) => a.at - b.at);
     const results = [];
     if (from || words.length) {
@@ -2524,6 +2527,7 @@
   // ---- Mute list ---------------------------------------------------------------
   // Muted users (all channels, any case) come from content.js in an html
   // attribute. Their messages collapse to one line; tapping it shows the message.
+  // Known chat bots (BOT_NAMES) collapse the same way when that switch is on.
 
   let mutedCache = { raw: null, names: new Set() };
   const revealed = new Set(); // message ids shown anyway
@@ -2539,6 +2543,15 @@
       mutedCache = { raw, names: new Set((Array.isArray(names) ? names : []).map(name => String(name).toLowerCase())) };
     }
     return Boolean(username) && mutedCache.names.has(username.toLowerCase());
+  }
+
+  const isBot = username => Boolean(username) && BOT_NAMES.has(username.toLowerCase());
+
+  // 'muted', 'bot' or null: why this user's messages are collapsed.
+  function collapsedUser(username) {
+    if (muteEnabled() && isMuted(username)) return 'muted';
+    if (botsEnabled() && isBot(username)) return 'bot';
+    return null;
   }
 
   function clearMute(row) {
@@ -2560,7 +2573,8 @@
   // Returns true while the row is collapsed.
   function applyMute(row, message) {
     const username = message.sender?.username;
-    if (!muteEnabled() || !isMuted(username)) {
+    const reason = collapsedUser(username);
+    if (!reason) {
       if (row.hasAttribute('data-ka-muted')) {
         clearMute(row);
         remeasure(row);
@@ -2575,7 +2589,7 @@
       row.prepend(line);
     }
     line.dataset.id = message.id;
-    const label = t(shown ? 'muted.lineShown' : 'muted.line', { name: username });
+    const label = t(`${reason}.${shown ? 'lineShown' : 'line'}`, { name: username });
     if (line.textContent !== label) line.textContent = label;
     const changed = !row.hasAttribute('data-ka-muted') || row.hasAttribute('data-ka-revealed') !== shown;
     row.setAttribute('data-ka-muted', '');
@@ -2858,7 +2872,7 @@
       if (!previewsEnabled()) clearPreviews(row);
       if (!sevenTvEnabled()) clear7tv(row);
       if (!highlightsEnabled() && !streamerEnabled()) delete row.dataset.kaHighlight;
-      if (!muteEnabled()) clearMute(row);
+      if (!muteEnabled() && !botsEnabled()) clearMute(row);
       remeasure(row);
     });
     if (!sevenTvEnabled()) {
@@ -2886,7 +2900,7 @@
 
   new MutationObserver(onSettingsChange).observe(document.documentElement, {
     attributes: true,
-    attributeFilter: [RESTORE_ATTR, PREVIEWS_ATTR, SEVENTV_ATTR, MESSAGES_ATTR, HIGHLIGHT_ATTR, HIGHLIGHT_WORDS_ATTR, STREAMER_ATTR, HIDE_WORDS_ATTR, MUTE_ATTR, MUTED_USERS_ATTR, REPEATS_ATTR, FONT_SIZE_ATTR, CHAT_FONT_ATTR, COSMETICS_ATTR, EMOTE_ONLY_ATTR]
+    attributeFilter: [RESTORE_ATTR, PREVIEWS_ATTR, SEVENTV_ATTR, MESSAGES_ATTR, HIGHLIGHT_ATTR, HIGHLIGHT_WORDS_ATTR, STREAMER_ATTR, HIDE_WORDS_ATTR, MUTE_ATTR, MUTED_USERS_ATTR, BOTS_ATTR, REPEATS_ATTR, FONT_SIZE_ATTR, CHAT_FONT_ATTR, COSMETICS_ATTR, EMOTE_ONLY_ATTR]
   });
 
   // ---- Catching up after the page slept ----------------------------------------

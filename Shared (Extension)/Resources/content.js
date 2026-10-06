@@ -31,6 +31,7 @@
     collapseRepeats: true,
     sevenTvCosmetics: true,
     hideEmoteOnly: false,
+    hideBots: true,
     iosInput: true,
     fontSize: null, // null = Kick's own size
     nativePlayer: true,
@@ -53,6 +54,7 @@
     collapseRepeats: 'data-ka-repeats',
     sevenTvCosmetics: 'data-ka-7tv-cosmetics',
     hideEmoteOnly: 'data-ka-emote-only',
+    hideBots: 'data-ka-bots',
     iosInput: 'data-ka-ios',
     blockAds: 'data-ka-block-ads' // page-hook.js rewrites Kick's player answer
   };
@@ -62,7 +64,7 @@
   const SETTINGS_TABS = {
     general: ['wakeLock', 'chatOnly', 'streamInfo', 'channelStrip', 'blockAds'],
     chat: ['font', 'size', 'sevenTv', 'sevenTvCosmetics', 'linkPreviews', 'restoreDeleted', 'savedMessages', 'iosInput'],
-    filters: ['highlights', 'highlightWords', 'highlightStreamer', 'hideWords', 'hideEmoteOnly', 'collapseRepeats', 'muteUsers', 'mutedUsers'],
+    filters: ['highlights', 'highlightWords', 'highlightStreamer', 'hideWords', 'hideEmoteOnly', 'collapseRepeats', 'hideBots', 'muteUsers', 'mutedUsers'],
     player: ['nativePlayer', 'backgroundAudio', 'popoutAudio']
   };
   const SETTINGS_TAB_KEY = 'kickoff:settingsTab'; // last open tab, in kick.com localStorage
