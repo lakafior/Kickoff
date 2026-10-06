@@ -1,0 +1,69 @@
+{
+  "manifest_version": 3,
+  "name": "Kickoff",
+  "version": "1.0",
+  "description": "Kick.com chat helpers: keep the screen awake, SF font, chat-only popout layout, deleted messages and link previews.",
+  "icons": {
+    "48": "images/icon-48.png",
+    "64": "images/icon-64.png",
+    "96": "images/icon-96.png",
+    "128": "images/icon-128.png",
+    "256": "images/icon-256.png",
+    "512": "images/icon-512.png"
+  },
+  "icon_variants": [
+    {
+      "any": "symbol:sun.max.fill"
+    }
+  ],
+  "action": {
+    "default_title": "Kickoff settings",
+    "icon_variants": [
+      {
+        "any": "symbol:sun.max.fill"
+      }
+    ]
+  },
+  "background": {
+    "scripts": [
+      "background.js"
+    ],
+    "persistent": false,
+    "preferred_environment": [
+      "document"
+    ]
+  },
+  "content_scripts": [
+    {
+      "css": [
+        "kickoff.css"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "matches": [
+        "*://*.kick.com/*"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "storage",
+    "declarativeNetRequest"
+  ],
+  "host_permissions": [
+    "*://*.kick.com/*"
+  ],
+  "web_accessible_resources": [
+    {
+      "matches": [
+        "*://*.kick.com/*"
+      ],
+      "resources": [
+        "page-hook.js"
+      ]
+    }
+  ]
+}

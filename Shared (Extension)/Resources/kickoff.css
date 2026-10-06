@@ -1,0 +1,2246 @@
+/* Restored moderator-deleted messages and link previews (see page-hook.js). These
+   elements only exist while their feature is on, so the rules need no switch. */
+[data-ka-hidden] {
+    display: none !important;
+}
+
+[data-ka-deleted] > * {
+    opacity: 0.5;
+}
+
+.ka-emote {
+    display: inline-block;
+    height: 1.5em;
+    vertical-align: middle;
+}
+
+.ka-deleted-tag {
+    margin-left: 0.4em;
+    font-size: 0.75em;
+    font-style: italic;
+}
+
+/* Link previews. Media boxes have fixed sizes so rows don't change height
+   while images load (the chat list positions rows by measured height). */
+.ka-previews:empty {
+    display: none;
+}
+
+.ka-preview {
+    display: block;
+    width: fit-content;
+    max-width: min(100%, 300px);
+    margin-top: 6px;
+    color: inherit;
+    text-decoration: none;
+}
+
+.ka-preview-image {
+    display: block;
+    height: 120px;
+    max-width: 100%;
+    object-fit: contain;
+    border-radius: 6px;
+}
+
+/* Compact horizontal card: small thumbnail left, text right. */
+.ka-preview--card {
+    display: flex;
+    align-items: stretch;
+    width: 300px;
+    overflow: hidden;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.ka-preview-thumb {
+    flex: 0 0 96px;
+    width: 96px;
+    height: 72px;
+    object-fit: cover;
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.ka-preview-body {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    min-width: 0;
+    padding: 5px 8px;
+    font-size: 0.8em;
+    line-height: 1.3;
+}
+
+.ka-preview-site {
+    font-size: 0.85em;
+    opacity: 0.65;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.ka-preview-title,
+.ka-preview-text {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.ka-preview-title {
+    font-weight: 600;
+}
+
+/* Chat-only mode, in the popout (kick.com/popout/{channel}/chat) and on channel
+   pages (same chat component): hides the chat's header bar, the top gifters bar
+   and the drops/giveaway card; pinned messages, polls and predictions stay.
+   Kick has no ids here, so these follow its layout: the :has(#chatroom-messages)
+   guards make sure the message list itself can never be hidden, and our own
+   settings bar (which sits in the same column) is excluded. */
+html[data-ka-chatonly] #channel-chatroom > .contents > :first-child:not(:has(#chatroom-messages)),
+html[data-ka-chatonly] #channel-chatroom > .contents > :nth-child(2) > :first-child:not(:has(#chatroom-messages)):not(.ka-settings),
+html[data-ka-chatonly] :has(+ #chatroom-messages) > * > :has(img[src*="/drops/"]) {
+    display: none !important;
+}
+
+/* Chat-only also hides Kick's quick emotes (your recent emotes, a row above the
+   message box, logged in) and the padded box around them. */
+html[data-ka-chatonly] #quick-emotes-holder,
+html[data-ka-chatonly] #chatroom-footer div:has(> #quick-emotes-holder) {
+    display: none !important;
+}
+
+/* Settings bar, placed by content.js directly above the message area. It is part
+   of the layout (not an overlay), so it never covers polls or pinned messages. */
+.ka-settings {
+    flex: 0 0 auto;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+    font-size: 12px;
+    line-height: 1.3;
+    color: rgba(255, 255, 255, 0.85);
+}
+
+.ka-settings-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 4px 12px;
+    background: none;
+    border: 0;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.ka-settings-title {
+    font-weight: 600;
+    opacity: 0.7;
+}
+
+.ka-settings-status {
+    flex: 1;
+    color: #53fc18;
+    opacity: 0.8;
+}
+
+/* Stream info (popout): replaces the title; the wake status shrinks to an icon. */
+.ka-settings[data-stream] .ka-settings-title {
+    display: none;
+}
+
+.ka-settings[data-stream] .ka-settings-status {
+    flex: 0 0 auto;
+}
+
+.ka-stream {
+    display: flex;
+    flex: 1;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+}
+
+.ka-stream:empty {
+    display: none;
+}
+
+.ka-live {
+    flex: 0 0 auto;
+    padding: 1px 5px;
+    border-radius: 4px;
+    background: #eb0400;
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+}
+
+.ka-stream-meta {
+    flex: 0 0 auto;
+    font-variant-numeric: tabular-nums;
+}
+
+.ka-stream-title {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    opacity: 0.65;
+}
+
+.ka-offline {
+    opacity: 0.6;
+}
+
+.ka-stream-details {
+    padding: 6px 0 8px;
+    margin-bottom: 2px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.ka-stream-details[hidden] {
+    display: none;
+}
+
+.ka-stream-details-title {
+    font-size: 13px;
+    font-weight: 600;
+    overflow-wrap: anywhere;
+}
+
+.ka-stream-details-meta {
+    margin-top: 2px;
+    font-size: 11px;
+    opacity: 0.6;
+}
+
+.ka-settings-status[data-state="waiting"] {
+    color: #ffb020;
+}
+
+.ka-wake-hint {
+    display: block;
+    font-size: 11px;
+    opacity: 0.6;
+}
+
+.ka-wake-hint:empty {
+    display: none;
+}
+
+.ka-settings-chevron {
+    opacity: 0.6;
+    transition: transform 0.15s ease;
+}
+
+.ka-settings[data-open] .ka-settings-chevron {
+    transform: rotate(180deg);
+}
+
+.ka-settings-panel {
+    display: flex;
+    flex-direction: column;
+    padding: 2px 12px 8px;
+    /* max-height set by content.js (fitPanel): the panel scrolls, not the page */
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+}
+
+.ka-settings-panel > * {
+    flex-shrink: 0;
+}
+
+.ka-settings-panel[hidden] {
+    display: none;
+}
+
+.ka-settings-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    min-height: 32px;
+    font-size: 13px;
+    cursor: pointer;
+}
+
+.ka-settings-label {
+    flex: 1;
+}
+
+/* Page script status at the bottom of the settings panel. */
+.ka-health {
+    margin-top: 6px;
+    padding-top: 6px;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    font-size: 11px;
+    line-height: 1.4;
+    white-space: pre-line;
+    opacity: 0.6;
+}
+
+.ka-health[data-state="error"] {
+    color: #ffb020;
+    opacity: 1;
+}
+
+/* iOS-style switch */
+.ka-switch {
+    appearance: none;
+    -webkit-appearance: none;
+    position: relative;
+    flex: 0 0 auto;
+    width: 36px;
+    height: 22px;
+    margin: 0;
+    border-radius: 11px;
+    background: rgba(255, 255, 255, 0.2);
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+
+.ka-switch::after {
+    content: "";
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #fff;
+    transition: transform 0.15s ease;
+}
+
+.ka-switch:checked {
+    background: #53fc18;
+}
+
+.ka-switch:checked::after {
+    transform: translateX(14px);
+}
+
+.ka-size-controls {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.ka-size-button,
+.ka-size-reset {
+    min-width: 28px;
+    height: 26px;
+    padding: 0 8px;
+    border: 0;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.12);
+    color: inherit;
+    font: inherit;
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.ka-size-reset {
+    font-size: 12px;
+}
+
+.ka-size-reset[hidden] {
+    display: none;
+}
+
+.ka-size-value {
+    min-width: 34px;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+}
+
+/* 7TV emotes (page-hook.js renders a copy of the message text with emotes and
+   hides Kick's original). Sized like Kick's emotes without growing the line. */
+[data-ka-7tv-hidden] {
+    display: none !important;
+}
+
+.ka-7tv-emote {
+    display: inline-block;
+    height: 2.15em;
+    width: auto;
+    margin: -0.47em 1px;
+    vertical-align: middle;
+}
+
+.ka-7tv-stack {
+    display: inline-grid;
+    vertical-align: middle;
+}
+
+.ka-7tv-stack > * {
+    grid-area: 1 / 1;
+    place-self: center;
+}
+
+.ka-7tv-stack > .ka-7tv-emote {
+    margin: -0.47em 1px;
+}
+
+/* 7TV emotes are tappable: a card with the name, Copy and Insert. */
+#chatroom-messages .ka-7tv-emote,
+#chatroom-messages .ka-7tv-stack {
+    cursor: pointer;
+}
+
+.ka-card,
+.ka-ac {
+    z-index: 2147483000;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+    color: #fff;
+    background: #1f2227;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+}
+
+.ka-card {
+    position: fixed;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    max-width: min(320px, calc(100vw - 16px));
+    padding: 10px 12px;
+    border-radius: 10px;
+}
+
+.ka-card-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.ka-card-image {
+    flex: 0 0 auto;
+    height: 56px;
+    width: auto;
+    max-width: 112px;
+    object-fit: contain;
+}
+
+.ka-card-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.ka-card-name {
+    font-size: 15px;
+    font-weight: 600;
+    overflow-wrap: anywhere;
+}
+
+.ka-card-meta {
+    font-size: 11px;
+    opacity: 0.6;
+}
+
+.ka-card-actions {
+    display: flex;
+    gap: 6px;
+    margin-top: 6px;
+}
+
+.ka-card-button {
+    min-height: 30px;
+    padding: 0 12px;
+    border: 0;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.12);
+    color: inherit;
+    font: inherit;
+    font-size: 13px;
+    cursor: pointer;
+}
+
+.ka-card-button:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+/* Autocomplete: one horizontally scrolling row of chips, placed in the chat
+   column right above the message box (part of the layout, not an overlay). */
+.ka-ac {
+    position: relative;
+    flex: 0 0 auto;
+    margin: 0 8px 4px;
+    display: flex;
+    gap: 6px;
+    padding: 6px;
+    border-radius: 10px;
+    overflow-x: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: none;
+}
+
+.ka-ac::-webkit-scrollbar {
+    display: none;
+}
+
+.ka-ac-chip {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 6px;
+    height: 40px;
+    padding: 0 10px 0 6px;
+    border: 0;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.08);
+    color: inherit;
+    font: inherit;
+    font-size: 13px;
+    cursor: pointer;
+}
+
+.ka-ac-chip[aria-selected="true"] {
+    background: rgba(83, 252, 24, 0.25);
+    outline: 1px solid #53fc18;
+}
+
+.ka-ac-image {
+    height: 28px;
+    width: auto;
+    max-width: 56px;
+    object-fit: contain;
+}
+
+/* Our buttons (7TV, saved messages) in a group of their own in Kick's toolbar row
+   under the message box. Their panels are placed in the chat column right above
+   the message box (part of the layout, not an overlay). */
+.ka-toolbar {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 4px;
+}
+
+.ka-toolbar-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 36px;
+    height: 36px;
+    padding: 0 8px;
+    border: 0;
+    border-radius: 6px;
+    background: none;
+    color: inherit;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    opacity: 0.8;
+    cursor: pointer;
+}
+
+/* Two rows: on phones Kick (logged in) puts the message box and its toolbar
+   side by side, which squeezes the box once our buttons are added. Stack them:
+   the message box on its own row, the toolbar full width below it. Found via
+   our own group, so with our buttons switched off Kick's layout is untouched.
+   (:has() can't be nested, hence the "> * >" chain.) */
+#channel-chatroom :has(> * > .ka-toolbar:not(.ka-toolbar--inline)) {
+    flex-direction: column !important;
+    align-items: stretch !important;
+}
+
+#channel-chatroom :has(> .ka-toolbar:not(.ka-toolbar--inline)) {
+    width: 100% !important;
+}
+
+/* Kick's identity and emote buttons: shown as proxies in our toolbar, so the
+   originals in the message box are made invisible but kept in place (Kick's
+   popups anchor to them). Only while our proxies exist. */
+#channel-chatroom:has(.ka-proxy) div:has(> * [data-testid="chat-input"]):has(> button [data-ds-icon="Smile"]) {
+    position: relative;
+}
+
+#channel-chatroom:has(.ka-proxy) div:has(> * [data-testid="chat-input"]):has(> button [data-ds-icon="Smile"]) > :not(:has([data-testid="chat-input"])) {
+    position: absolute !important;
+    right: 0;
+    bottom: 0;
+    width: 1px !important;
+    min-width: 0 !important;
+    height: 1px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+}
+
+.ka-proxy svg,
+.ka-proxy img {
+    width: 20px;
+    height: 20px;
+}
+
+.ka-collapse-button {
+    font-size: 18px;
+}
+
+/* Read-only mode: the message box and toolbar are hidden; a slim bar brings
+   them back. */
+html[data-ka-input-hidden] #channel-chatroom :has(> #chatroom-messages) ~ :has([data-testid="chat-input"]) {
+    display: none !important;
+}
+
+.ka-reveal {
+    flex: 0 0 auto;
+    height: 30px;
+    margin: 0;
+    border: 0;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    background: none;
+    color: rgba(255, 255, 255, 0.7);
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.ka-toolbar--inline .ka-toolbar-button {
+    min-width: 28px;
+    height: 28px;
+    padding: 0 6px;
+}
+
+.ka-toolbar-button[hidden] {
+    display: none;
+}
+
+.ka-messages-button {
+    font-size: 17px;
+}
+
+.ka-toolbar-button:hover,
+.ka-toolbar-button[aria-pressed="true"] {
+    opacity: 1;
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.ka-picker {
+    position: relative;
+    flex: 0 0 auto;
+    display: flex;
+    flex-direction: column;
+    margin: 0 8px 4px;
+    border-radius: 10px;
+    background: #1f2227;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+    color: #fff;
+    overflow: hidden;
+}
+
+.ka-picker-head {
+    display: flex;
+    gap: 6px;
+    padding: 6px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.ka-picker-search {
+    flex: 1;
+    min-width: 0;
+    height: 32px;
+    padding: 0 10px;
+    border: 0;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.08);
+    color: inherit;
+    font: inherit;
+    font-size: 16px; /* 16px keeps iOS from zooming the page on focus */
+    outline: none;
+}
+
+.ka-picker-close {
+    flex: 0 0 auto;
+    width: 32px;
+    height: 32px;
+    border: 0;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.08);
+    color: inherit;
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.ka-picker-grid {
+    max-height: 220px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 4px 6px 8px;
+}
+
+.ka-picker-title {
+    padding: 6px 2px 4px;
+    font-size: 11px;
+    font-weight: 600;
+    opacity: 0.6;
+}
+
+.ka-picker-section {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px;
+}
+
+.ka-picker-emote {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 44px;
+    min-width: 44px;
+    padding: 4px;
+    border: 0;
+    border-radius: 6px;
+    background: none;
+    cursor: pointer;
+}
+
+.ka-picker-emote:hover,
+.ka-picker-emote.ka-flash {
+    background: rgba(255, 255, 255, 0.12);
+}
+
+.ka-picker-emote img {
+    height: 32px;
+    width: auto;
+    max-width: 96px;
+    object-fit: contain;
+}
+
+.ka-picker-sentinel {
+    height: 1px;
+}
+
+.ka-picker-empty {
+    padding: 12px 2px;
+    font-size: 12px;
+    opacity: 0.6;
+}
+
+/* Saved messages panel (reuses the picker's panel, head and scroll styles). */
+.ka-msg-edit-toggle {
+    flex: 0 0 auto;
+    height: 32px;
+    padding: 0 10px;
+    border: 0;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.08);
+    color: inherit;
+    font: inherit;
+    font-size: 13px;
+    cursor: pointer;
+}
+
+.ka-msg-edit-toggle[aria-pressed="true"] {
+    background: rgba(83, 252, 24, 0.25);
+}
+
+.ka-msg-body {
+    max-height: 260px;
+}
+
+.ka-msg-search[hidden] {
+    display: none;
+}
+
+.ka-msg-row {
+    display: flex;
+    align-items: stretch;
+    gap: 4px;
+    margin-bottom: 4px;
+}
+
+.ka-msg-insert {
+    flex: 1;
+    min-width: 0;
+    padding: 8px 10px;
+    border: 0;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.06);
+    color: inherit;
+    font: inherit;
+    font-size: 13px;
+    line-height: 1.35;
+    text-align: left;
+    cursor: pointer;
+}
+
+.ka-msg-insert:hover,
+.ka-msg-insert.ka-flash {
+    background: rgba(255, 255, 255, 0.14);
+}
+
+.ka-msg-text {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    overflow-wrap: anywhere;
+}
+
+.ka-msg-text .ka-emote,
+.ka-msg-text .ka-7tv-emote {
+    height: 1.6em;
+    margin: -0.3em 1px;
+}
+
+.ka-msg-action {
+    flex: 0 0 auto;
+    width: 40px;
+    border: 0;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.06);
+    color: inherit;
+    font-size: 15px;
+    cursor: pointer;
+}
+
+.ka-msg-delete {
+    color: #ff6b6b;
+}
+
+.ka-msg-new {
+    width: 100%;
+    height: 36px;
+    margin: 4px 0 6px;
+    border: 1px dashed rgba(255, 255, 255, 0.25);
+    border-radius: 8px;
+    background: none;
+    color: inherit;
+    font: inherit;
+    font-size: 13px;
+    cursor: pointer;
+}
+
+.ka-msg-undo {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin: 4px 0 6px;
+    padding: 6px 10px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.08);
+    font-size: 13px;
+}
+
+.ka-msg-undo-button {
+    border: 0;
+    background: none;
+    color: #53fc18;
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.ka-msg-editor {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding-top: 4px;
+}
+
+.ka-msg-input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 8px 10px;
+    border: 0;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.08);
+    color: inherit;
+    font: inherit;
+    font-size: 16px; /* 16px keeps iOS from zooming the page on focus */
+    line-height: 1.35;
+    resize: vertical;
+    outline: none;
+}
+
+.ka-msg-counter {
+    align-self: flex-end;
+    font-size: 11px;
+    opacity: 0.6;
+}
+
+.ka-msg-counter--over {
+    color: #ff6b6b;
+    opacity: 1;
+}
+
+.ka-msg-status {
+    font-size: 12px;
+    color: #ff6b6b;
+}
+
+.ka-msg-status:empty {
+    display: none;
+}
+
+.ka-msg-scope {
+    display: flex;
+    gap: 4px;
+}
+
+.ka-msg-scope-option {
+    flex: 1;
+    min-height: 32px;
+    padding: 0 8px;
+    border: 0;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.06);
+    color: inherit;
+    font: inherit;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.ka-msg-scope-option[aria-pressed="true"] {
+    background: rgba(83, 252, 24, 0.25);
+    outline: 1px solid #53fc18;
+}
+
+.ka-msg-editor-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 6px;
+}
+
+.ka-card-button--primary {
+    background: #53fc18;
+    color: #000;
+    font-weight: 600;
+}
+
+.ka-card-button--primary:disabled {
+    opacity: 0.4;
+}
+
+/* Save-a-message card */
+.ka-card-message {
+    max-height: 120px;
+    overflow: auto;
+    font-size: 13px;
+    line-height: 1.4;
+    overflow-wrap: anywhere;
+}
+
+.ka-card-message .ka-emote,
+.ka-card-message .ka-7tv-emote {
+    height: 1.6em;
+    margin: -0.3em 1px;
+}
+
+.ka-card-actions--wrap {
+    flex-wrap: wrap;
+}
+
+/* Highlights: mentions of you (green), chosen words (amber) and the streamer
+   (blue), on the row's
+   message box. */
+[data-index][data-ka-highlight] > div > div:first-child {
+    border-radius: 6px;
+}
+
+[data-index][data-ka-highlight="mention"] > div > div:first-child {
+    background: rgba(83, 252, 24, 0.14) !important;
+    box-shadow: inset 3px 0 0 #53fc18;
+}
+
+[data-index][data-ka-highlight="keyword"] > div > div:first-child {
+    background: rgba(255, 176, 32, 0.14) !important;
+    box-shadow: inset 3px 0 0 #ffb020;
+}
+
+[data-index][data-ka-highlight="streamer"] > div > div:first-child {
+    background: rgba(77, 163, 255, 0.16) !important;
+    box-shadow: inset 3px 0 0 #4da3ff;
+}
+
+/* "Words to highlight" field in the settings panel */
+.ka-words-row {
+    cursor: default;
+}
+
+.ka-words-input {
+    flex: 0 1 55%;
+    min-width: 0;
+    height: 28px;
+    padding: 0 8px;
+    border: 0;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.08);
+    color: inherit;
+    font: inherit;
+    font-size: 16px; /* 16px keeps iOS from zooming the page on focus */
+    outline: none;
+}
+
+.ka-words-input:disabled {
+    opacity: 0.4;
+}
+
+/* Mute list: a muted user's message collapses to one line (tap to show it). */
+[data-index][data-ka-muted]:not([data-ka-revealed]) > :not(.ka-muted-line) {
+    display: none !important;
+}
+
+[data-index][data-ka-revealed] > :not(.ka-muted-line) {
+    opacity: 0.6;
+}
+
+.ka-muted-line {
+    display: block;
+    padding: 2px 10px;
+    font-size: 11px;
+    font-style: italic;
+    line-height: 16px;
+    opacity: 0.45;
+    cursor: pointer;
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+.ka-card-button--mute {
+    color: #ff8a8a;
+}
+
+/* Muted users in the settings panel */
+.ka-mute-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 2px 0 6px;
+}
+
+.ka-mute-chip {
+    height: 26px;
+    padding: 0 10px;
+    border: 0;
+    border-radius: 13px;
+    background: rgba(255, 255, 255, 0.12);
+    color: inherit;
+    font: inherit;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.ka-mute-empty {
+    font-size: 11px;
+    opacity: 0.5;
+}
+
+/* Repeated messages: earlier copies of a run are hidden (zero-height rows); the
+   newest copy carries a ×N badge (tap: who sent them). */
+[data-index][data-ka-dup] > * {
+    display: none !important;
+}
+
+.ka-repeat {
+    display: inline-block;
+    margin-left: 0.4em;
+    padding: 0 0.45em;
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.14);
+    font-size: 0.8em;
+    font-weight: 600;
+    line-height: 1.5;
+    vertical-align: middle;
+    cursor: pointer;
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+.ka-repeat-senders {
+    margin-top: 6px;
+    max-height: 80px;
+    overflow: auto;
+}
+
+/* Chat font choice. */
+html[data-ka-font="sf"] #channel-chatroom {
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Helvetica Neue", Arial, sans-serif !important;
+}
+
+html[data-ka-font="serif"] #channel-chatroom {
+    font-family: ui-serif, "New York", Georgia, serif !important;
+}
+
+html[data-ka-font="mono"] #channel-chatroom {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace !important;
+}
+
+.ka-font-option[aria-pressed="true"] {
+    background: #53fc18;
+    color: #000;
+    font-weight: 600;
+}
+
+.ka-font-option {
+    font-size: 12px;
+}
+
+/* Mentions inbox: "@" button at the right of the strip (red count when there's
+   something new), list opening below the strip. */
+.ka-settings-head {
+    display: flex;
+    align-items: center;
+}
+
+.ka-settings-head .ka-settings-toggle {
+    flex: 1;
+    min-width: 0;
+}
+
+.ka-strip-button {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 3px;
+    height: 22px;
+    margin-right: 8px;
+    padding: 0 7px;
+    border: 0;
+    border-radius: 11px;
+    background: rgba(255, 255, 255, 0.1);
+    color: inherit;
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.ka-strip-button[hidden] {
+    display: none;
+}
+
+.ka-strip-button[aria-expanded="true"] {
+    background: rgba(255, 255, 255, 0.22);
+}
+
+.ka-inbox-at {
+    opacity: 0.7;
+}
+
+.ka-inbox-count:empty {
+    display: none;
+}
+
+.ka-inbox-button[data-unread] {
+    background: #eb0400;
+    color: #fff;
+}
+
+.ka-inbox-button[data-unread] .ka-inbox-at {
+    opacity: 1;
+}
+
+.ka-inbox[hidden],
+.ka-search[hidden] {
+    display: none;
+}
+
+.ka-inbox,
+.ka-search {
+    padding: 0 12px 8px;
+}
+
+.ka-inbox-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    min-height: 30px;
+}
+
+.ka-inbox-title {
+    font-weight: 600;
+    opacity: 0.7;
+}
+
+.ka-inbox-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    max-height: 40vh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+.ka-inbox-item {
+    padding: 5px 8px;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.05);
+    box-shadow: inset 3px 0 0 #ffb020;
+}
+
+.ka-inbox-item[data-kind="mention"] {
+    box-shadow: inset 3px 0 0 #53fc18;
+}
+
+.ka-inbox-item[data-new] {
+    background: rgba(255, 255, 255, 0.11);
+}
+
+.ka-inbox-meta {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    font-size: 11px;
+}
+
+.ka-inbox-user {
+    font-weight: 600;
+}
+
+.ka-inbox-ago {
+    opacity: 0.5;
+}
+
+.ka-inbox-text {
+    margin-top: 2px;
+    font-size: 13px;
+    line-height: 1.35;
+    overflow-wrap: anywhere;
+}
+
+.ka-inbox-empty {
+    padding: 4px 0;
+    font-size: 11px;
+    opacity: 0.6;
+}
+
+/* Chat search (same list style as the inbox) */
+.ka-search-button {
+    margin-right: 4px;
+    padding: 0 8px;
+}
+
+.ka-search-input {
+    width: 100%;
+    margin-top: 4px;
+}
+
+.ka-search-summary {
+    padding: 5px 0;
+    font-size: 11px;
+    opacity: 0.6;
+}
+
+.ka-search .ka-inbox-user {
+    cursor: pointer;
+}
+
+/* Jump to a message: the inbox and search items are tappable; the message
+   found in chat gets a fading outline (an outline still shows on highlighted
+   rows, whose background is !important). */
+.ka-inbox-item {
+    cursor: pointer;
+}
+
+.ka-inbox-item[data-gone] {
+    opacity: 0.5;
+}
+
+.ka-inbox-item[data-gone] .ka-inbox-ago {
+    color: #ffb020;
+    opacity: 1;
+}
+
+[data-index][data-ka-jump] > div > div:first-child {
+    border-radius: 6px;
+    animation: ka-jump 2.2s ease-out;
+}
+
+@keyframes ka-jump {
+    0%, 35% {
+        outline: 2px solid #53fc18;
+        outline-offset: -2px;
+        background-color: rgba(83, 252, 24, 0.18);
+    }
+    100% {
+        outline: 2px solid transparent;
+        outline-offset: -2px;
+    }
+}
+
+/* 7TV badge, placed by page-hook.js right before the chatter's name (paints are
+   generated rules on [data-ka-paint], also from page-hook.js). */
+.ka-7tv-badge {
+    display: inline-block;
+    width: calc(1em * (18 / 13));
+    height: calc(1em * (18 / 13));
+    margin-right: 4px;
+    vertical-align: middle;
+    align-self: center;
+    object-fit: contain;
+}
+
+/* Messages Kick removed when their sender was timed out or banned, shown again
+   under the message that preceded them (page-hook.js). */
+.ka-ghosts {
+    padding: 0 8px;
+}
+
+.ka-ghost {
+    padding-block: var(--chatroom-message-spacing, 2px);
+    font-size: var(--chatroom-font-size);
+    line-height: 1.55;
+    opacity: 0.5;
+    overflow-wrap: anywhere;
+}
+
+.ka-ghost-name {
+    font-weight: 700;
+}
+
+/* Hidden messages (emote-only, words to hide): zero-height rows, like repeats. */
+[data-index][data-ka-hidden-row] > * {
+    display: none !important;
+}
+
+/* iOS-style message box (setting): a rounded field, and one set of line icons
+   (same size, weight and colour) for every button in the row below it. Kick's
+   own icons are hidden and drawn again with a mask. */
+html[data-ka-ios] {
+    --ka-icon-user: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='9.5'/%3E%3Ccircle cx='12' cy='10' r='3'/%3E%3Cpath d='M6.6 18.6a6.5 6.5 0 0 1 10.8 0'/%3E%3C/svg%3E");
+    --ka-icon-smile: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='9.5'/%3E%3Cpath d='M8 14s1.5 2 4 2 4-2 4-2'/%3E%3Cpath d='M9 9.2h.01M15 9.2h.01' stroke-width='2.6'/%3E%3C/svg%3E");
+    --ka-icon-bubble: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20.5 15a2 2 0 0 1-2 2H7.5l-4 3.5V5.5a2 2 0 0 1 2-2h13a2 2 0 0 1 2 2z'/%3E%3Cpath d='M8 8.5h8M8 12h5'/%3E%3C/svg%3E");
+    --ka-icon-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9.5 6 5.5 6-5.5'/%3E%3C/svg%3E");
+    --ka-icon-gear: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z'/%3E%3Ccircle cx='12' cy='12' r='3'/%3E%3C/svg%3E");
+    --ka-icon-points: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9.94 15.5A2 2 0 0 0 8.5 14.06l-6.13-1.58a.5.5 0 0 1 0-.96L8.5 9.94A2 2 0 0 0 9.94 8.5l1.58-6.13a.5.5 0 0 1 .96 0l1.58 6.13a2 2 0 0 0 1.44 1.44l6.13 1.58a.5.5 0 0 1 0 .96l-6.13 1.58a2 2 0 0 0-1.44 1.44l-1.58 6.13a.5.5 0 0 1-.96 0z'/%3E%3Cpath d='M20 3v4M22 5h-4'/%3E%3C/svg%3E");
+    --ka-icon-gift: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='8' width='18' height='4' rx='1'/%3E%3Cpath d='M12 8v13M19 12v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-7M7.5 8a2.5 2.5 0 0 1 0-5A4.8 8 0 0 1 12 8a4.8 8 0 0 1 4.5-5 2.5 2.5 0 0 1 0 5'/%3E%3C/svg%3E");
+    --ka-icon-send: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 19V5M5.5 11.5 12 5l6.5 6.5' stroke-width='2.4'/%3E%3C/svg%3E");
+}
+
+html[data-ka-ios] #chatroom-footer {
+    border-top: 0.5px solid rgba(255, 255, 255, 0.12);
+    background: rgba(28, 28, 30, 0.72);
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
+    backdrop-filter: saturate(180%) blur(20px);
+}
+
+html[data-ka-ios] #chat-input-wrapper {
+    min-height: 38px;
+    padding-left: 6px !important;
+    border: 1px solid rgba(255, 255, 255, 0.14) !important;
+    border-radius: 20px !important;
+    background: rgba(118, 118, 128, 0.24) !important;
+    box-shadow: none !important;
+    --tw-ring-shadow: 0 0 #0000 !important;
+    --tw-ring-offset-shadow: 0 0 #0000 !important;
+    transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+html[data-ka-ios] #chat-input-wrapper:focus-within {
+    border-color: rgba(255, 255, 255, 0.32) !important;
+    background: rgba(118, 118, 128, 0.32) !important;
+}
+
+html[data-ka-ios] #chat-input-wrapper [data-testid="chat-input"] + div {
+    color: rgba(235, 235, 245, 0.45) !important;
+    font-weight: 400 !important;
+}
+
+/* Compact: Kick's 12px above and below and 8px between the box and the row
+   take more room than iOS bars do. */
+html[data-ka-ios] #chatroom-footer > div {
+    padding-top: 6px !important;
+    padding-bottom: 2px !important;
+}
+
+html[data-ka-ios] #chatroom-footer div:has(> div > .ka-toolbar) {
+    gap: 2px !important;
+}
+
+/* An empty 16px padded box Kick keeps above the message box (logged in, phones). */
+html[data-ka-ios] #chatroom-footer > div > div.p-2:empty {
+    display: none !important;
+}
+
+/* The icon row: evenly spread, one size for every button. */
+html[data-ka-ios] #chatroom-footer div:has(> .ka-toolbar):has(> .ml-auto) {
+    justify-content: space-between;
+    gap: 2px !important;
+}
+
+html[data-ka-ios] #chatroom-footer div:has(> .ka-toolbar) > .ml-auto {
+    margin-left: 0 !important;
+}
+
+html[data-ka-ios] .ka-toolbar {
+    gap: 2px;
+}
+
+html[data-ka-ios] .ka-toolbar-button,
+html[data-ka-ios] #chatroom-footer button:has(> svg[data-ds-icon="Settings"]) {
+    position: relative;
+    min-width: 40px !important;
+    width: 40px;
+    height: 40px !important;
+    padding: 0 !important;
+    border-radius: 10px !important;
+    background: none !important;
+    color: rgba(235, 235, 245, 0.78) !important;
+    opacity: 1;
+}
+
+html[data-ka-ios] .ka-toolbar-button[aria-pressed="true"] {
+    background: rgba(118, 118, 128, 0.28) !important;
+    color: #fff !important;
+}
+
+html[data-ka-ios] .ka-toolbar-button:active,
+html[data-ka-ios] #chatroom-footer button:has(> svg[data-ds-icon="Settings"]):active {
+    background: rgba(118, 118, 128, 0.2) !important;
+}
+
+/* Hide the old icon or text, draw ours. */
+html[data-ka-ios] :is(.ka-proxy[data-kind], .ka-messages-button, .ka-collapse-button) > *,
+html[data-ka-ios] #chatroom-footer button > svg[data-ds-icon="Settings"] {
+    display: none !important;
+}
+
+html[data-ka-ios] :is(.ka-messages-button, .ka-collapse-button) {
+    font-size: 0 !important;
+}
+
+html[data-ka-ios] :is(.ka-proxy[data-kind], .ka-messages-button, .ka-collapse-button)::before,
+html[data-ka-ios] #chatroom-footer button:has(> svg[data-ds-icon="Settings"])::before,
+html[data-ka-ios] #send-message-button::before {
+    content: "";
+    width: 24px;
+    height: 24px;
+    background: currentColor;
+    -webkit-mask: var(--ka-icon) center / contain no-repeat;
+    mask: var(--ka-icon) center / contain no-repeat;
+}
+
+html[data-ka-ios] .ka-proxy[data-kind="identity"] { --ka-icon: var(--ka-icon-user); }
+html[data-ka-ios] .ka-proxy[data-kind="emotes"] { --ka-icon: var(--ka-icon-smile); }
+html[data-ka-ios] .ka-messages-button { --ka-icon: var(--ka-icon-bubble); }
+html[data-ka-ios] .ka-collapse-button { --ka-icon: var(--ka-icon-chevron); }
+html[data-ka-ios] #chatroom-footer button:has(> svg[data-ds-icon="Settings"]) { --ka-icon: var(--ka-icon-gear); }
+
+/* 7TV has no icon of its own: its name, in the row's colour. */
+html[data-ka-ios] .ka-7tv-button {
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0;
+}
+
+/* Points (sparkles + balance) and Kicks (gift shop) in Kick's left group. */
+html[data-ka-ios] #chatroom-footer :is([data-testid="channel-points-button"], [data-testid="gift-shop-button"]) {
+    height: 40px !important;
+    min-width: 40px;
+    padding: 0 8px !important;
+    border-radius: 10px !important;
+    background: none !important;
+    color: rgba(235, 235, 245, 0.78) !important;
+}
+
+html[data-ka-ios] #chatroom-footer :is([data-testid="channel-points-button"], [data-testid="gift-shop-button"]) > svg {
+    display: none !important;
+}
+
+html[data-ka-ios] #chatroom-footer :is([data-testid="channel-points-button"], [data-testid="gift-shop-button"])::before {
+    content: "";
+    flex: 0 0 auto;
+    width: 24px;
+    height: 24px;
+    background: currentColor;
+    -webkit-mask: var(--ka-icon) center / contain no-repeat;
+    mask: var(--ka-icon) center / contain no-repeat;
+}
+
+html[data-ka-ios] #chatroom-footer [data-testid="channel-points-button"] {
+    gap: 5px !important;
+    --ka-icon: var(--ka-icon-points);
+}
+
+html[data-ka-ios] #chatroom-footer [data-testid="gift-shop-button"] {
+    --ka-icon: var(--ka-icon-gift);
+}
+
+html[data-ka-ios] #chatroom-footer [data-testid="channel-points-value"] {
+    color: inherit !important;
+    font-size: 15px !important;
+    font-weight: 600 !important;
+}
+
+/* Send ("Chat") button, where Kick shows it: a round arrow. */
+html[data-ka-ios] #send-message-button {
+    width: 32px;
+    height: 32px !important; /* also while Kick hides it (zero width) on phones */
+    padding: 0 !important;
+    border-radius: 50% !important;
+    font-size: 0 !important;
+    --ka-icon: var(--ka-icon-send);
+}
+
+html[data-ka-ios] #send-message-button::before {
+    width: 18px;
+    height: 18px;
+}
+
+/* Phones: Kick's Send button is zero wide (w-0) until you type, then slides in
+   at the end of the button row, which has no room for it. Ours: a round green
+   arrow inside the right end of the message box (free: the emote button is in
+   the row), placed from the bottom: row height + gap + 6px. */
+html[data-ka-ios] #chatroom-footer {
+    --ka-row-height: 40px;
+}
+
+html[data-ka-ios] #chatroom-footer div:has(> div > .ka-toolbar) {
+    position: relative;
+}
+
+html[data-ka-ios] #chatroom-footer button:has(> svg[data-ds-icon="Send"]) {
+    position: absolute !important;
+    right: 6px;
+    bottom: calc(var(--ka-row-height) + 8px);
+    z-index: 1;
+    height: 32px !important;
+    margin: 0 !important;
+    border-radius: 50% !important;
+    background: #53fc18 !important;
+    color: #000 !important;
+    --ka-icon: var(--ka-icon-send);
+}
+
+html[data-ka-ios] #chatroom-footer button:has(> svg[data-ds-icon="Send"]):not(.w-0) {
+    width: 32px !important;
+    min-width: 32px !important;
+}
+
+html[data-ka-ios] #chatroom-footer:has(svg[data-ds-icon="Send"]) #chat-input-wrapper {
+    padding-right: 42px !important;
+}
+
+html[data-ka-ios] #chatroom-footer button > svg[data-ds-icon="Send"] {
+    display: none !important;
+}
+
+html[data-ka-ios] #chatroom-footer button:has(> svg[data-ds-icon="Send"])::before {
+    content: "";
+    flex: 0 0 auto;
+    width: 18px;
+    height: 18px;
+    background: currentColor;
+    -webkit-mask: var(--ka-icon) center / contain no-repeat;
+    mask: var(--ka-icon) center / contain no-repeat;
+}
+
+/* "Show message box": a grabber, like the handle of an iOS sheet. */
+html[data-ka-ios] .ka-reveal {
+    position: relative;
+    height: 24px;
+    border-top: 0.5px solid rgba(255, 255, 255, 0.12);
+    background: rgba(28, 28, 30, 0.72);
+    font-size: 0;
+}
+
+html[data-ka-ios] .ka-reveal::before {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 36px;
+    height: 5px;
+    border-radius: 3px;
+    background: rgba(235, 235, 245, 0.45);
+    transform: translate(-50%, -50%);
+}
+
+/* Narrow chat (beside the video on a Mac, 340px): Kick's footer clips what
+   doesn't fit, and its left group (points, Kicks) stretches to the full row
+   there. The group keeps its own width and the row wraps rather than clip; in
+   the iOS style the buttons also get smaller below iPhone widths. */
+#chatroom-footer {
+    container-type: inline-size;
+}
+
+#chatroom-footer div:has(> .ka-toolbar):has(> .ml-auto) {
+    flex-wrap: wrap;
+    row-gap: 4px;
+}
+
+#chatroom-footer div:has(> .ka-toolbar) > :first-child:not(.ka-toolbar) {
+    width: auto !important;
+}
+
+#chatroom-footer div:has(> .ka-toolbar) > :first-child:not(.ka-toolbar) .w-full {
+    width: auto !important;
+}
+
+#chatroom-footer div:has(> .ka-toolbar) > :first-child:not(.ka-toolbar) > * {
+    flex-shrink: 0;
+}
+
+/* Phones (up to the widest iPhone): a bit smaller so one row fits. */
+@container (max-width: 440px) {
+    html[data-ka-ios] #chatroom-footer div:has(> div > .ka-toolbar) {
+        --ka-row-height: 36px;
+    }
+
+    html[data-ka-ios] #chatroom-footer div:has(> .ka-toolbar) > :first-child,
+    html[data-ka-ios] #chatroom-footer .ml-auto {
+        gap: 0 !important;
+    }
+
+    html[data-ka-ios] .ka-toolbar-button,
+    html[data-ka-ios] #chatroom-footer button:has(> svg[data-ds-icon="Settings"]),
+    html[data-ka-ios] #chatroom-footer [data-testid="gift-shop-button"] {
+        min-width: 36px !important;
+        width: 36px;
+        height: 36px !important;
+        padding: 0 !important;
+    }
+
+    html[data-ka-ios] #chatroom-footer [data-testid="channel-points-button"] {
+        height: 36px !important;
+        padding: 0 6px !important;
+        gap: 4px !important;
+    }
+
+    html[data-ka-ios] :is(.ka-proxy[data-kind], .ka-messages-button, .ka-collapse-button)::before,
+    html[data-ka-ios] #chatroom-footer button:has(> svg[data-ds-icon="Settings"])::before,
+    html[data-ka-ios] #chatroom-footer :is([data-testid="channel-points-button"], [data-testid="gift-shop-button"])::before {
+        width: 22px;
+        height: 22px;
+    }
+
+    html[data-ka-ios] #chatroom-footer [data-testid="channel-points-value"] {
+        font-size: 14px !important;
+    }
+
+    html[data-ka-ios] #chatroom-footer [data-testid="gift-shop-button"] > :not(svg) {
+        display: none !important;
+    }
+
+    html[data-ka-ios] .ka-7tv-button {
+        font-size: 12px;
+    }
+}
+
+@container (max-width: 370px) {
+    html[data-ka-ios] #chatroom-footer > div {
+        padding-left: 8px !important;
+        padding-right: 8px !important;
+    }
+
+    html[data-ka-ios] #chatroom-footer div:has(> .ka-toolbar) > *,
+    html[data-ka-ios] #chatroom-footer div:has(> .ka-toolbar) > :first-child,
+    html[data-ka-ios] #chatroom-footer .ml-auto {
+        gap: 0 !important;
+    }
+
+    html[data-ka-ios] .ka-toolbar-button,
+    html[data-ka-ios] #chatroom-footer button:has(> svg[data-ds-icon="Settings"]),
+    html[data-ka-ios] #chatroom-footer [data-testid="gift-shop-button"] {
+        min-width: 30px !important;
+        width: 30px;
+        height: 36px !important;
+        padding: 0 !important;
+    }
+
+    html[data-ka-ios] #chatroom-footer [data-testid="channel-points-button"] {
+        height: 36px !important;
+        padding: 0 4px !important;
+        gap: 3px !important;
+    }
+
+    html[data-ka-ios] :is(.ka-proxy[data-kind], .ka-messages-button, .ka-collapse-button)::before,
+    html[data-ka-ios] #chatroom-footer button:has(> svg[data-ds-icon="Settings"])::before,
+    html[data-ka-ios] #chatroom-footer :is([data-testid="channel-points-button"], [data-testid="gift-shop-button"])::before {
+        width: 20px;
+        height: 20px;
+    }
+
+    html[data-ka-ios] #chatroom-footer [data-testid="channel-points-value"] {
+        font-size: 13px !important;
+    }
+
+    html[data-ka-ios] #chatroom-footer [data-testid="gift-shop-button"] > :not(svg) {
+        display: none !important;
+    }
+
+    html[data-ka-ios] .ka-7tv-button {
+        font-size: 11px;
+    }
+}
+
+/* "↑ N missed messages" after the page slept (tap: jump to the first one). */
+.ka-catchup {
+    flex: 0 0 auto;
+    align-self: center;
+    margin: 4px auto;
+    padding: 6px 14px;
+    border: 0;
+    border-radius: 16px;
+    background: #53fc18;
+    color: #000;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+/* ---- Settings panel sections ---- */
+.ka-settings-section {
+    margin: 8px 0 2px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    opacity: 0.5;
+}
+
+/* ---- Native player (content.js) ----
+   Sits right before Kick's player, which is hidden while ours is mounted. The
+   stage keeps 16:9 and leaves room for the bar under it; in theatre mode and
+   fullscreen the player fills the height instead. */
+html[data-ka-player] #injected-channel-player {
+    display: none !important;
+}
+
+.ka-player {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    background: #000;
+    color: #fff;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+}
+
+.ka-player-stage {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    max-height: calc(100vh - var(--navbar-height, 0px) - var(--channel-info-height, 0px) - 44px);
+    max-height: calc(100dvh - var(--navbar-height, 0px) - var(--channel-info-height, 0px) - 44px);
+    cursor: pointer;
+}
+
+[data-theatre="true"] .ka-player,
+.ka-player:fullscreen,
+.ka-player:-webkit-full-screen {
+    height: 100%;
+}
+
+[data-theatre="true"] .ka-player-stage,
+.ka-player:fullscreen .ka-player-stage,
+.ka-player:-webkit-full-screen .ka-player-stage {
+    flex: 1;
+    min-height: 0;
+    aspect-ratio: auto;
+    max-height: none;
+}
+
+.ka-player-video {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    background: #000;
+}
+
+/* Audio only: the channel's picture over the (empty) video. */
+.ka-player-audio-card {
+    position: absolute;
+    inset: 0;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    pointer-events: none;
+}
+
+.ka-player[data-audio] .ka-player-audio-card {
+    display: flex;
+}
+
+.ka-player-avatar {
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.ka-player-avatar[hidden] {
+    display: none;
+}
+
+.ka-player-audio-label {
+    font-size: 13px;
+    opacity: 0.7;
+}
+
+.ka-player[data-waiting] .ka-player-stage::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 32px;
+    height: 32px;
+    margin: -16px 0 0 -16px;
+    border: 3px solid rgba(255, 255, 255, 0.25);
+    border-top-color: #53fc18;
+    border-radius: 50%;
+    animation: ka-spin 0.8s linear infinite;
+    pointer-events: none;
+}
+
+@keyframes ka-spin {
+    to { transform: rotate(360deg); }
+}
+
+.ka-player-unmute {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    padding: 6px 12px;
+    border: 0;
+    border-radius: 16px;
+    background: rgba(0, 0, 0, 0.7);
+    color: #fff;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.ka-player-unmute[hidden] {
+    display: none;
+}
+
+/* Control bar under the video. */
+.ka-player-bar {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 2px;
+    height: 44px;
+    padding: 0 6px;
+    background: #111;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    overflow: hidden;
+}
+
+.ka-player-button {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    border: 0;
+    border-radius: 8px;
+    background: none;
+    color: inherit;
+    cursor: pointer;
+}
+
+.ka-player-button:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.ka-player-button[hidden] {
+    display: none;
+}
+
+.ka-player-button:disabled {
+    opacity: 0.35;
+    cursor: default;
+}
+
+.ka-player-button[aria-pressed="true"] {
+    color: #53fc18;
+}
+
+.ka-player-icon {
+    width: 22px;
+    height: 22px;
+}
+
+.ka-player-slider {
+    flex: 0 1 80px;
+    min-width: 40px;
+    margin: 0 6px 0 0;
+    accent-color: #53fc18;
+    cursor: pointer;
+}
+
+.ka-player-slider[hidden] {
+    display: none;
+}
+
+.ka-player-live {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    height: 26px;
+    margin-left: 4px;
+    padding: 0 8px;
+    border: 0;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.1);
+    color: inherit;
+    font: inherit;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    cursor: pointer;
+}
+
+.ka-player-live::before {
+    content: "";
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #eb0400;
+}
+
+.ka-player-live[data-behind]::before {
+    background: rgba(255, 255, 255, 0.4);
+}
+
+.ka-player-live-delay {
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    opacity: 0.7;
+}
+
+.ka-player-live-delay:empty {
+    display: none;
+}
+
+.ka-player-live[data-behind] {
+    background: rgba(83, 252, 24, 0.2);
+}
+
+.ka-player-spacer {
+    flex: 1;
+}
+
+.ka-player-quality {
+    flex: 0 0 auto;
+    height: 28px;
+    margin-right: 4px;
+    padding: 0 10px;
+    border: 0;
+    -webkit-appearance: none;
+    appearance: none;
+    text-align: center;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.1);
+    color: inherit;
+    font: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.ka-player-quality option {
+    background: #1a1a1a;
+    color: #fff;
+}
+
+/* Phones: tighter, no volume slider (iOS only allows the hardware buttons). */
+@media (max-width: 480px) {
+    .ka-player-bar {
+        gap: 0;
+        padding: 0 2px;
+    }
+
+    .ka-player-button {
+        width: 34px;
+    }
+
+    .ka-player-slider {
+        display: none;
+    }
+
+    .ka-player-live {
+        padding: 0 6px;
+        font-size: 10px;
+    }
+
+    /* Room is tight: the dot and the delay are enough (grey dot = tap to go live). */
+    .ka-player-live:has(.ka-player-live-delay:not(:empty)) .ka-player-live-label {
+        display: none;
+    }
+
+    .ka-player-quality {
+        padding: 0 8px;
+    }
+
+    .ka-player-icon {
+        width: 20px;
+        height: 20px;
+    }
+}
+
+/* ---- Listen button (popout strip) ---- */
+.ka-listen-button {
+    padding: 0 6px;
+}
+
+.ka-listen-button .ka-player-icon {
+    width: 13px;
+    height: 13px;
+}
+
+.ka-listen-button[data-state="playing"] {
+    background: #53fc18;
+    color: #000;
+}
+
+.ka-listen-button[data-state="loading"],
+.ka-listen-button[data-state="paused"] {
+    background: rgba(83, 252, 24, 0.35);
+}
+
+.ka-listen-button[data-state="offline"] {
+    opacity: 0.4;
+}
+
+.ka-listen-button[data-flash] {
+    background: rgba(255, 255, 255, 0.35);
+}
+
+/* Phones: Kick's player box has an inline 16:9 height and hides overflow, which cut
+   our bar off; let it grow by the bar and take that from the channel content below.
+   While idle (content.js) the bar and Kick's channel info fold away, like Kick does. */
+html[data-ka-player] div[style*="56.25"]:has(> #injected-channel-player) {
+    height: auto !important;
+}
+
+html[data-ka-player]:has(div[style*="56.25"] > #injected-channel-player) #channel-content {
+    height: calc(100% - 56.25vw - 44px) !important;
+    height: calc(100% - 56.25dvw - 44px) !important;
+}
+
+html[data-ka-player][data-ka-player-idle]:has(div[style*="56.25"] > #injected-channel-player) #channel-content {
+    height: calc(100% - 56.25vw) !important;
+    height: calc(100% - 56.25dvw) !important;
+}
+
+html[data-ka-player-idle] .ka-player-bar {
+    height: 0;
+    border-top-width: 0;
+}
+
+.ka-player-bar {
+    transition: height 0.2s ease;
+}
+
+html[data-ka-player-idle] #channel-content > div[style*="height"] {
+    height: 0 !important;
+    overflow: hidden;
+}
+
+/* Kick folds it by itself only while ITS player plays (Framer Motion inline height);
+   with ours, our idle state decides. */
+html[data-ka-player]:not([data-ka-player-idle]) #channel-content > div[style*="height"] {
+    height: auto !important;
+}
+
+/* ---- Compact channel info (channel pages, content.js) ----
+   Kick's channel block under the video (avatar, name, title, buttons, viewers) is
+   hidden but stays mounted: the strip above the chat shows the channel and copies of
+   its buttons, which press Kick's. It's invisible rather than display:none: Kick's
+   subscribe/bell popovers are placed next to their button, which content.js moves
+   under our copy before pressing it. */
+html[data-ka-channel-strip] #channel-content > :has(#channel-username) {
+    display: block !important;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 1px !important;
+    height: 0 !important;
+    overflow: visible !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+}
+
+.ka-channel {
+    display: none;
+    flex: 0 1 auto;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+}
+
+.ka-settings[data-channel] .ka-channel {
+    display: flex;
+}
+
+.ka-settings[data-channel] .ka-settings-title {
+    display: none;
+}
+
+.ka-channel-avatar {
+    flex: 0 0 auto;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.ka-channel-avatar[hidden] {
+    display: none;
+}
+
+.ka-channel-name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 13px;
+    font-weight: 700;
+    color: #fff;
+}
+
+.ka-channel-actions {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 4px;
+    margin-right: 8px;
+}
+
+.ka-channel-actions[hidden] {
+    display: none;
+}
+
+.ka-channel-actions .ka-channel-action {
+    justify-content: center;
+    min-width: 26px;
+    margin-right: 0;
+    padding: 0 6px;
+}
+
+.ka-channel-action svg {
+    width: 13px;
+    height: 13px;
+}
+
+.ka-channel-action[data-kind="sub"] {
+    background: #53fc18;
+    color: #000;
+}
+
+.ka-channel-action:disabled {
+    opacity: 0.4;
+}
+
+.ka-stream-category {
+    color: #53fc18;
+    text-decoration: none;
+}
+
+/* Channel page on a phone: the stream title gives way to the buttons. */
+@media (max-width: 480px) {
+    .ka-settings[data-channel] .ka-stream-title {
+        display: none;
+    }
+}
+
+/* ---- Sleep timer (player bar and popout strip, content.js) ----
+   A moon icon with an invisible native menu over it (iOS shows its own picker);
+   green with the minutes left while set. */
+.ka-sleep {
+    position: relative;
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    min-width: 36px;
+    height: 36px;
+    padding: 0 6px;
+    border-radius: 8px;
+    color: inherit;
+    cursor: pointer;
+}
+
+.ka-sleep[hidden] {
+    display: none;
+}
+
+.ka-sleep:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.ka-sleep[data-active] {
+    color: #53fc18;
+}
+
+.ka-sleep .ka-player-icon {
+    width: 20px;
+    height: 20px;
+}
+
+.ka-sleep-left {
+    font-size: 11px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+
+.ka-sleep-left:empty {
+    display: none;
+}
+
+.ka-sleep-select {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    cursor: pointer;
+    font-size: 16px; /* iOS zooms into smaller fields */
+}
+
+/* Popout strip: small, like the other strip buttons. */
+.ka-listen-sleep {
+    min-width: 0;
+    height: 22px;
+    margin-right: 8px;
+    padding: 0 6px;
+    border-radius: 11px;
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.ka-listen-sleep .ka-player-icon {
+    width: 12px;
+    height: 12px;
+}
+
+.ka-listen-sleep[data-active] {
+    background: rgba(83, 252, 24, 0.2);
+}
+
+/* Phones: no room for the minutes in the player bar (green moon = set). */
+@media (max-width: 480px) {
+    .ka-player-bar .ka-sleep {
+        min-width: 34px;
+        padding: 0;
+    }
+
+    .ka-player-bar .ka-sleep-left {
+        display: none;
+    }
+}

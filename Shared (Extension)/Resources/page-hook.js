@@ -1,0 +1,3143 @@
+// Runs in the page's own JS world (injected by content.js) because content
+// scripts can't see React's data. Kick's chat is a TanStack virtualized list
+// whose rows carry no message id in the DOM, but each row's React props hold the
+// full message ({ id, content, sender }). We use that to:
+//   - restore the original text of messages replaced with "Deleted by a moderator",
+//     and show again the messages Kick removes when someone is timed out or banned
+//   - add link previews (images, YouTube, X, TikTok, Kick clips, Instagram)
+//   - show 7TV emotes (global + the channel's set), with a tap card (name, copy,
+//     insert), autocomplete and a picker
+//   - saved messages ("pastas"): a list to insert from, saved from chat or typed
+//   - highlights (also collected in the mentions inbox, stored by content.js),
+//     and a mute list (muted users' messages collapse to one line)
+//   - chat search: the last 1000 messages are kept in memory (read from Kick's own
+//     message list, so also ones never drawn); content.js shows the search UI
+//   - jump to a message (from the inbox or search) while Kick still lists it
+//   - 7TV name paints and badges
+//   - replies: tapping "Replying to…" jumps to the original (or shows it if gone)
+//   - optionally hide messages that are only emotes (Kick and 7TV)
+//   - repeated messages: a run of identical messages shows once, with ×N
+//
+// Each feature follows an html attribute set by content.js from the user's settings.
+(() => {
+  if (window.__kickoffHook) return;
+  window.__kickoffHook = true;
+
+  const RESTORE_ATTR = 'data-ka-restore';
+  const PREVIEWS_ATTR = 'data-ka-link-previews';
+  const FONT_SIZE_ATTR = 'data-ka-font-size';
+  const CHAT_FONT_ATTR = 'data-ka-font'; // a different font changes row heights too
+  const SEVENTV_ATTR = 'data-ka-7tv';
+  const MESSAGES_ATTR = 'data-ka-messages';
+  const HIGHLIGHT_ATTR = 'data-ka-highlights';
+  const HIGHLIGHT_WORDS_ATTR = 'data-ka-highlight-words';
+  const STREAMER_ATTR = 'data-ka-streamer';
+  const HIDE_WORDS_ATTR = 'data-ka-hide-words';
+  const MUTE_ATTR = 'data-ka-mute';
+  const MUTED_USERS_ATTR = 'data-ka-muted-users';
+  const REPEATS_ATTR = 'data-ka-repeats';
+  const LIST_SELECTOR = '#chatroom-messages';
+  const ROW_SELECTOR = '[data-index]';
+  const DELETED_TEXT = 'Deleted by a moderator'; // fallback only, see findDeletedLabel
+  const HISTORY_LIMIT = 1000; // messages kept in memory (search, deleted-message restore); Kick keeps 300
+  const PREVIEW_CACHE_LIMIT = 200;
+  const MAX_PREVIEWS_PER_MESSAGE = 2;
+  const LIST_POLL_MS = 1500;
+  const BATCH_MS = 50;
+  const EMOTE_TOKEN = /\[emote:(\d+):([^\]]*)\]/g;
+  const ZERO_WIDTH_FLAG = 1 << 8; // 7TV emote data flag: overlay on the previous emote
+  const TAG_CHARS = /[\u{E0000}-\u{E007F}]/gu; // invisible chars other clients append
+
+  const history = new Map(); // message id -> { id, content, username, at, channel }, oldest first
+
+  // ---- Ads in Kick's own player ----------------------------------------------------
+  // Kick's player asks web.kick.com/api/v1/stream/{id}/playback (POST) for its stream
+  // link and which SDKs to start. That "live" link carries Amazon IVS ad parameters
+  // (ads stitched into the stream); the link from /api/v2/channels/{slug} (also used by
+  // our native player) has an ads opt-out instead. With the setting on, the answer is
+  // rewritten: the opt-out link (or none, so Kick falls back to its "dvr" link), auto
+  // ads off, and the ad and analytics SDKs (Google IMA, PAL, Datazoom, Mux) not started.
+  // Only for requests made after this script loads (it comes in at document_idle).
+
+  const BLOCK_ADS_ATTR = 'data-ka-block-ads';
+  const PLAYBACK_REQUEST = /^https:\/\/web\.kick\.com\/api\/v1\/stream\/[^/?#]+\/playback(?:[?#]|$)/;
+  const PLAYER_SDKS = ['google_ads_sdk', 'pal_sdk', 'datazoom_sdk', 'mux_sdk'];
+  const nativeFetch = window.fetch;
+  let adsRemoved = 0; // player answers rewritten (status line)
+
+  window.fetch = function (input, init) {
+    const response = nativeFetch.apply(this, arguments);
+    const url = typeof input === 'string' ? input : input?.url || String(input);
+    if (!document.documentElement.hasAttribute(BLOCK_ADS_ATTR) || !PLAYBACK_REQUEST.test(url)) return response;
+    return response.then(original => withoutPlayerAds(original, init?.body));
+  };
+
+  function requestSlug(body) {
+    try {
+      const slug = JSON.parse(body)?.video_session?.url_path;
+      if (typeof slug === 'string' && /^[\w-]{1,64}$/.test(slug)) return slug.toLowerCase();
+    } catch (err) { /* not JSON */ }
+    return channelSlug();
+  }
+
+  async function adFreeLink(slug) {
+    if (!slug) return null;
+    try {
+      const response = await nativeFetch(`/api/v2/channels/${encodeURIComponent(slug)}`, { headers: { Accept: 'application/json' } });
+      const link = response.ok ? (await response.json())?.playback_url : null;
+      return typeof link === 'string' && link.startsWith('https://') ? link : null;
+    } catch (err) {
+      return null;
+    }
+  }
+
+  async function withoutPlayerAds(response, body) {
+    if (!response.ok) return response;
+    try {
+      const data = await response.clone().json();
+      const sdks = data?.video_player;
+      for (const key of PLAYER_SDKS) {
+        if (sdks?.[key]) sdks[key] = { ...sdks[key], sdk_available: false, initiate_sdk: false };
+      }
+      if (data?.video_session) data.video_session.auto_ads_enabled = false;
+      if (data?.playback_url?.live) data.playback_url.live = await adFreeLink(requestSlug(body));
+      const headers = new Headers(response.headers);
+      headers.delete('content-length');
+      headers.delete('content-encoding');
+      adsRemoved++;
+      return new Response(JSON.stringify(data), { status: response.status, statusText: response.statusText, headers });
+    } catch (err) {
+      lastError = `player ads: ${err?.message || err}`;
+      return response;
+    }
+  }
+
+  let list = null;
+  let listObserver = null;
+  let scheduled = false;
+
+  const restoreEnabled = () => document.documentElement.hasAttribute(RESTORE_ATTR);
+  const previewsEnabled = () => document.documentElement.hasAttribute(PREVIEWS_ATTR);
+  const sevenTvEnabled = () => document.documentElement.hasAttribute(SEVENTV_ATTR);
+  const messagesEnabled = () => document.documentElement.hasAttribute(MESSAGES_ATTR);
+  const highlightsEnabled = () => document.documentElement.hasAttribute(HIGHLIGHT_ATTR);
+  const streamerEnabled = () => document.documentElement.hasAttribute(STREAMER_ATTR);
+  const muteEnabled = () => document.documentElement.hasAttribute(MUTE_ATTR);
+  const repeatsEnabled = () => document.documentElement.hasAttribute(REPEATS_ATTR);
+
+  function remember(message) {
+    if (history.has(message.id)) return;
+    history.set(message.id, {
+      id: message.id,
+      content: message.content,
+      username: message.sender?.username || '',
+      at: Date.parse(message.created_at) || Date.now(),
+      channel: channelSlug()
+    });
+    if (history.size > HISTORY_LIMIT) {
+      history.delete(history.keys().next().value);
+    }
+  }
+
+  function rowFiber(row) {
+    const key = Object.keys(row).find(k => k.startsWith('__reactFiber'));
+    return key ? row[key] : null;
+  }
+
+  // The row element's React fiber has the chat entry a level or two below it.
+  function readMessage(row) {
+    let fiber = rowFiber(row);
+    for (let depth = 0; fiber && depth < 6; depth++, fiber = fiber.child) {
+      const props = fiber.memoizedProps;
+      const message = props?.chatEntry?.data || props?.message;
+      if (message?.id && 'content' in message) return message;
+    }
+    return null;
+  }
+
+  // Rows are absolutely positioned at measured offsets. After we change a row's
+  // height, call the virtualizer's measure ref so rows below move instead of overlapping.
+  function remeasure(row) {
+    const ref = rowFiber(row)?.ref;
+    if (typeof ref === 'function' && row.isConnected) {
+      try { ref(row); } catch (err) { /* virtualizer internals changed */ }
+    }
+  }
+
+  // Kick's whole message list (last 300, oldest first) is a prop of the component
+  // around #chatroom-messages; only ~30 of them are drawn as rows. React keeps two
+  // copies of each fiber (current and alternate), so take the newer list.
+  let harvested = null;
+
+  function kickMessages() {
+    const owner = list && rowFiber(list)?.return;
+    const newest = messages => (Array.isArray(messages) && messages.length
+      ? Date.parse(messages[messages.length - 1]?.data?.created_at) || 0
+      : -1);
+    const lists = [owner?.memoizedProps?.messages, owner?.alternate?.memoizedProps?.messages];
+    const best = lists.sort((a, b) => newest(b) - newest(a))[0];
+    return Array.isArray(best) ? best : null;
+  }
+
+  function harvest() {
+    const messages = kickMessages();
+    if (!messages || messages === harvested) return;
+    const previous = harvested;
+    harvested = messages;
+    for (const entry of messages) {
+      if (entry?.data?.id && typeof entry.data.content === 'string') remember(entry.data);
+    }
+    noteSeen(messages);
+    if (previous && restoreEnabled()) guarded('removed', () => findRemoved(previous, messages));
+  }
+
+  // ---- Search (UI in content.js) -----------------------------------------------
+  // Words must all appear (any case, Polish letters folded: "zolw" finds "żółw");
+  // "from:name" keeps messages from users whose name starts with name.
+
+  const SEARCH_LIMIT = 100;
+
+  function fold(text) {
+    return text.normalize('NFD').replace(/\p{M}/gu, '').replace(/ł/g, 'l').replace(/Ł/g, 'L').toLowerCase();
+  }
+
+  function searchHistory(query) {
+    guarded('history', harvest);
+    let from = '';
+    const words = [];
+    for (const part of String(query || '').trim().split(/\s+/)) {
+      const match = part.match(/^from:@?(.*)$/i);
+      if (match) from = fold(match[1]);
+      else if (part) words.push(fold(part));
+    }
+    const slug = channelSlug();
+    const entries = [...history.values()]
+      .filter(entry => entry.channel === slug && !(muteEnabled() && isMuted(entry.username)))
+      .sort((a, b) => a.at - b.at);
+    const results = [];
+    if (from || words.length) {
+      for (let i = entries.length - 1; i >= 0 && results.length < SEARCH_LIMIT; i--) {
+        const entry = entries[i];
+        if (from && !fold(entry.username).startsWith(from)) continue;
+        const text = fold(plainText(entry.content).replace(TAG_CHARS, ''));
+        if (words.every(word => text.includes(word))) results.push(entry);
+      }
+    }
+    return { results, total: entries.length, since: entries[0]?.at || null };
+  }
+
+  // ---- Jump to a message ---------------------------------------------------------
+  // Kick's chat is a TanStack virtualizer (a hook state of a component above the
+  // list); its item keys are Kick's entry ids, "<n>-<message id>", plus extras such
+  // as "divider". Kick's own scrollToIndex wrapper sometimes only queues the
+  // request, and the virtualizer's scrolling waits for animation frames, so we
+  // set scrollTop ourselves and correct it once the row is drawn.
+
+  const JUMP_PASSES = 8;
+  const JUMP_PASS_MS = 120;
+  const JUMP_FLASH_MS = 2200;
+
+  function chatVirtualizer() {
+    let fiber = list && rowFiber(list);
+    for (let depth = 0; fiber && depth < 12; depth++, fiber = fiber.return) {
+      for (let hook = fiber.memoizedState, n = 0; hook && n < 60; hook = hook.next, n++) {
+        for (const value of [hook.memoizedState, hook.memoizedState?.current]) {
+          if (value && typeof value === 'object' && typeof value.options?.getItemKey === 'function'
+            && typeof value.scrollToIndex === 'function' && !('scrollToBottom' in value)) return value;
+        }
+      }
+    }
+    return null;
+  }
+
+  function itemIndex(virtualizer, id) {
+    for (let i = virtualizer.options.count - 1; i >= 0; i--) {
+      const key = virtualizer.options.getItemKey(i);
+      if (typeof key === 'string' && (key === id || key.endsWith(`-${id}`))) return i;
+    }
+    return -1;
+  }
+
+  const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+  // Scrolls the chat so the message is centred; returns the row, or null.
+  async function scrollToMessage(id) {
+    let row = null;
+    for (let pass = 0; pass < JUMP_PASSES; pass++) {
+      const virtualizer = chatVirtualizer();
+      let index = virtualizer ? itemIndex(virtualizer, id) : -1;
+      if (index < 0) return null; // trimmed from Kick's list meanwhile
+      row = list.querySelector(`${ROW_SELECTOR}[data-index="${index}"]`);
+      // A hidden copy in a run of repeats: go to the run's visible (last) row.
+      while (row?.hasAttribute('data-ka-dup') || row?.hasAttribute('data-ka-hidden-row')) {
+        index++;
+        row = list.querySelector(`${ROW_SELECTOR}[data-index="${index}"]`);
+      }
+      if (!row) {
+        const offset = virtualizer.getOffsetForIndex?.(index, 'center')?.[0]
+          ?? (virtualizer.measurementsCache?.[index]?.start ?? 0) - list.clientHeight / 2;
+        list.scrollTop = Math.max(0, offset);
+      } else {
+        const box = list.getBoundingClientRect();
+        const rect = row.getBoundingClientRect();
+        const delta = rect.top + rect.height / 2 - (box.top + box.height / 2);
+        if (Math.abs(delta) < 4) break;
+        list.scrollTop += delta;
+      }
+      await sleep(JUMP_PASS_MS);
+    }
+    return row?.isConnected ? row : null;
+  }
+
+  function flashRow(row) {
+    const id = row.dataset.kaId;
+    row.removeAttribute('data-ka-jump');
+    void row.offsetWidth; // restart the animation
+    row.setAttribute('data-ka-jump', '');
+    setTimeout(() => {
+      if (row.dataset.kaId === id) row.removeAttribute('data-ka-jump');
+    }, JUMP_FLASH_MS);
+  }
+
+  // Answers right away (found or not), so content.js can close its panel before
+  // the chat scrolls; then scrolls once that has happened.
+  function jumpTo(id, requestId) {
+    const virtualizer = chatVirtualizer();
+    const found = Boolean(list && virtualizer && itemIndex(virtualizer, id) >= 0);
+    sendToExtension('jump:result', { requestId, id, found, reason: !virtualizer ? 'unavailable' : found ? '' : 'gone' });
+    if (!found) return;
+    setTimeout(() => {
+      scrollToMessage(id).then(row => {
+        if (row) flashRow(row);
+      }).catch(err => {
+        lastError = `jump: ${err?.message || err}`;
+      });
+    }, 80);
+  }
+
+  // ---- Deleted messages ------------------------------------------------------
+
+  // Kick marks deletions in the message data, not just the text: ui_metadata.deleted
+  // is "user_deleted" for viewers who can't moderate (the text is replaced by a
+  // label) and "mod_deleted" / "mod_ban" / "mod_timeout" for moderators (text kept,
+  // struck through). The content stays in the data. So the label is found by its
+  // place (inside the message text span), whatever language or wording it has;
+  // the English text is only a fallback in case Kick drops ui_metadata.
+  function findDeletedLabel(row, message) {
+    if (message?.ui_metadata?.deleted === 'user_deleted') {
+      const text = row.querySelector('span[aria-hidden="true"] + span');
+      const label = text && [...text.querySelectorAll('span'), text]
+        .find(span => !span.firstElementChild && !span.closest('[data-ka-restored]') && span.textContent.trim());
+      if (label) return label;
+    }
+    for (const span of row.querySelectorAll('span')) {
+      if (!span.firstElementChild && span.textContent.trim() === DELETED_TEXT) return span;
+    }
+    return null;
+  }
+
+  // Message content is user input: build nodes, never innerHTML.
+  function renderContent(content) {
+    const fragment = document.createDocumentFragment();
+    let last = 0;
+    for (const match of content.matchAll(EMOTE_TOKEN)) {
+      if (match.index > last) appendText(fragment, content.slice(last, match.index));
+      const img = document.createElement('img');
+      img.src = `https://files.kick.com/emotes/${match[1]}/fullsize`;
+      img.alt = match[2];
+      img.className = 'ka-emote';
+      fragment.append(img);
+      last = match.index + match[0].length;
+    }
+    if (last < content.length) appendText(fragment, content.slice(last));
+    return fragment;
+  }
+
+  function appendText(parent, text) {
+    if (sevenTvEnabled() && emotes.size) appendEmoteText(parent, text);
+    else parent.append(text);
+  }
+
+  function clearRestore(row) {
+    row.querySelectorAll('[data-ka-restored]').forEach(node => node.remove());
+    row.querySelectorAll('[data-ka-hidden]').forEach(node => node.removeAttribute('data-ka-hidden'));
+    row.removeAttribute('data-ka-deleted');
+  }
+
+  // ---- Timeouts and bans --------------------------------------------------------------
+  // For viewers who can't moderate, Kick removes every message of a timed-out or
+  // banned user from its list (moderators see them struck through). We notice that
+  // when comparing Kick's list with the previous one (harvest): messages of one
+  // sender gone from the middle, not just the oldest dropping off. Their text is in
+  // our memory, so each is shown again where it was, attached under the message
+  // before it (like link previews). The reason comes from Kick's own
+  // UserBannedEvent, which we also listen to; without it the tag says "removed".
+
+  const REMOVED_MAX = 100;          // more at once = not a timeout (e.g. clear chat)
+  const BAN_REASON_MS = 10 * 1000;  // how long a ban event explains a removal
+  const ghosts = new Map();         // message id -> removed messages shown under it
+  const banReasons = new Map();     // Kick user id -> { reason, at }
+  let banScope = null;
+  let banUnsubscribe = null;
+
+  // Kick's realtime store (its getState is in a useMemo dependency list above the
+  // chat): { scope: 'chatrooms.<id>.v2', handle: { subscribe(scope, event, cb) } }.
+  function chatRealtime() {
+    let fiber = list && rowFiber(list);
+    for (let depth = 0; fiber && depth < 80; depth++, fiber = fiber.return) {
+      for (let hook = fiber.memoizedState, n = 0; hook && n < 80; hook = hook.next, n++) {
+        const deps = Array.isArray(hook.memoizedState) && Array.isArray(hook.memoizedState[1]) ? hook.memoizedState[1] : null;
+        for (const candidate of deps || []) {
+          if (typeof candidate !== 'function' || candidate.length > 0) continue;
+          try {
+            const state = candidate();
+            if (typeof state?.scope === 'string' && typeof state.handle?.subscribe === 'function') return state;
+          } catch (err) { /* not it */ }
+        }
+      }
+    }
+    return null;
+  }
+
+  function listenForBans() {
+    if (!restoreEnabled() || !list) return;
+    const realtime = chatRealtime();
+    if (!realtime || realtime.scope === banScope) return;
+    banUnsubscribe?.();
+    banScope = realtime.scope;
+    const unsubscribe = realtime.handle.subscribe(banScope, 'App\\Events\\UserBannedEvent', event => {
+      if (event?.user?.id == null) return;
+      banReasons.set(String(event.user.id), { reason: event.expires_at ? 'timed out' : 'banned', at: Date.now() });
+    });
+    banUnsubscribe = typeof unsubscribe === 'function' ? unsubscribe : null;
+  }
+
+  // previous/next: Kick's entry lists (oldest first) before and after a change.
+  function findRemoved(previous, next) {
+    const nextIds = new Set(next.map(entry => entry.id));
+    const firstKept = previous.findIndex(entry => nextIds.has(entry.id));
+    if (firstKept < 0) return; // a different list (channel switch, clear chat)
+    let lastKept = previous.length - 1;
+    while (lastKept > firstKept && !nextIds.has(previous[lastKept].id)) lastKept--;
+    const removed = [];
+    for (let i = firstKept + 1; i < previous.length; i++) {
+      const entry = previous[i];
+      if (!nextIds.has(entry.id) && entry.type === 'message' && entry.data?.id && entry.data.sender?.id != null) removed.push(i);
+    }
+    if (!removed.length || removed.length > REMOVED_MAX) return;
+    const senderId = previous[removed[0]].data.sender.id;
+    if (removed.some(i => previous[i].data.sender.id !== senderId)) return; // not one user's timeout
+    const ban = banReasons.get(String(senderId));
+    const banned = Boolean(ban && Date.now() - ban.at < BAN_REASON_MS);
+    const reason = banned ? ban.reason : 'removed';
+    // Your own message being replaced (sent → confirmed) also leaves the list.
+    const replaced = entry => next.some(other => other.data?.sender?.id === senderId && other.data?.content === entry.data.content);
+    for (const i of removed) {
+      const entry = previous[i];
+      // Gone from the very end without a ban event: more likely an older copy of
+      // Kick's list than a removal, so leave it.
+      if (replaced(entry) || (i > lastKept && !banned)) continue;
+      let j = i - 1;
+      while (j >= 0 && !(nextIds.has(previous[j].id) && previous[j].type === 'message' && previous[j].data?.id)) j--;
+      if (j < 0) continue;
+      const anchorId = previous[j].data.id;
+      const shown = ghosts.get(anchorId) || [];
+      if (shown.some(ghost => ghost.id === entry.data.id)) continue;
+      shown.push({
+        id: entry.data.id,
+        username: entry.data.sender.username || '',
+        content: history.get(entry.data.id)?.content ?? entry.data.content ?? '',
+        reason
+      });
+      ghosts.set(anchorId, shown);
+      if (ghosts.size > HISTORY_LIMIT) ghosts.delete(ghosts.keys().next().value);
+    }
+    schedule();
+  }
+
+  function clearGhosts(row) {
+    row.querySelectorAll('.ka-ghosts').forEach(node => node.remove());
+  }
+
+  function applyGhosts(row, message) {
+    const shown = restoreEnabled() ? ghosts.get(message.id) : null;
+    const existing = row.querySelector('.ka-ghosts');
+    if (!shown?.length) {
+      if (existing) {
+        existing.remove();
+        remeasure(row);
+      }
+      return;
+    }
+    if (existing?.dataset.count === String(shown.length)) return;
+    existing?.remove();
+    const box = el('div', 'ka-ghosts');
+    box.dataset.count = String(shown.length);
+    for (const ghost of shown) {
+      const line = el('div', 'ka-ghost');
+      line.append(el('span', 'ka-ghost-name', ghost.username), ': ', renderContent(ghost.content));
+      const tag = el('span', 'ka-deleted-tag', ghost.reason);
+      line.append(tag);
+      box.append(line);
+    }
+    (row.firstElementChild || row).append(box);
+    remeasure(row);
+  }
+
+  // Returns the original content if the row shows a deleted message.
+  function restoreDeleted(row, message) {
+    const label = findDeletedLabel(row, message);
+    if (!label) {
+      if (row.hasAttribute('data-ka-deleted')) clearRestore(row);
+      return message.content;
+    }
+
+    const original = history.get(message.id)?.content ?? message.content;
+    if (!original || row.querySelector(`[data-ka-restored="${CSS.escape(message.id)}"]`)) {
+      return original;
+    }
+
+    const restored = document.createElement('span');
+    restored.setAttribute('data-ka-restored', message.id);
+    restored.append(renderContent(original));
+
+    const tag = document.createElement('span');
+    tag.className = 'ka-deleted-tag';
+    tag.textContent = 'deleted';
+    restored.append(tag);
+
+    label.setAttribute('data-ka-hidden', '');
+    label.after(restored);
+    row.setAttribute('data-ka-deleted', '');
+    remeasure(row);
+    return original;
+  }
+
+  // ---- Link previews ---------------------------------------------------------
+
+  const previewCache = new Map(); // normalized url -> Promise<preview | null>
+
+  const URL_CANDIDATE = /(?:https?:\/\/)?(?:[a-z0-9-]+\.)+[a-z]{2,}(?:\/[^\s]*)?/gi;
+  const IMAGE_PATH = /\.(jpe?g|png|gif|webp|avif)$/i;
+
+  const hostIs = (url, ...hosts) =>
+    hosts.some(host => url.hostname === host || url.hostname.endsWith('.' + host));
+
+  // Kick's own API gets the page's cookies (Cloudflare may refuse requests
+  // without them); other sites get none.
+  async function getJson(url) {
+    const sameSite = url.startsWith(location.origin);
+    const response = await fetch(url, { credentials: sameSite ? 'same-origin' : 'omit' });
+    if (!response.ok) throw new Error(`${response.status} ${url}`);
+    return response.json();
+  }
+
+  // Each provider returns a loader for URLs it handles, or null.
+  // A loader resolves to { kind: 'image', src } or
+  // { kind: 'card', site, title, text, thumb }.
+  const providers = [
+    function image(url) {
+      if (!IMAGE_PATH.test(url.pathname)) return null;
+      return async () => ({ kind: 'image', src: url.href });
+    },
+
+    function youtube(url) {
+      let id = null;
+      if (hostIs(url, 'youtu.be')) id = url.pathname.slice(1).split('/')[0];
+      else if (hostIs(url, 'youtube.com')) {
+        id = url.searchParams.get('v') || url.pathname.match(/^\/(?:shorts|live|embed)\/([\w-]+)/)?.[1];
+      }
+      if (!id || !/^[\w-]{6,}$/.test(id)) return null;
+
+      return async () => {
+        const card = { kind: 'card', site: 'YouTube', title: '', text: '', thumb: `https://i.ytimg.com/vi/${id}/hqdefault.jpg` };
+        try {
+          const watchUrl = `https://www.youtube.com/watch?v=${id}`;
+          const data = await getJson(`https://www.youtube.com/oembed?format=json&url=${encodeURIComponent(watchUrl)}`);
+          card.title = data.title || '';
+          card.site = data.author_name ? `YouTube · ${data.author_name}` : 'YouTube';
+        } catch (err) { /* thumbnail alone is still useful */ }
+        return card;
+      };
+    },
+
+    function x(url) {
+      if (!hostIs(url, 'x.com', 'twitter.com', 'fxtwitter.com', 'vxtwitter.com', 'fixupx.com')) return null;
+      const match = url.pathname.match(/^\/(\w+)\/status(?:es)?\/(\d+)/);
+      if (!match) return null;
+
+      return async () => {
+        const { tweet } = await getJson(`https://api.fxtwitter.com/${match[1]}/status/${match[2]}`);
+        const media = tweet.media?.all?.[0];
+        const thumb = media?.thumbnail_url || (media?.type === 'photo' ? media.url.replace('name=orig', 'name=small') : '');
+        return {
+          kind: 'card',
+          site: `X · ${tweet.author?.name || ''} @${tweet.author?.screen_name || match[1]}`,
+          title: '',
+          text: tweet.text || '',
+          thumb
+        };
+      };
+    },
+
+    function tiktok(url) {
+      if (!hostIs(url, 'tiktok.com')) return null;
+      if (!/\/video\/\d+|\/photo\/\d+/.test(url.pathname) && !hostIs(url, 'vm.tiktok.com', 'vt.tiktok.com')) return null;
+
+      return async () => {
+        const data = await getJson(`https://www.tiktok.com/oembed?url=${encodeURIComponent(url.href)}`);
+        return {
+          kind: 'card',
+          site: data.author_name ? `TikTok · ${data.author_name}` : 'TikTok',
+          title: '',
+          text: data.title || '',
+          thumb: data.thumbnail_url || ''
+        };
+      };
+    },
+
+    function kickClip(url) {
+      if (!hostIs(url, 'kick.com')) return null;
+      const id = url.pathname.match(/\/clips\/(clip_\w+)/)?.[1] || url.searchParams.get('clip');
+      if (!id || !/^clip_\w+$/.test(id)) return null;
+
+      return async () => {
+        const { clip } = await getJson(`https://kick.com/api/v2/clips/${id}`);
+        const channel = clip.channel?.username || clip.channel?.slug;
+        return {
+          kind: 'card',
+          site: channel ? `Kick clip · ${channel}` : 'Kick clip',
+          title: clip.title || '',
+          text: clip.views != null ? `${Number(clip.views).toLocaleString()} views` : '',
+          thumb: clip.thumbnail_url || ''
+        };
+      };
+    },
+
+    // Instagram has no public preview API; show a labelled link card.
+    function instagram(url) {
+      if (!hostIs(url, 'instagram.com')) return null;
+      const match = url.pathname.match(/^\/(?:([\w.]+)\/)?(p|reels?|tv|stories)\/([\w-]+)/);
+      if (!match) return null;
+      const kind = match[2] === 'p' ? 'Post' : match[2] === 'stories' ? 'Story' : 'Reel';
+
+      return async () => ({
+        kind: 'card',
+        site: 'Instagram',
+        title: match[1] ? `${kind} by @${match[1]}` : kind,
+        text: '',
+        thumb: ''
+      });
+    }
+  ];
+
+  function findLinks(content) {
+    const links = [];
+    const seen = new Set();
+    for (const [raw] of content.replace(EMOTE_TOKEN, ' ').matchAll(URL_CANDIDATE)) {
+      let url;
+      try {
+        url = new URL(/^https?:\/\//i.test(raw) ? raw : `https://${raw}`);
+      } catch (err) {
+        continue;
+      }
+      url.hash = '';
+      url.pathname = url.pathname.replace(/[).,!?\]]+$/, '');
+      if (seen.has(url.href)) continue;
+
+      for (const provider of providers) {
+        const load = provider(url);
+        if (load) {
+          seen.add(url.href);
+          links.push({ url, load });
+          break;
+        }
+      }
+      if (links.length >= MAX_PREVIEWS_PER_MESSAGE) break;
+    }
+    return links;
+  }
+
+  function getPreview({ url, load }) {
+    if (!previewCache.has(url.href)) {
+      previewCache.set(url.href, load().catch(err => {
+        console.debug('Kickoff: no preview for', url.href, err);
+        return null;
+      }));
+      if (previewCache.size > PREVIEW_CACHE_LIMIT) {
+        previewCache.delete(previewCache.keys().next().value);
+      }
+    }
+    return previewCache.get(url.href);
+  }
+
+  function el(tag, className, text) {
+    const node = document.createElement(tag);
+    if (className) node.className = className;
+    if (text) node.textContent = text;
+    return node;
+  }
+
+  // Fixed-size media boxes keep the row height stable while images load.
+  function renderPreview(url, preview) {
+    const link = el('a', `ka-preview ka-preview--${preview.kind}`);
+    link.href = url.href;
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    link.setAttribute('data-prevent-expand', 'true');
+
+    if (preview.kind === 'image') {
+      const img = el('img', 'ka-preview-image');
+      img.src = preview.src;
+      img.alt = '';
+      img.loading = 'lazy';
+      link.append(img);
+      return link;
+    }
+
+    if (preview.thumb) {
+      const img = el('img', 'ka-preview-thumb');
+      img.src = preview.thumb;
+      img.alt = '';
+      img.loading = 'lazy';
+      link.append(img);
+    }
+    const body = el('span', 'ka-preview-body');
+    body.append(el('span', 'ka-preview-site', preview.site));
+    if (preview.title) body.append(el('span', 'ka-preview-title', preview.title));
+    if (preview.text) body.append(el('span', 'ka-preview-text', preview.text));
+    link.append(body);
+    return link;
+  }
+
+  function clearPreviews(row) {
+    row.querySelectorAll('[data-ka-previews]').forEach(node => node.remove());
+  }
+
+  function addPreviews(row, messageId, content) {
+    if (!content || row.querySelector(`[data-ka-previews="${CSS.escape(messageId)}"]`)) return;
+    const links = findLinks(content);
+    if (!links.length) return;
+
+    const container = el('div', 'ka-previews');
+    container.setAttribute('data-ka-previews', messageId);
+    (row.firstElementChild?.firstElementChild || row).append(container);
+
+    for (const link of links) {
+      getPreview(link).then(preview => {
+        if (!preview || !container.isConnected || !previewsEnabled()) return;
+        container.append(renderPreview(link.url, preview));
+        remeasure(row);
+      });
+    }
+  }
+
+
+  // ---- 7TV emotes ------------------------------------------------------------
+
+  let sevenTvGlobal = null;          // Promise<Map>
+  const sevenTvChannels = new Map(); // channel slug -> Promise<Map>
+  let emotes = new Map();            // emote name -> emote, for the current channel
+  let emotesSlug = null;
+  let emoteError = '';               // last failed load, shown in the status line
+  let emoteLoadStarted = 0;          // while a load is in progress (status line)
+  let emoteCounts = { global: 0, channel: 0 };
+  let emotesRetryAt = 0;
+  const EMOTES_RETRY_MS = 30 * 1000;
+  let emoteIndex = [];               // emotes sorted for autocomplete (shortest first)
+
+  function channelSlug() {
+    const parts = location.pathname.split('/').filter(Boolean);
+    return (parts[0] === 'popout' ? parts[1] : parts[0])?.toLowerCase() || null;
+  }
+
+  function toEmoteMap(set, scope) {
+    const map = new Map();
+    for (const emote of set?.emotes || []) {
+      const host = emote.data?.host;
+      const files = host?.files || [];
+      const file = files.find(f => f.name === '2x.webp') || files.find(f => f.name === '1x.webp');
+      if (!host?.url || !file?.width || !file?.height) continue;
+      map.set(emote.name, {
+        name: emote.name,
+        src: `https:${host.url}/${file.name}`,
+        ratio: file.width / file.height,
+        zeroWidth: Boolean((emote.data?.flags ?? 0) & ZERO_WIDTH_FLAG),
+        scope
+      });
+    }
+    return map;
+  }
+
+  async function loadChannelEmotes(slug) {
+    const channel = await getJson(`https://kick.com/api/v2/channels/${encodeURIComponent(slug)}`);
+    try {
+      const user = await getJson(`https://7tv.io/v3/users/kick/${channel.user_id}`);
+      return toEmoteMap(user.emote_set, 'channel');
+    } catch (err) {
+      if (String(err.message).startsWith('404')) return new Map(); // no 7TV account: cache "none"
+      throw err;
+    }
+  }
+
+  async function loadGlobalEmotes() {
+    return toEmoteMap(await getJson('https://7tv.io/v3/emote-sets/global'), 'global');
+  }
+
+  // ---- 7TV emote cache ---------------------------------------------------------
+  // The 7TV API answers with megabytes per channel (2.4 MB / ~3 s for xqc); we
+  // keep only what we use (~100 KB) in localStorage. Cached emotes are used right
+  // away and refreshed in the background once they're older than 6 hours.
+
+  const EMOTE_CACHE_PREFIX = 'kickoff:7tv:';
+  const EMOTE_CACHE_VERSION = 1;
+  const EMOTE_CACHE_FRESH_MS = 6 * 60 * 60 * 1000;
+
+  function readEmoteCache(key) {
+    try {
+      const cached = JSON.parse(localStorage.getItem(EMOTE_CACHE_PREFIX + key));
+      if (cached?.version !== EMOTE_CACHE_VERSION) return null;
+      return { at: cached.at, map: new Map(cached.emotes.map(emote => [emote.name, emote])) };
+    } catch (err) {
+      return null;
+    }
+  }
+
+  function writeEmoteCache(key, map) {
+    const value = JSON.stringify({ version: EMOTE_CACHE_VERSION, at: Date.now(), emotes: [...map.values()] });
+    try {
+      localStorage.setItem(EMOTE_CACHE_PREFIX + key, value);
+    } catch (err) {
+      // Storage full: drop other channels' caches and try once more.
+      for (const stored of Object.keys(localStorage)) {
+        if (stored.startsWith(EMOTE_CACHE_PREFIX) && stored !== EMOTE_CACHE_PREFIX + key) localStorage.removeItem(stored);
+      }
+      try { localStorage.setItem(EMOTE_CACHE_PREFIX + key, value); } catch (err2) { /* not cached */ }
+    }
+  }
+
+  // Resolves with cached emotes when there are any (any age), else fetches.
+  // Stale caches are refreshed in the background, then onRefresh() re-applies.
+  function loadEmoteSet(key, load, onRefresh) {
+    const fetchFresh = () => load().then(map => {
+      writeEmoteCache(key, map);
+      return map;
+    });
+    const cached = readEmoteCache(key);
+    if (!cached) return fetchFresh();
+    if (Date.now() - cached.at > EMOTE_CACHE_FRESH_MS) {
+      fetchFresh().then(onRefresh, () => { /* keep using the stale cache */ });
+    }
+    return Promise.resolve(cached.map);
+  }
+
+  // Load global + channel emotes (cached per channel), then re-render rows.
+  async function syncEmotes() {
+    const slug = channelSlug();
+    if (slug === emotesSlug && emotes.size) return;
+    emotesSlug = slug;
+
+    // After a background refresh, forget the in-memory set and apply the new one.
+    const refreshed = forget => () => {
+      forget();
+      if (channelSlug() === slug) {
+        emotesSlug = null;
+        syncEmotes();
+      }
+    };
+    // A failed load is reported and forgotten, so the next attempt retries it.
+    const failed = (what, forget) => err => {
+      emoteError = `${what}: ${err?.message || err}`;
+      forget();
+      return new Map();
+    };
+    sevenTvGlobal ||= loadEmoteSet('global', loadGlobalEmotes, refreshed(() => { sevenTvGlobal = null; }))
+      .catch(failed('7TV global emotes', () => { sevenTvGlobal = null; }));
+    if (slug && !sevenTvChannels.has(slug)) {
+      sevenTvChannels.set(slug, loadEmoteSet(`channel:${slug}`, () => loadChannelEmotes(slug), refreshed(() => sevenTvChannels.delete(slug)))
+        .catch(failed(`7TV emotes for ${slug}`, () => sevenTvChannels.delete(slug))));
+    }
+    emoteLoadStarted = Date.now();
+    const [global, channel] = await Promise.all([sevenTvGlobal, sevenTvChannels.get(slug) || new Map()]);
+    emoteLoadStarted = 0;
+    emoteCounts = { global: global.size, channel: channel.size };
+    if (slug !== emotesSlug) return; // channel switched meanwhile
+    emotes = new Map([...global, ...channel]); // channel emotes win on name clashes
+    if (emotes.size) emoteError = '';
+    emoteIndex = [...emotes.values()].sort((a, b) => a.name.length - b.name.length || a.name.localeCompare(b.name));
+
+    document.querySelectorAll('[data-ka-id]').forEach(row => {
+      clear7tv(row);
+      clearRestore(row);
+    });
+    syncToolbar();
+    if (picker?.isConnected) renderPickerGrid();
+    schedule();
+  }
+
+  function emoteImage(emote) {
+    const img = document.createElement('img');
+    img.src = emote.src;
+    img.alt = emote.name;
+    img.title = emote.name;
+    img.className = 'ka-7tv-emote';
+    img.style.aspectRatio = String(emote.ratio); // width known before load: no reflow
+    return img;
+  }
+
+  const EMOTE_NODE = '.ka-7tv-emote, .ka-7tv-stack, .ka-emote, [data-emote-id]';
+
+  // The emote right before the insertion point (skipping spaces), to stack a
+  // zero-width emote onto: first in what we've built, else before the text node.
+  function previousEmote(parent, before) {
+    let node = parent.lastChild || before;
+    while (node && node.nodeType === Node.TEXT_NODE && !node.textContent.trim()) {
+      node = node.previousSibling || (node.parentNode === parent ? before : null);
+    }
+    return node?.nodeType === Node.ELEMENT_NODE && node.matches(EMOTE_NODE) ? node : null;
+  }
+
+  function stackOnto(base, img) {
+    let stack = base;
+    if (!base.classList.contains('ka-7tv-stack')) {
+      stack = document.createElement('span');
+      stack.className = 'ka-7tv-stack';
+      base.replaceWith(stack);
+      stack.append(base);
+    }
+    img.classList.add('ka-7tv-zero-width');
+    stack.append(img);
+  }
+
+  // Appends text to parent with 7TV emote names (exact, case-sensitive words)
+  // swapped for images. `before` is the node preceding parent's insertion point.
+  function appendEmoteText(parent, text, before = null) {
+    for (const part of text.replace(TAG_CHARS, '').split(/(\s+)/)) {
+      if (!part) continue;
+      const emote = emotes.get(part);
+      if (!emote) {
+        parent.append(part);
+        continue;
+      }
+      const base = emote.zeroWidth && previousEmote(parent, before);
+      if (base) stackOnto(base, emoteImage(emote));
+      else parent.append(emoteImage(emote));
+    }
+  }
+
+  function hasEmoteWord(text) {
+    return text.replace(TAG_CHARS, '').split(/\s+/).some(word => emotes.has(word));
+  }
+
+  function clear7tv(row) {
+    row.querySelectorAll('[data-ka-7tv]').forEach(node => node.remove());
+    row.querySelectorAll('[data-ka-7tv-hidden]').forEach(node => node.removeAttribute('data-ka-7tv-hidden'));
+  }
+
+  // Never edit React's nodes: render a copy of the message text with emotes and
+  // hide the original (removed again if the message changes, e.g. gets deleted).
+  function apply7tv(row) {
+    const content = row.querySelector('span[aria-hidden="true"] + span');
+    if (!content || content.hasAttribute('data-ka-7tv-hidden')) return;
+    if (!hasEmoteWord(content.textContent)) return;
+
+    const copy = content.cloneNode(true);
+    copy.setAttribute('data-ka-7tv', '');
+    const walker = document.createTreeWalker(copy, NodeFilter.SHOW_TEXT);
+    const textNodes = [];
+    while (walker.nextNode()) textNodes.push(walker.currentNode);
+    for (const textNode of textNodes) {
+      if (!hasEmoteWord(textNode.textContent)) continue;
+      const fragment = document.createDocumentFragment();
+      appendEmoteText(fragment, textNode.textContent, textNode.previousSibling);
+      textNode.replaceWith(fragment);
+    }
+
+    copy.querySelectorAll('.ka-7tv-emote').forEach(img => {
+      img.addEventListener('load', () => remeasure(row), { once: true });
+    });
+    content.setAttribute('data-ka-7tv-hidden', '');
+    content.after(copy);
+    remeasure(row);
+  }
+
+
+  // ---- 7TV name paints and badges ------------------------------------------------
+  // Chatters' 7TV cosmetics come from 7TV's GraphQL API in two steps: which paint
+  // and badge each chatter has (40 per request; 7TV refuses bigger queries), then
+  // the full definitions only for paints/badges not seen before (5 users per
+  // request). Definitions never change and are cached; chatters for 12 hours.
+  // A paint is a stylesheet rule for html[data-ka-7tv-cosmetics] [data-ka-paint=id]
+  // on the name; a badge is an image put before the name.
+
+  const COSMETICS_ATTR = 'data-ka-7tv-cosmetics';
+  const EMOTE_ONLY_ATTR = 'data-ka-emote-only';
+  const COSMETICS_KEY = 'kickoff:7tv:cosmetics';
+  const COSMETICS_VERSION = 1;
+  const COSMETICS_USER_TTL_MS = 12 * 60 * 60 * 1000;
+  const COSMETICS_USER_LIMIT = 3000;
+  const COSMETICS_LOOKUP_BATCH = 40;
+  const COSMETICS_DETAIL_BATCH = 5;
+  const COSMETICS_GAP_MS = 1000;
+  const COSMETICS_RETRY_MS = 30 * 1000;
+  const SEVENTV_GQL = 'https://7tv.io/v4/gql';
+  const SEVENTV_CDN = /^https:\/\/cdn\.7tv\.app\/[\w/.-]+$/;
+  const SAFE_ID = /^[\w-]{1,64}$/;
+
+  const cosmeticsEnabled = () => document.documentElement.hasAttribute(COSMETICS_ATTR);
+
+  const cosmetics = readCosmetics(); // { users: { kickId: [paintId, badgeId, at] }, paints: { id: css }, badges: { id: { name, src } } }
+  const cosmeticsQueue = new Set();  // Kick user ids to look up
+  let cosmeticsBusy = false;
+  let cosmeticsPauseUntil = 0;
+  let paintStyle = null;
+  let paintStyleCount = -1;
+
+  function readCosmetics() {
+    try {
+      const stored = JSON.parse(localStorage.getItem(COSMETICS_KEY));
+      if (stored?.version === COSMETICS_VERSION) return stored;
+    } catch (err) { /* start over */ }
+    return { version: COSMETICS_VERSION, users: {}, paints: {}, badges: {} };
+  }
+
+  let cosmeticsSaveTimer = null;
+  function saveCosmetics() {
+    clearTimeout(cosmeticsSaveTimer);
+    cosmeticsSaveTimer = setTimeout(() => {
+      const ids = Object.keys(cosmetics.users);
+      if (ids.length > COSMETICS_USER_LIMIT) {
+        ids.sort((a, b) => cosmetics.users[a][2] - cosmetics.users[b][2])
+          .slice(0, ids.length - COSMETICS_USER_LIMIT)
+          .forEach(id => delete cosmetics.users[id]);
+      }
+      try {
+        localStorage.setItem(COSMETICS_KEY, JSON.stringify(cosmetics));
+      } catch (err) { /* storage full: kept in memory only */ }
+    }, 2000);
+  }
+
+  async function sevenTvGql(query) {
+    const response = await fetch(SEVENTV_GQL, {
+      method: 'POST',
+      credentials: 'omit',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ query })
+    });
+    if (!response.ok) throw new Error(`7TV ${response.status}`);
+    const json = await response.json();
+    if (json.errors?.length) throw new Error(`7TV: ${json.errors[0].message}`);
+    return json.data;
+  }
+
+  const byConnection = (ids, fields) => `query { users { ${ids
+    .map((id, i) => `u${i}: userByConnection(platform: KICK, platformId: "${id}") { ${fields} }`).join(' ')} } }`;
+
+  const COLOR_FIELDS = 'r g b a';
+  const STOP_FIELDS = `stops { at color { ${COLOR_FIELDS} } }`;
+  const DETAIL_FIELDS = `style { activePaint { id data { layers { opacity ty { __typename `
+    + `... on PaintLayerTypeSingleColor { color { ${COLOR_FIELDS} } } `
+    + `... on PaintLayerTypeLinearGradient { angle repeating ${STOP_FIELDS} } `
+    + `... on PaintLayerTypeRadialGradient { repeating shape ${STOP_FIELDS} } `
+    + `... on PaintLayerTypeImage { images { url mime scale } } } } `
+    + `shadows { color { ${COLOR_FIELDS} } offsetX offsetY blur } } } `
+    + `activeBadge { id name images { url mime scale } } }`;
+
+  const num = (value, fallback = 0) => (Number.isFinite(Number(value)) ? Number(value) : fallback);
+
+  function rgba(color, opacity = 1) {
+    const channel = value => Math.min(255, Math.max(0, Math.round(num(value))));
+    const alpha = Math.min(1, Math.max(0, (num(color?.a, 255) / 255) * opacity));
+    return `rgba(${channel(color?.r)}, ${channel(color?.g)}, ${channel(color?.b)}, ${alpha.toFixed(3)})`;
+  }
+
+  function stopList(stops, opacity) {
+    return (stops || []).map(stop => `${rgba(stop.color, opacity)} ${(num(stop.at) * 100).toFixed(1)}%`).join(', ');
+  }
+
+  // Prefer a static 1x WebP (fine for text and badges, cheap to load).
+  function pickImage(images) {
+    const usable = (images || []).filter(image => SEVENTV_CDN.test(image.url || ''));
+    const rank = image => (image.mime === 'image/webp' ? 0 : image.mime === 'image/png' ? 1 : 2) * 10 + Math.abs(num(image.scale, 1) - 2);
+    return usable.sort((a, b) => rank(a) - rank(b))[0]?.url || null;
+  }
+
+  // A paint's CSS declarations, or null if it has nothing we can draw.
+  function paintCss(paint) {
+    const backgrounds = [];
+    const sizes = [];
+    for (const layer of paint?.data?.layers || []) {
+      const ty = layer.ty || {};
+      const opacity = Math.min(1, Math.max(0, num(layer.opacity, 1)));
+      if (ty.__typename === 'PaintLayerTypeSingleColor') {
+        backgrounds.push(`linear-gradient(${rgba(ty.color, opacity)}, ${rgba(ty.color, opacity)})`);
+        sizes.push('100% 100%');
+      } else if (ty.__typename === 'PaintLayerTypeLinearGradient' && ty.stops?.length) {
+        backgrounds.push(`${ty.repeating ? 'repeating-' : ''}linear-gradient(${num(ty.angle)}deg, ${stopList(ty.stops, opacity)})`);
+        sizes.push('100% 100%');
+      } else if (ty.__typename === 'PaintLayerTypeRadialGradient' && ty.stops?.length) {
+        const shape = String(ty.shape || '').toLowerCase() === 'circle' ? 'circle' : 'ellipse';
+        backgrounds.push(`${ty.repeating ? 'repeating-' : ''}radial-gradient(${shape}, ${stopList(ty.stops, opacity)})`);
+        sizes.push('100% 100%');
+      } else if (ty.__typename === 'PaintLayerTypeImage') {
+        const url = pickImage(ty.images);
+        if (url) {
+          backgrounds.push(`url("${url}")`);
+          sizes.push('cover');
+        }
+      }
+    }
+    if (!backgrounds.length) return null;
+    const shadows = (paint.data.shadows || []).slice(0, 4)
+      .map(shadow => `drop-shadow(${num(shadow.offsetX).toFixed(2)}px ${num(shadow.offsetY).toFixed(2)}px ${Math.max(0, num(shadow.blur)).toFixed(2)}px ${rgba(shadow.color)})`);
+    return [
+      `background-image: ${backgrounds.join(', ')}`,
+      `background-size: ${sizes.join(', ')}`,
+      '-webkit-background-clip: text',
+      'background-clip: text',
+      '-webkit-text-fill-color: transparent',
+      'color: transparent !important',
+      shadows.length ? `filter: ${shadows.join(' ')}` : ''
+    ].filter(Boolean).join('; ');
+  }
+
+  function renderPaintStyles() {
+    const ids = Object.keys(cosmetics.paints);
+    if (ids.length === paintStyleCount && paintStyle?.isConnected) return;
+    paintStyleCount = ids.length;
+    if (!paintStyle) {
+      paintStyle = document.createElement('style');
+      paintStyle.dataset.kickoff = '7tv-paints';
+    }
+    if (!paintStyle.isConnected) (document.head || document.documentElement).append(paintStyle);
+    paintStyle.textContent = ids
+      .filter(id => SAFE_ID.test(id) && cosmetics.paints[id])
+      .map(id => `html[${COSMETICS_ATTR}] [data-ka-paint="${id}"] { ${cosmetics.paints[id]} }`)
+      .join('\n');
+  }
+
+  // Looks up the chatters queued so far, one request at a time.
+  async function flushCosmetics() {
+    if (cosmeticsBusy || !cosmeticsQueue.size || Date.now() < cosmeticsPauseUntil || !cosmeticsEnabled()) return;
+    cosmeticsBusy = true;
+    const ids = [...cosmeticsQueue].slice(0, COSMETICS_LOOKUP_BATCH);
+    try {
+      const data = await sevenTvGql(byConnection(ids, 'style { activePaint { id } activeBadge { id } }'));
+      const needDetails = [];
+      ids.forEach((id, i) => {
+        const style = data?.users?.[`u${i}`]?.style;
+        const paint = SAFE_ID.test(style?.activePaint?.id || '') ? style.activePaint.id : null;
+        const badge = SAFE_ID.test(style?.activeBadge?.id || '') ? style.activeBadge.id : null;
+        cosmetics.users[id] = [paint, badge, Date.now()];
+        cosmeticsQueue.delete(id);
+        if ((paint && !(paint in cosmetics.paints)) || (badge && !(badge in cosmetics.badges))) needDetails.push(id);
+      });
+      for (let i = 0; i < needDetails.length; i += COSMETICS_DETAIL_BATCH) {
+        const chunk = needDetails.slice(i, i + COSMETICS_DETAIL_BATCH);
+        const details = await sevenTvGql(byConnection(chunk, DETAIL_FIELDS));
+        chunk.forEach((id, k) => {
+          const style = details?.users?.[`u${k}`]?.style;
+          const paint = style?.activePaint;
+          if (paint && SAFE_ID.test(paint.id || '')) cosmetics.paints[paint.id] = paintCss(paint);
+          const badge = style?.activeBadge;
+          if (badge && SAFE_ID.test(badge.id || '')) {
+            const src = pickImage(badge.images);
+            cosmetics.badges[badge.id] = src ? { name: String(badge.name || '7TV badge').slice(0, 100), src } : null;
+          }
+        });
+      }
+      saveCosmetics();
+      renderPaintStyles();
+      schedule();
+    } catch (err) {
+      cosmeticsPauseUntil = Date.now() + COSMETICS_RETRY_MS;
+      emoteError = `7TV paints & badges: ${err?.message || err}`;
+    } finally {
+      cosmeticsBusy = false;
+      if (cosmeticsQueue.size) setTimeout(() => guarded('7TV cosmetics', flushCosmetics), COSMETICS_GAP_MS);
+    }
+  }
+
+  // The chatter's cosmetics if known; otherwise queues a lookup.
+  function cosmeticUser(kickId) {
+    const id = String(kickId);
+    if (!/^\d{1,12}$/.test(id)) return null;
+    const user = cosmetics.users[id];
+    if (user && Date.now() - user[2] < COSMETICS_USER_TTL_MS) return { paint: user[0], badge: user[1] };
+    if (!cosmeticsQueue.has(id)) {
+      cosmeticsQueue.add(id);
+      setTimeout(() => guarded('7TV cosmetics', flushCosmetics), 300); // gather a batch first
+    }
+    return user ? { paint: user[0], badge: user[1] } : null; // stale is fine meanwhile
+  }
+
+  function nameButton(row) {
+    return row.querySelector('button[data-prevent-expand][style*="color"]');
+  }
+
+  function clearCosmetics(row) {
+    row.querySelectorAll('.ka-7tv-badge').forEach(node => node.remove());
+    row.querySelectorAll('[data-ka-paint]').forEach(node => node.removeAttribute('data-ka-paint'));
+  }
+
+  function applyCosmetics(row, message) {
+    const name = nameButton(row);
+    const user = cosmeticsEnabled() && name && message.sender?.id != null ? cosmeticUser(message.sender.id) : null;
+    if (!user) {
+      if (row.querySelector('.ka-7tv-badge, [data-ka-paint]')) {
+        clearCosmetics(row);
+        remeasure(row);
+      }
+      return;
+    }
+    const paint = user.paint && cosmetics.paints[user.paint] ? user.paint : null;
+    if ((name.getAttribute('data-ka-paint') || null) !== paint) {
+      if (paint) name.setAttribute('data-ka-paint', paint);
+      else name.removeAttribute('data-ka-paint');
+    }
+    const badge = user.badge && cosmetics.badges[user.badge];
+    let img = row.querySelector('.ka-7tv-badge');
+    if (img && (!badge || img.dataset.badge !== user.badge || img.nextElementSibling !== name)) {
+      img.remove();
+      img = null;
+    }
+    if (badge && !img) {
+      img = document.createElement('img');
+      img.className = 'ka-7tv-badge';
+      img.src = badge.src;
+      img.alt = '';
+      img.title = badge.name;
+      img.dataset.badge = user.badge;
+      name.before(img);
+      remeasure(row);
+    }
+  }
+
+  // ---- Emote usage (recents and ranking) --------------------------------------
+  // Counted when an emote is inserted from the picker, the emote card or
+  // autocomplete; kept in localStorage, shared across channels.
+
+  const USAGE_KEY = 'kickoff:7tv:usage';
+  const USAGE_LIMIT = 200; // most recently used names kept
+  const RECENT_COUNT = 24;
+
+  let usage = readUsage(); // name -> { count, last }
+
+  function readUsage() {
+    try {
+      return JSON.parse(localStorage.getItem(USAGE_KEY)) || {};
+    } catch (err) {
+      return {};
+    }
+  }
+
+  function recordUsage(name) {
+    usage = readUsage(); // another tab may have recorded some too
+    usage[name] = { count: (usage[name]?.count || 0) + 1, last: Date.now() };
+    const names = Object.keys(usage);
+    if (names.length > USAGE_LIMIT) {
+      names.sort((a, b) => usage[a].last - usage[b].last)
+        .slice(0, names.length - USAGE_LIMIT)
+        .forEach(old => delete usage[old]);
+    }
+    try {
+      localStorage.setItem(USAGE_KEY, JSON.stringify(usage));
+    } catch (err) { /* storage full: ranking just won't learn */ }
+  }
+
+  // Most recently used first, limited to emotes this channel has.
+  function recentEmotes() {
+    return Object.entries(usage)
+      .sort((a, b) => b[1].last - a[1].last)
+      .map(([name]) => emotes.get(name))
+      .filter(Boolean)
+      .slice(0, RECENT_COUNT);
+  }
+
+  // More often used first, then more recently used; unused keep their order.
+  function byUsage(a, b) {
+    const ua = usage[a.name];
+    const ub = usage[b.name];
+    return (ub?.count || 0) - (ua?.count || 0) || (ub?.last || 0) - (ua?.last || 0);
+  }
+
+  // ---- Emote card (tap an emote) ---------------------------------------------
+
+  let card = null;
+
+  function closeCard() {
+    card?.remove();
+    card = null;
+  }
+
+  async function copyText(text) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch (err) {
+      // Older Safari: copy via a temporary textarea.
+      const area = el('textarea');
+      area.value = text;
+      area.style.cssText = 'position:fixed;opacity:0;';
+      document.body.append(area);
+      area.select();
+      const ok = document.execCommand('copy');
+      area.remove();
+      return ok;
+    }
+  }
+
+  function chatInput() {
+    return document.querySelector('[data-testid="chat-input"][contenteditable="true"]');
+  }
+
+  // Appends text to the message. Preferably through Lexical's own update API,
+  // which edits the message without focusing the editor (so the phone keyboard
+  // doesn't pop up for every emote). If Kick's editor internals change, fall
+  // back to typing it in with execCommand, which needs focus.
+  function insertAtEnd(text) {
+    const input = chatInput();
+    if (!input) return false;
+    const before = input.textContent;
+
+    const editor = input.__lexicalEditor;
+    if (editor?.update) {
+      try {
+        editor.update(() => {
+          const root = editor._pendingEditorState._nodeMap.get('root');
+          const needsSpace = /\S$/.test(root.getTextContent());
+          root.selectEnd().insertText(`${needsSpace ? ' ' : ''}${text} `);
+        }, { discrete: true });
+      } catch (err) { /* fall through */ }
+      if (input.textContent !== before) return true;
+    }
+
+    const attempt = () => {
+      // The caret must be inside Lexical's last paragraph (at the end of its
+      // last text), not after it, or Lexical ignores the insert.
+      const paragraph = input.querySelector('p:last-of-type') || input;
+      let last = paragraph.lastChild;
+      while (last && last.nodeType !== Node.TEXT_NODE) last = last.lastChild;
+      const range = document.createRange();
+      if (last) range.setStart(last, last.textContent.length);
+      else range.setStart(paragraph, 0);
+      range.collapse(true);
+      const selection = getSelection();
+      selection.removeAllRanges();
+      selection.addRange(range);
+      const needsSpace = /\S$/.test(input.innerText.replace(/\n$/, ''));
+      document.execCommand('insertText', false, `${needsSpace ? ' ' : ''}${text} `);
+    };
+    input.focus();
+    attempt();
+    // Lexical can drop the first insert right after the editor gains focus.
+    setTimeout(() => {
+      if (input.textContent === before) attempt();
+    }, 50);
+    return true;
+  }
+
+  function cardRow(emote) {
+    const row = el('div', 'ka-card-row');
+    const img = el('img', 'ka-card-image');
+    img.src = emote.src;
+    img.alt = emote.name;
+    img.style.aspectRatio = String(emote.ratio);
+
+    const info = el('div', 'ka-card-info');
+    info.append(el('div', 'ka-card-name', emote.name));
+    const meta = [emote.scope === 'channel' ? '7TV · channel emote' : '7TV · global emote'];
+    if (emote.zeroWidth) meta.push('zero-width');
+    info.append(el('div', 'ka-card-meta', meta.join(' · ')));
+
+    const actions = el('div', 'ka-card-actions');
+    const copy = el('button', 'ka-card-button', 'Copy');
+    copy.type = 'button';
+    copy.addEventListener('click', async () => {
+      copy.textContent = (await copyText(emote.name)) ? 'Copied ✓' : 'Copy failed';
+    });
+    actions.append(copy);
+    if (chatInput()) {
+      const insert = el('button', 'ka-card-button', 'Insert');
+      insert.type = 'button';
+      insert.addEventListener('click', () => {
+        if (insertAtEnd(emote.name)) {
+          recordUsage(emote.name);
+          closeCard();
+        }
+      });
+      actions.append(insert);
+    }
+    info.append(actions);
+
+    row.append(img, info);
+    return row;
+  }
+
+  function openCard(target) {
+    closeCard();
+    const images = target.classList.contains('ka-7tv-stack')
+      ? [...target.querySelectorAll('img.ka-7tv-emote')]
+      : [target];
+    const list7tv = images.map(img => emotes.get(img.alt)).filter(Boolean);
+    if (!list7tv.length) return;
+
+    showCard(target, 'Emote', list7tv.map(cardRow));
+  }
+
+  // A small card next to `target`: above it if there is room, else below; kept
+  // inside the viewport.
+  function showCard(target, label, children) {
+    closeCard();
+    card = el('div', 'ka-card');
+    card.setAttribute('role', 'dialog');
+    card.setAttribute('aria-label', label);
+    card.append(...children);
+    document.body.append(card);
+
+    const anchor = target.getBoundingClientRect();
+    const box = card.getBoundingClientRect();
+    const margin = 8;
+    let top = anchor.top - box.height - margin;
+    if (top < margin) top = anchor.bottom + margin;
+    const left = Math.min(Math.max(margin, anchor.left + anchor.width / 2 - box.width / 2), innerWidth - box.width - margin);
+    card.style.top = `${Math.max(margin, Math.min(top, innerHeight - box.height - margin))}px`;
+    card.style.left = `${left}px`;
+  }
+
+  // Handles a tap on one of our elements; returns true if it did. Taps on cards'
+  // own buttons are left to their click handlers.
+  function handleTap(target) {
+    if (card?.contains(target)) return false;
+
+    const repeat = target.closest?.('.ka-repeat');
+    if (repeat) {
+      openRepeatCard(repeat);
+      return true;
+    }
+
+    const mutedLine = target.closest?.('.ka-muted-line');
+    if (mutedLine) {
+      toggleRevealed(mutedLine.dataset.id);
+      return true;
+    }
+
+    if (target.closest?.('.ka-7tv-button')) {
+      togglePicker();
+      return true;
+    }
+    if (target.closest?.('.ka-messages-button')) {
+      toggleMessages();
+      return true;
+    }
+    const proxy = target.closest?.('.ka-proxy');
+    if (proxy && proxyTargets.get(proxy)?.isConnected) {
+      pressKickButton(proxyTargets.get(proxy));
+      return true;
+    }
+    if (target.closest?.('.ka-collapse-button')) {
+      setInputHidden(true);
+      return true;
+    }
+    if (target.closest?.('.ka-catchup')) {
+      openCatchupNotice();
+      return true;
+    }
+    if (target.closest?.('.ka-reveal')) {
+      setInputHidden(false);
+      return true;
+    }
+
+    // Saved messages panel: inserting is handled here (no focus change, so the
+    // phone keyboard stays as it is); its other buttons have their own handlers.
+    const savedRow = target.closest?.('.ka-msg-insert');
+    if (savedRow && messagesPanel?.contains(savedRow)) {
+      insertSavedMessage(savedRow.dataset.id, savedRow);
+      return true;
+    }
+    if (messagesPanel?.contains(target)) return false;
+
+    const pick = target.closest?.('.ka-picker-emote');
+    if (pick && picker?.contains(pick)) {
+      if (insertAtEnd(pick.dataset.name)) {
+        recordUsage(pick.dataset.name);
+        flash(pick);
+      }
+      return true;
+    }
+    if (target.closest?.('.ka-picker-close')) {
+      closePicker();
+      return true;
+    }
+    if (picker?.contains(target)) return false; // e.g. the search field
+
+    const chip = target.closest?.('.ka-ac-chip');
+    if (chip && acBar?.contains(chip)) {
+      commitSuggestion(acMatches[Number(chip.dataset.index)]);
+      return true;
+    }
+
+    const emote = sevenTvEnabled() && target.closest?.(`${LIST_SELECTOR} .ka-7tv-stack, ${LIST_SELECTOR} .ka-7tv-emote`);
+    if (emote) {
+      openCard(emote.closest('.ka-7tv-stack') || emote);
+      return true;
+    }
+
+    // "Replying to …": jump to the original message.
+    const reply = replyHeaderAt(target);
+    if (reply) {
+      openReplyOriginal(reply.element, reply.original);
+      return true;
+    }
+
+    // A tap on a message's text (not a name, link, emote or button): offer to save
+    // it or mute its sender.
+    const text = (messagesEnabled() || muteEnabled()) && messageTextAt(target);
+    if (text) {
+      openMessageCard(text.row, text.message);
+      return true;
+    }
+
+    closeCard();
+    return false;
+  }
+
+  // Capture phase so Kick's own row handlers don't also react to the tap.
+  document.addEventListener('click', event => {
+    if (handleTap(event.target)) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+  }, true);
+
+  // iOS: Kick's chat rows handle touches themselves, so a tap on an emote may
+  // never become a 'click'; and tapping a suggestion would move focus off the
+  // editor (closing the keyboard). Detect taps from touch events instead, and
+  // cancel the touch when we handle it (no focus change, no follow-up click).
+  let touchStart = null;
+  document.addEventListener('touchstart', event => {
+    const touch = event.touches.length === 1 ? event.touches[0] : null;
+    touchStart = touch && { x: touch.clientX, y: touch.clientY, time: Date.now(), target: event.target };
+  }, { capture: true, passive: true });
+
+  document.addEventListener('touchend', event => {
+    const start = touchStart;
+    touchStart = null;
+    const touch = event.changedTouches[0];
+    if (!start || !touch) return;
+    const moved = Math.hypot(touch.clientX - start.x, touch.clientY - start.y);
+    if (moved > 10 || Date.now() - start.time > 500) return; // a scroll or long-press
+    if (handleTap(start.target)) {
+      event.preventDefault();
+      // Chat rows must still get the touchend: on phones Kick starts a 300 ms
+      // long-press timer on touchstart (its message action menu, e.g. "Show full
+      // thread") and only cancels it on touchend.
+      if (!start.target.closest?.(LIST_SELECTOR)) event.stopPropagation();
+    }
+  }, { capture: true, passive: false });
+
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape') {
+      closeCard();
+      closePicker();
+      closeMessages();
+    }
+  });
+  // Close when the user scrolls, not on 'scroll': Kick scrolls the list itself on
+  // every new message, which would close the card right away in a busy chat.
+  document.addEventListener('touchmove', event => {
+    if (!card?.contains(event.target)) closeCard();
+  }, { capture: true, passive: true });
+  document.addEventListener('wheel', closeCard, { capture: true, passive: true });
+
+  // ---- Autocomplete ------------------------------------------------------------
+
+  const AC_MIN_CHARS = 2;
+  const AC_MAX_RESULTS = 20;
+
+  let acInput = null;   // the editor we're attached to
+  let acBar = null;     // the suggestion strip
+  let acMatches = [];
+  let acSelected = -1;  // keyboard selection; -1 = none
+
+  // The text node and offset of the caret, resolving element positions Lexical
+  // sometimes reports (e.g. right after an insert).
+  function caretPosition() {
+    const selection = getSelection();
+    if (!selection?.rangeCount || !selection.isCollapsed) return null;
+    const range = selection.getRangeAt(0);
+    let node = range.startContainer;
+    let offset = range.startOffset;
+    if (!acInput?.contains(node)) return null;
+    if (node.nodeType !== Node.TEXT_NODE) {
+      node = node.childNodes[offset - 1];
+      while (node && node.nodeType !== Node.TEXT_NODE) node = node.lastChild;
+      if (!node) return null;
+      offset = node.textContent.length;
+    }
+    return { node, offset };
+  }
+
+  function currentWord() {
+    const caret = caretPosition();
+    if (!caret) return null;
+    const before = caret.node.textContent.slice(0, caret.offset);
+    const match = before.match(/(\S+)$/);
+    if (!match) return null;
+    return { ...caret, start: caret.offset - match[1].length, word: match[1] };
+  }
+
+  // Exact-case prefix first, then any-case prefix, then contains. Within each,
+  // emotes you use most come first, the rest shortest first (emoteIndex order).
+  function searchEmotes(query) {
+    const lower = query.toLowerCase();
+    const exact = [], prefix = [], contains = [];
+    for (const emote of emoteIndex) {
+      if (emote.name.startsWith(query)) exact.push(emote);
+      else {
+        const name = emote.name.toLowerCase();
+        if (name.startsWith(lower)) prefix.push(emote);
+        else if (name.includes(lower)) contains.push(emote);
+      }
+    }
+    return [exact, prefix, contains].flatMap(tier => tier.sort(byUsage)).slice(0, AC_MAX_RESULTS);
+  }
+
+  function hideSuggestions() {
+    acBar?.remove();
+    acBar = null;
+    acMatches = [];
+    acSelected = -1;
+  }
+
+  function commitSuggestion(emote) {
+    const word = currentWord();
+    if (!word) return hideSuggestions();
+    const range = document.createRange();
+    range.setStart(word.node, word.start);
+    range.setEnd(word.node, word.offset);
+    const selection = getSelection();
+    selection.removeAllRanges();
+    selection.addRange(range);
+    document.execCommand('insertText', false, `${emote.name} `);
+    recordUsage(emote.name);
+    hideSuggestions();
+  }
+
+  function renderSuggestions() {
+    if (!acMatches.length) return hideSuggestions();
+    if (!acBar) {
+      acBar = el('div', 'ka-ac');
+      acBar.setAttribute('role', 'listbox');
+      // Keep focus (and the phone keyboard) in the editor while tapping.
+      acBar.addEventListener('pointerdown', event => event.preventDefault());
+      acBar.addEventListener('mousedown', event => event.preventDefault());
+    }
+    if (!placeSuggestions()) return hideSuggestions();
+    acBar.replaceChildren(...acMatches.map((emote, index) => {
+      const chip = el('button', 'ka-ac-chip');
+      chip.type = 'button';
+      chip.tabIndex = -1;
+      chip.setAttribute('role', 'option');
+      chip.setAttribute('aria-selected', String(index === acSelected));
+      const img = el('img', 'ka-ac-image');
+      img.src = emote.src;
+      img.alt = '';
+      img.style.aspectRatio = String(emote.ratio);
+      chip.append(img, el('span', 'ka-ac-name', emote.name));
+      chip.dataset.index = String(index); // taps are handled in handleTap()
+      return chip;
+    }));
+    acBar.querySelector('[aria-selected="true"]')?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  }
+
+  // Suggestions and the picker go into the chat column, between the messages
+  // and the input footer, so they're laid out right above the message box.
+  // Fixed positioning put them at the top of the screen on iOS while the
+  // keyboard was open.
+  function inputFooter() {
+    const messageArea = document.querySelector(LIST_SELECTOR)?.parentElement;
+    const input = chatInput();
+    if (!messageArea || !input) return null;
+    let footer = input;
+    while (footer.parentElement && !footer.parentElement.contains(messageArea)) footer = footer.parentElement;
+    return footer.parentElement ? footer : null;
+  }
+
+  function placeAboveInput(node) {
+    const footer = inputFooter();
+    if (!footer) return false;
+    if (node.nextElementSibling !== footer) footer.before(node);
+    return true;
+  }
+
+  function placeSuggestions() {
+    return placeAboveInput(acBar);
+  }
+
+  function updateSuggestions() {
+    const word = sevenTvEnabled() && emoteIndex.length && !picker && !messagesPanel ? currentWord() : null;
+    const query = word?.word.replace(/^:/, '');
+    if (!query || query.length < AC_MIN_CHARS) return hideSuggestions();
+    acMatches = searchEmotes(query);
+    acSelected = -1;
+    renderSuggestions();
+  }
+
+  function onInputKeydown(event) {
+    if (!acBar) return;
+    if (event.key === 'Tab') {
+      event.preventDefault();
+      commitSuggestion(acMatches[Math.max(acSelected, 0)]);
+    } else if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      event.preventDefault();
+      const step = event.key === 'ArrowDown' ? 1 : -1;
+      acSelected = (acSelected + step + acMatches.length) % acMatches.length;
+      renderSuggestions();
+    } else if (event.key === 'Enter') {
+      // Only take Enter when a suggestion was picked with the arrows; otherwise
+      // let the message send (Kick then clears the editor without an input event).
+      if (acSelected >= 0) {
+        event.preventDefault();
+        event.stopPropagation();
+        commitSuggestion(acMatches[acSelected]);
+      } else {
+        hideSuggestions();
+      }
+    } else if (event.key === 'Escape') {
+      hideSuggestions();
+    }
+  }
+
+  // The editor is re-created on channel switches; keep attached to the current one.
+  function syncAutocomplete() {
+    const input = chatInput();
+    if (input === acInput) return;
+    hideSuggestions();
+    acInput = input;
+    if (!input) return;
+    // Lexical applies typing itself, so the DOM 'input' event often never fires;
+    // its update listener runs after every change. Keep the DOM events as fallback.
+    input.__lexicalEditor?.registerUpdateListener?.(() => {
+      if (input === acInput) updateSuggestions();
+    });
+    input.addEventListener('input', updateSuggestions);
+    input.addEventListener('keyup', event => {
+      // Lexical handles deletions itself, so 'input' doesn't always fire for them.
+      if (event.key === 'Backspace' || event.key === 'Delete') updateSuggestions();
+    });
+    input.addEventListener('keydown', onInputKeydown, true);
+    input.addEventListener('blur', () => setTimeout(hideSuggestions, 150));
+  }
+
+  // ---- 7TV picker (button next to Kick's emote button) -----------------------
+
+  // A channel can have ~1000 emotes: build buttons in batches as the grid is
+  // scrolled, and only load images about to come into view.
+  const PICKER_BATCH = 120;
+
+  let picker = null;
+  let pickerButton = null;
+  let pickerQueue = [];        // emotes/titles not rendered yet
+  let pickerImages = null;     // IntersectionObserver: set img src when near view
+  let pickerMore = null;       // IntersectionObserver: render next batch at the end
+
+  function flash(node) {
+    node.classList.add('ka-flash');
+    setTimeout(() => node.classList.remove('ka-flash'), 250);
+  }
+
+  function pickerEmoteButton(emote) {
+    const button = el('button', 'ka-picker-emote');
+    button.type = 'button';
+    button.title = emote.name;
+    button.dataset.name = emote.name; // taps are handled in handleTap()
+    const img = el('img');
+    img.dataset.src = emote.src;
+    img.alt = emote.name;
+    img.style.aspectRatio = String(emote.ratio); // size known before the image loads
+    button.append(img);
+    pickerImages.observe(img);
+    return button;
+  }
+
+  function appendPickerBatch() {
+    const grid = picker.querySelector('.ka-picker-grid');
+    grid.querySelector('.ka-picker-sentinel')?.remove();
+    let section = grid.lastElementChild?.classList.contains('ka-picker-section') ? grid.lastElementChild : null;
+    for (let count = 0; count < PICKER_BATCH && pickerQueue.length;) {
+      const item = pickerQueue.shift();
+      if (item.title) {
+        grid.append(el('div', 'ka-picker-title', item.title));
+        section = el('div', 'ka-picker-section');
+        grid.append(section);
+      } else {
+        section.append(pickerEmoteButton(item));
+        count++;
+      }
+    }
+    if (pickerQueue.length) {
+      const sentinel = el('div', 'ka-picker-sentinel');
+      grid.append(sentinel);
+      pickerMore.observe(sentinel);
+    }
+  }
+
+  function renderPickerGrid() {
+    const grid = picker.querySelector('.ka-picker-grid');
+    const query = picker.querySelector('.ka-picker-search').value.trim().replace(/^:/, '');
+    const sections = [];
+    usage = readUsage(); // pick up emotes used in other tabs
+    if (query) {
+      const lower = query.toLowerCase();
+      sections.push(['Results', emoteIndex.filter(emote => emote.name.toLowerCase().includes(lower)).sort(byUsage)]);
+    } else {
+      const byName = (a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
+      const all = [...emotes.values()];
+      sections.push(['Recent', recentEmotes()]);
+      sections.push(['Channel', all.filter(emote => emote.scope === 'channel').sort(byName)]);
+      sections.push(['Global', all.filter(emote => emote.scope === 'global').sort(byName)]);
+    }
+
+    pickerImages?.disconnect();
+    pickerMore?.disconnect();
+    pickerImages = new IntersectionObserver(entries => {
+      for (const entry of entries) {
+        if (!entry.isIntersecting) continue;
+        entry.target.src = entry.target.dataset.src;
+        pickerImages.unobserve(entry.target);
+      }
+    }, { root: grid, rootMargin: '150px 0px' });
+    pickerMore = new IntersectionObserver(entries => {
+      if (entries.some(entry => entry.isIntersecting)) appendPickerBatch();
+    }, { root: grid, rootMargin: '300px 0px' });
+
+    pickerQueue = [];
+    for (const [title, list] of sections) {
+      if (list.length) pickerQueue.push({ title: `${title} · ${list.length}` }, ...list);
+    }
+    grid.replaceChildren();
+    grid.scrollTop = 0;
+    if (pickerQueue.length) appendPickerBatch();
+    else grid.append(el('div', 'ka-picker-empty', query ? 'No matching 7TV emotes' : 'No 7TV emotes for this channel'));
+  }
+
+  function openPicker() {
+    closeMessages();
+    hideSuggestions();
+    if (!picker) {
+      picker = el('div', 'ka-picker');
+      const head = el('div', 'ka-picker-head');
+      const search = el('input', 'ka-picker-search');
+      search.type = 'search';
+      search.placeholder = 'Search 7TV emotes';
+      search.autocomplete = 'off';
+      search.spellcheck = false;
+      search.addEventListener('input', renderPickerGrid);
+      const close = el('button', 'ka-picker-close', '✕');
+      close.type = 'button';
+      close.setAttribute('aria-label', 'Close 7TV emotes');
+      head.append(search, close);
+      picker.append(head, el('div', 'ka-picker-grid'));
+    }
+    if (!placeAboveInput(picker)) return;
+    renderPickerGrid();
+    pickerButton?.setAttribute('aria-pressed', 'true');
+  }
+
+  function closePicker() {
+    pickerImages?.disconnect();
+    pickerMore?.disconnect();
+    pickerQueue = [];
+    picker?.remove();
+    picker = null;
+    pickerButton?.setAttribute('aria-pressed', 'false');
+  }
+
+  function togglePicker() {
+    if (picker?.isConnected) closePicker();
+    else openPicker();
+  }
+
+  // ---- Toolbar (7TV + saved messages buttons) ----------------------------------
+  // Our buttons go into Kick's toolbar row under the message box (where channel
+  // points and Kicks sit), in a group of their own, keeping the input row free.
+
+  let toolbar = null;
+
+  function kickToolbar() {
+    // The row holding Kick's settings button; its right part is "ml-auto".
+    const settings = inputFooter()?.querySelector('button svg[data-ds-icon="Settings"]')?.closest('button');
+    const rightGroup = settings?.closest('.ml-auto');
+    return rightGroup?.parentElement ? { row: rightGroup.parentElement, rightGroup } : null;
+  }
+
+  function toolbarButton(className, label, text) {
+    const button = el('button', `ka-toolbar-button ${className}`, text);
+    button.type = 'button';
+    button.setAttribute('aria-label', label);
+    button.title = label;
+    button.setAttribute('aria-pressed', 'false');
+    // Don't take focus from the editor (keeps the phone keyboard as it is).
+    button.addEventListener('mousedown', event => event.preventDefault());
+    return button;
+  }
+
+  function syncToolbar() {
+    const want7tv = sevenTvEnabled() && emotes.size > 0;
+    const wantMessages = messagesEnabled();
+    if (!sevenTvEnabled()) closePicker();
+    if (!wantMessages) closeMessages();
+
+    const kick = kickToolbar();
+    // Fallback if Kick's toolbar row isn't recognised: next to its emote button.
+    const smile = !kick && inputFooter()?.querySelector('button svg[data-ds-icon="Smile"]')?.closest('button');
+    const anchor = kick?.rightGroup || smile;
+    if (!anchor || !(want7tv || wantMessages)) {
+      clearProxies();
+      toolbar?.remove();
+      setInputHidden(false, { remember: false });
+      return;
+    }
+    if (!toolbar) {
+      toolbar = el('div', 'ka-toolbar');
+      pickerButton = toolbarButton('ka-7tv-button', '7TV emotes', '7TV');
+      messagesButton = toolbarButton('ka-messages-button', 'Saved messages', '📋');
+      const collapse = toolbarButton('ka-collapse-button', 'Hide message box', '⌄');
+      toolbar.append(pickerButton, messagesButton, collapse);
+    }
+    pickerButton.hidden = !want7tv;
+    messagesButton.hidden = !wantMessages;
+    toolbar.classList.toggle('ka-toolbar--inline', !kick);
+    if (toolbar.nextElementSibling !== anchor) anchor.before(toolbar);
+    if (kick) syncProxies();
+    else clearProxies();
+    if (picker && !picker.isConnected) placeAboveInput(picker);
+    if (messagesPanel && !messagesPanel.isConnected) placeAboveInput(messagesPanel);
+    if (revealBar && !revealBar.isConnected) placeAboveInput(revealBar);
+  }
+
+  // ---- Kick's input-row buttons, shown in our toolbar --------------------------
+  // The identity badge and emote picker buttons live inside the message box.
+  // Moving Kick's own (React-rendered) buttons would break them, so the toolbar
+  // gets look-alike proxies that press the originals. The originals stay where
+  // they are, invisible (kickoff.css), so Kick's popups still have an anchor.
+
+  const proxies = new Map();          // Kick button -> our proxy
+  const proxyTargets = new WeakMap(); // our proxy -> Kick button
+
+  // Kick's buttons in the message box row, in order (identity badge, emote picker).
+  function kickInputButtons() {
+    const input = chatInput();
+    const smile = inputFooter()?.querySelector('button svg[data-ds-icon="Smile"]')?.closest('button');
+    const row = smile?.parentElement;
+    if (!input || !row?.contains(input)) return [];
+    return [...row.children]
+      .filter(child => !child.contains(input) && !child.classList.contains('ka-toolbar'))
+      .map(child => (child.matches('button') ? child : child.querySelector('button')))
+      .filter(Boolean);
+  }
+
+  function clearProxies() {
+    proxies.forEach(proxy => proxy.remove());
+    proxies.clear();
+  }
+
+  function syncProxies() {
+    const originals = kickInputButtons();
+    for (const [original, proxy] of proxies) {
+      if (!originals.includes(original)) {
+        proxy.remove();
+        proxies.delete(original);
+      }
+    }
+    const nodes = originals.map(original => {
+      let proxy = proxies.get(original);
+      if (!proxy) {
+        proxy = toolbarButton('ka-proxy', original.getAttribute('aria-label') || '', '');
+        proxies.set(original, proxy);
+        proxyTargets.set(proxy, original);
+      }
+      // Which icon the iOS-style row draws for it (kickoff.css).
+      const kind = original.querySelector('[data-testid^="identity-badge"]') ? 'identity'
+        : original.querySelector('svg[data-ds-icon="Smile"]') ? 'emotes' : '';
+      if ((proxy.dataset.kind || '') !== kind) {
+        if (kind) proxy.dataset.kind = kind;
+        else delete proxy.dataset.kind;
+      }
+      // Same icon as Kick's button (the badge can change), copied when it changes.
+      const look = original.innerHTML;
+      if (proxy.dataset.look !== look) {
+        proxy.replaceChildren(...[...original.childNodes].map(node => node.cloneNode(true)));
+        proxy.dataset.look = look;
+      }
+      return proxy;
+    });
+    if (nodes.some((node, index) => toolbar.children[index] !== node)) toolbar.prepend(...nodes);
+  }
+
+  // Popover triggers open on pointerdown (menus) or on click; try the first and
+  // fall back to a click if nothing opened.
+  function pressKickButton(button) {
+    const open = () => button.getAttribute('data-state') === 'open' || button.getAttribute('aria-expanded') === 'true';
+    const before = open();
+    const options = { bubbles: true, cancelable: true, view: window, button: 0, pointerId: 1, pointerType: 'mouse', isPrimary: true };
+    button.dispatchEvent(new PointerEvent('pointerdown', options));
+    button.dispatchEvent(new PointerEvent('pointerup', options));
+    if (open() === before) button.click();
+  }
+
+  // ---- Hide the message box (read-only mode) -----------------------------------
+
+  const INPUT_HIDDEN_ATTR = 'data-ka-input-hidden';
+  const INPUT_HIDDEN_KEY = 'kickoff:inputHidden';
+
+  let revealBar = null;
+
+  function setInputHidden(hidden, { remember = true } = {}) {
+    document.documentElement.toggleAttribute(INPUT_HIDDEN_ATTR, hidden);
+    if (remember) {
+      try {
+        if (hidden) localStorage.setItem(INPUT_HIDDEN_KEY, '1');
+        else localStorage.removeItem(INPUT_HIDDEN_KEY);
+      } catch (err) { /* not remembered */ }
+    }
+    if (hidden) {
+      closePicker();
+      closeMessages();
+      hideSuggestions();
+      if (!revealBar) {
+        revealBar = el('button', 'ka-reveal', '⌃  Show message box');
+        revealBar.type = 'button';
+        revealBar.addEventListener('mousedown', event => event.preventDefault());
+      }
+      placeAboveInput(revealBar);
+    } else {
+      revealBar?.remove();
+      revealBar = null;
+    }
+  }
+
+  function rememberedInputHidden() {
+    try {
+      return localStorage.getItem(INPUT_HIDDEN_KEY) === '1';
+    } catch (err) {
+      return false;
+    }
+  }
+
+  // ---- Saved messages ------------------------------------------------------------
+  // Stored by content.js (extension storage); we get the list via postMessage.
+  // Each: { id, text, channel (slug, or null for all channels), created, used }.
+
+  const PAGE_SOURCE = 'kickoff:page';
+  const EXT_SOURCE = 'kickoff:ext';
+  const MESSAGE_LIMIT = 500; // Kick's maximum message length
+  const UNDO_MS = 5000;
+
+  let savedMessages = [];
+  let messagesPanel = null;
+  let messagesButton = null;
+  let messagesEditMode = false;
+  let messageDraft = null;  // { id, text, channel, created } while the editor is open
+  let undoItem = null;      // the last deleted message, while "Undo" is offered
+  let undoTimer = null;
+
+  function sendToExtension(type, data = {}) {
+    window.postMessage({ source: PAGE_SOURCE, type, ...data }, location.origin);
+  }
+
+  // Saves resolve once the stored list comes back containing them.
+  const pendingSaves = new Map(); // id -> resolve(boolean)
+  const SAVE_TIMEOUT_MS = 3000;
+
+  window.addEventListener('message', event => {
+    // The origin, not event.source: Safari's content script posts from its own
+    // window object, so `event.source === window` would reject it.
+    if (event.origin !== location.origin || event.data?.source !== EXT_SOURCE) return;
+    if (event.data.type === 'messages' && Array.isArray(event.data.items)) {
+      savedMessages = event.data.items;
+      for (const [id, resolve] of pendingSaves) {
+        if (savedMessages.some(item => item.id === id)) {
+          pendingSaves.delete(id);
+          resolve(true);
+        }
+      }
+      if (messagesPanel?.isConnected && !messageDraft) renderMessages();
+    } else if (event.data.type === 'jump' && typeof event.data.id === 'string') {
+      guarded('jump', () => jumpTo(event.data.id, event.data.requestId));
+    } else if (event.data.type === 'search') {
+      const { results, total, since } = searchHistory(event.data.query);
+      sendToExtension('search:results', { requestId: event.data.requestId, results, total, since });
+    }
+  });
+
+  // Resolves true when stored, false if the extension didn't confirm in time.
+  function saveMessage(item) {
+    return new Promise(resolve => {
+      pendingSaves.set(item.id, resolve);
+      sendToExtension('messages:save', { item });
+      setTimeout(() => {
+        if (pendingSaves.delete(item.id)) resolve(false);
+      }, SAVE_TIMEOUT_MS);
+    });
+  }
+  sendToExtension('messages:get');
+
+  function newId() {
+    return crypto.randomUUID?.() || `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+  }
+
+  // What shows in chat: Kick emote tokens as their names.
+  function plainText(content) {
+    return content.replace(EMOTE_TOKEN, (match, id, name) => name);
+  }
+
+  // Kick sends one line; newlines become spaces.
+  function asOneLine(text) {
+    return text.replace(/\s*\n\s*/g, ' ').trim();
+  }
+
+  function insertSavedMessage(id, node) {
+    const item = savedMessages.find(message => message.id === id);
+    if (!item || !insertAtEnd(asOneLine(item.text))) return;
+    sendToExtension('messages:used', { id });
+    flash(node);
+  }
+
+  // Newest-used first, then newest saved.
+  function sortMessages(list) {
+    return [...list].sort((a, b) => (b.used || 0) - (a.used || 0) || b.created - a.created);
+  }
+
+  function messageRow(item) {
+    const row = el('div', 'ka-msg-row');
+    const insert = el('button', 'ka-msg-insert');
+    insert.type = 'button';
+    insert.dataset.id = item.id; // taps are handled in handleTap()
+    const text = el('span', 'ka-msg-text');
+    text.append(renderContent(item.text));
+    insert.append(text);
+    row.append(insert);
+
+    if (messagesEditMode) {
+      const edit = el('button', 'ka-msg-action', '✎');
+      edit.type = 'button';
+      edit.setAttribute('aria-label', 'Edit message');
+      edit.addEventListener('click', () => openEditor(item));
+      const remove = el('button', 'ka-msg-action ka-msg-delete', '✕');
+      remove.type = 'button';
+      remove.setAttribute('aria-label', 'Delete message');
+      remove.addEventListener('click', () => deleteMessage(item));
+      row.append(edit, remove);
+    }
+    return row;
+  }
+
+  function renderMessages() {
+    if (!messagesPanel) return;
+    const body = messagesPanel.querySelector('.ka-msg-body');
+    const editToggle = messagesPanel.querySelector('.ka-msg-edit-toggle');
+    const search = messagesPanel.querySelector('.ka-msg-search');
+    editToggle.textContent = messagesEditMode ? 'Done' : 'Edit';
+    editToggle.setAttribute('aria-pressed', String(messagesEditMode));
+
+    if (messageDraft) {
+      search.hidden = true;
+      body.replaceChildren(buildEditor());
+      body.querySelector('.ka-msg-input').focus();
+      return;
+    }
+    search.hidden = false;
+
+    const slug = channelSlug();
+    const query = search.value.trim().toLowerCase();
+    const visible = savedMessages.filter(item => (!item.channel || item.channel === slug)
+      && (!query || plainText(item.text).toLowerCase().includes(query)));
+    const nodes = [];
+
+    if (undoItem) {
+      const undo = el('div', 'ka-msg-undo');
+      const button = el('button', 'ka-msg-undo-button', 'Undo');
+      button.type = 'button';
+      button.addEventListener('click', () => {
+        saveMessage(undoItem);
+        clearUndo();
+      });
+      undo.append(el('span', null, 'Message deleted'), button);
+      nodes.push(undo);
+    }
+    if (messagesEditMode) {
+      const add = el('button', 'ka-msg-new', '+ New message');
+      add.type = 'button';
+      add.addEventListener('click', () => openEditor(null));
+      nodes.push(add);
+    }
+
+    const sections = [
+      [slug ? `This channel · ${slug}` : 'This channel', visible.filter(item => item.channel)],
+      ['All channels', visible.filter(item => !item.channel)]
+    ];
+    for (const [title, list] of sections) {
+      if (!list.length) continue;
+      nodes.push(el('div', 'ka-picker-title', `${title} · ${list.length}`));
+      nodes.push(...sortMessages(list).map(messageRow));
+    }
+    if (!visible.length && !undoItem) {
+      nodes.push(el('div', 'ka-picker-empty', query
+        ? 'No matching saved messages'
+        : 'No saved messages yet. Tap a message in chat to save it, or use Edit → + New message.'));
+    }
+    body.replaceChildren(...nodes);
+  }
+
+  function buildEditor() {
+    const draft = messageDraft;
+    const form = el('div', 'ka-msg-editor');
+    const input = el('textarea', 'ka-msg-input');
+    input.rows = 4;
+    input.value = draft.text;
+    input.placeholder = 'Message to save';
+    const counter = el('div', 'ka-msg-counter');
+    const updateCounter = () => {
+      const length = asOneLine(input.value).length;
+      counter.textContent = `${length}/${MESSAGE_LIMIT}`;
+      counter.classList.toggle('ka-msg-counter--over', length > MESSAGE_LIMIT);
+      save.disabled = !input.value.trim();
+    };
+    input.addEventListener('input', () => {
+      draft.text = input.value;
+      updateCounter();
+    });
+
+    const scope = el('div', 'ka-msg-scope');
+    const slug = channelSlug();
+    const options = slug ? [[slug, `This channel (${slug})`], [null, 'All channels']] : [[null, 'All channels']];
+    if (!slug && draft.channel === undefined) draft.channel = null;
+    for (const [value, label] of options) {
+      const option = el('button', 'ka-msg-scope-option', label);
+      option.type = 'button';
+      option.setAttribute('aria-pressed', String(draft.channel === value));
+      option.addEventListener('click', () => {
+        draft.channel = value;
+        scope.querySelectorAll('.ka-msg-scope-option').forEach(node => node.setAttribute('aria-pressed', String(node === option)));
+      });
+      scope.append(option);
+    }
+
+    const actions = el('div', 'ka-msg-editor-actions');
+    const cancel = el('button', 'ka-card-button', 'Cancel');
+    cancel.type = 'button';
+    cancel.addEventListener('click', () => {
+      messageDraft = null;
+      renderMessages();
+    });
+    const save = el('button', 'ka-card-button ka-card-button--primary', 'Save');
+    save.type = 'button';
+    const status = el('div', 'ka-msg-status');
+    save.addEventListener('click', async () => {
+      const text = input.value.trim();
+      if (!text) return;
+      save.disabled = true;
+      save.textContent = 'Saving…';
+      status.textContent = '';
+      const saved = await saveMessage({ ...draft, text });
+      if (messageDraft !== draft) return; // editor closed meanwhile
+      if (saved) {
+        messageDraft = null;
+        renderMessages();
+      } else {
+        save.disabled = false;
+        save.textContent = 'Save';
+        status.textContent = 'Not saved: the extension\'s storage didn\'t answer. Try again, or reload the page.';
+      }
+    });
+    actions.append(cancel, save);
+
+    form.append(input, counter, scope, status, actions);
+    updateCounter();
+    return form;
+  }
+
+  function openEditor(item) {
+    messageDraft = item
+      ? { ...item }
+      : { id: newId(), text: '', channel: channelSlug(), created: Date.now(), used: 0 };
+    renderMessages();
+  }
+
+  function clearUndo() {
+    clearTimeout(undoTimer);
+    undoItem = null;
+    undoTimer = null;
+    renderMessages();
+  }
+
+  function deleteMessage(item) {
+    sendToExtension('messages:delete', { id: item.id });
+    clearTimeout(undoTimer);
+    undoItem = item;
+    undoTimer = setTimeout(clearUndo, UNDO_MS);
+    savedMessages = savedMessages.filter(message => message.id !== item.id);
+    renderMessages();
+  }
+
+  function openMessages() {
+    closePicker();
+    hideSuggestions();
+    if (!messagesPanel) {
+      messagesPanel = el('div', 'ka-picker ka-messages');
+      const head = el('div', 'ka-picker-head');
+      const search = el('input', 'ka-picker-search ka-msg-search');
+      search.type = 'search';
+      search.placeholder = 'Search saved messages';
+      search.autocomplete = 'off';
+      search.addEventListener('input', renderMessages);
+      const editToggle = el('button', 'ka-msg-edit-toggle', 'Edit');
+      editToggle.type = 'button';
+      editToggle.addEventListener('click', () => {
+        messagesEditMode = !messagesEditMode;
+        messageDraft = null;
+        renderMessages();
+      });
+      const close = el('button', 'ka-picker-close', '✕');
+      close.type = 'button';
+      close.setAttribute('aria-label', 'Close saved messages');
+      close.addEventListener('click', closeMessages);
+      head.append(search, editToggle, close);
+      messagesPanel.append(head, el('div', 'ka-picker-grid ka-msg-body'));
+    }
+    if (!placeAboveInput(messagesPanel)) return;
+    renderMessages();
+    messagesButton?.setAttribute('aria-pressed', 'true');
+  }
+
+  function closeMessages() {
+    messagesPanel?.remove();
+    messagesPanel = null;
+    messagesEditMode = false;
+    messageDraft = null;
+    messagesButton?.setAttribute('aria-pressed', 'false');
+  }
+
+  function toggleMessages() {
+    if (messagesPanel?.isConnected) closeMessages();
+    else openMessages();
+  }
+
+  // ---- Save a message from chat --------------------------------------------------
+
+  // The chat message whose text was tapped, if the tap was on plain message text.
+  function messageTextAt(target) {
+    if (!target.closest?.(LIST_SELECTOR)) return null;
+    if (getSelection()?.toString()) return null; // selecting text (desktop), not tapping
+    if (target.closest('a, button, img, [data-emote-id], .ka-previews, .ka-deleted-tag, .ka-repeat')) return null;
+    const textArea = target.closest('span[data-ka-7tv], [data-ka-restored], span[aria-hidden="true"] + span');
+    const row = textArea?.closest(ROW_SELECTOR);
+    const message = row && readMessage(row);
+    return message?.content ? { row, message } : null;
+  }
+
+  function openMessageCard(row, message) {
+    const slug = channelSlug();
+    const preview = el('div', 'ka-card-message');
+    preview.append(renderContent(message.content));
+
+    const actions = el('div', 'ka-card-actions ka-card-actions--wrap');
+    const saveButton = (label, channel) => {
+      const button = el('button', 'ka-card-button', label);
+      button.type = 'button';
+      button.addEventListener('click', async () => {
+        actions.querySelectorAll('button').forEach(node => { node.disabled = true; });
+        button.textContent = 'Saving…';
+        const saved = await saveMessage({ id: newId(), text: message.content, channel, created: Date.now(), used: 0 });
+        if (saved) {
+          button.textContent = 'Saved ✓';
+          setTimeout(closeCard, 900);
+        } else {
+          button.textContent = 'Not saved';
+          actions.querySelectorAll('button').forEach(node => { node.disabled = false; });
+        }
+      });
+      return button;
+    };
+    if (messagesEnabled()) {
+      if (slug) actions.append(saveButton('Save · this channel', slug));
+      actions.append(saveButton('Save · all channels', null));
+    }
+    const copy = el('button', 'ka-card-button', 'Copy');
+    copy.type = 'button';
+    copy.addEventListener('click', async () => {
+      copy.textContent = (await copyText(plainText(message.content))) ? 'Copied ✓' : 'Copy failed';
+    });
+    actions.append(copy);
+
+    const username = message.sender?.username;
+    const self = selfUsername(row);
+    if (muteEnabled() && username && username.toLowerCase() !== self?.toLowerCase()) {
+      const mute = el('button', 'ka-card-button ka-card-button--mute', `Mute ${username}`);
+      mute.type = 'button';
+      mute.addEventListener('click', () => {
+        sendToExtension('mute:add', { username });
+        mute.disabled = true;
+        mute.textContent = 'Muted ✓';
+        setTimeout(closeCard, 700);
+      });
+      actions.append(mute);
+    }
+
+    const head = el('div', 'ka-card-meta', `Message from ${username || 'chat'}`);
+    showCard(row.querySelector('span[aria-hidden="true"] + span, [data-ka-7tv], [data-ka-restored]') || row, 'Save message', [head, preview, actions]);
+  }
+
+
+  // ---- Highlights (mentions of you, chosen words, the streamer) -------------------
+  // Whole words, any case, Unicode-aware (Polish letters count as letters).
+
+  const wordLists = new Map(); // html attribute -> { raw, patterns }
+  const mentionPatterns = new Map(); // username -> RegExp
+
+  function wordPattern(word) {
+    const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return new RegExp(`(?<![\\p{L}\\p{N}_])${escaped}(?![\\p{L}\\p{N}_])`, 'iu');
+  }
+
+  // Patterns for a JSON word list in an html attribute (cached until it changes).
+  function wordPatterns(attr) {
+    const raw = document.documentElement.getAttribute(attr) || '[]';
+    if (wordLists.get(attr)?.raw !== raw) {
+      let words = [];
+      try {
+        words = JSON.parse(raw);
+      } catch (err) { /* none */ }
+      wordLists.set(attr, {
+        raw,
+        patterns: (Array.isArray(words) ? words : []).map(word => String(word).trim()).filter(Boolean).map(wordPattern)
+      });
+    }
+    return wordLists.get(attr).patterns;
+  }
+
+  // The channel owner: same slug as the channel, or Kick's broadcaster badge.
+  function fromStreamer(message) {
+    const sender = message.sender;
+    if (!sender) return false;
+    const slug = channelSlug();
+    return Boolean(slug && (sender.slug || sender.username || '').toLowerCase() === slug)
+      || (sender.identity?.badges || []).some(badge => badge?.type === 'broadcaster');
+  }
+
+  // Kick passes the logged-in username to each chat row's component.
+  function selfUsername(row) {
+    let fiber = rowFiber(row);
+    for (let depth = 0; fiber && depth < 4; depth++, fiber = fiber.child) {
+      const name = fiber.memoizedProps?.selfUsername;
+      if (typeof name === 'string' && name) return name;
+    }
+    return null;
+  }
+
+  // Mentions of you win; then the streamer; then your words (unless the message
+  // also has a word to hide). Only mentions and words go to the inbox.
+  function highlightKind(row, message) {
+    const text = plainText(message.content);
+    const self = selfUsername(row);
+    const fromSelf = self && message.sender?.username?.toLowerCase() === self.toLowerCase();
+    if (highlightsEnabled() && self && !fromSelf) {
+      if (!mentionPatterns.has(self)) mentionPatterns.set(self, wordPattern(self));
+      if (mentionPatterns.get(self).test(text)) return 'mention';
+    }
+    if (streamerEnabled() && fromStreamer(message)) return 'streamer';
+    if (highlightsEnabled() && !fromSelf && !hasHiddenWord(message)
+      && wordPatterns(HIGHLIGHT_WORDS_ATTR).some(pattern => pattern.test(text))) return 'keyword';
+    return null;
+  }
+
+  // Highlighted messages go to the mentions inbox (content.js keeps them). Each
+  // message once; a spam run of the same text counts once.
+  const INBOX_REPEAT_MS = 2 * 60 * 1000;
+  const reported = new Set();
+  let lastReported = { key: '', at: 0 };
+
+  function reportMention(message, kind) {
+    if (reported.has(message.id)) return;
+    reported.add(message.id);
+    if (reported.size > HISTORY_LIMIT) reported.delete(reported.values().next().value);
+    const channel = channelSlug();
+    const at = Date.parse(message.created_at) || Date.now();
+    const key = repeatKey(message.content);
+    if (!channel || (key === lastReported.key && Math.abs(at - lastReported.at) < INBOX_REPEAT_MS)) return;
+    lastReported = { key, at };
+    sendToExtension('inbox:add', {
+      item: { id: message.id, channel, username: message.sender?.username || '?', content: message.content, kind, at }
+    });
+  }
+
+  function applyHighlight(row, message) {
+    const kind = row.hasAttribute('data-ka-muted') ? null : highlightKind(row, message);
+    if (kind === 'mention' || kind === 'keyword') reportMention(message, kind);
+    if ((row.dataset.kaHighlight || null) === kind) return;
+    if (kind) row.dataset.kaHighlight = kind;
+    else delete row.dataset.kaHighlight;
+  }
+
+  // ---- Mute list ---------------------------------------------------------------
+  // Muted users (all channels, any case) come from content.js in an html
+  // attribute. Their messages collapse to one line; tapping it shows the message.
+
+  let mutedCache = { raw: null, names: new Set() };
+  const revealed = new Set(); // message ids shown anyway
+  const REVEALED_LIMIT = 300;
+
+  function isMuted(username) {
+    const raw = document.documentElement.getAttribute(MUTED_USERS_ATTR) || '[]';
+    if (mutedCache.raw !== raw) {
+      let names = [];
+      try {
+        names = JSON.parse(raw);
+      } catch (err) { /* none */ }
+      mutedCache = { raw, names: new Set((Array.isArray(names) ? names : []).map(name => String(name).toLowerCase())) };
+    }
+    return Boolean(username) && mutedCache.names.has(username.toLowerCase());
+  }
+
+  function clearMute(row) {
+    row.querySelectorAll(':scope > .ka-muted-line').forEach(node => node.remove());
+    row.removeAttribute('data-ka-muted');
+    row.removeAttribute('data-ka-revealed');
+  }
+
+  function toggleRevealed(id) {
+    if (!id) return;
+    if (revealed.has(id)) revealed.delete(id);
+    else {
+      revealed.add(id);
+      if (revealed.size > REVEALED_LIMIT) revealed.delete(revealed.values().next().value);
+    }
+    schedule();
+  }
+
+  // Returns true while the row is collapsed.
+  function applyMute(row, message) {
+    const username = message.sender?.username;
+    if (!muteEnabled() || !isMuted(username)) {
+      if (row.hasAttribute('data-ka-muted')) {
+        clearMute(row);
+        remeasure(row);
+      }
+      return false;
+    }
+    const shown = revealed.has(message.id);
+    let line = row.querySelector(':scope > .ka-muted-line');
+    if (!line) {
+      // A span, so Kick-row rules written for divs don't apply to it.
+      line = el('span', 'ka-muted-line');
+      row.prepend(line);
+    }
+    line.dataset.id = message.id;
+    const label = `${username} (muted) · ${shown ? 'tap to hide' : 'tap to show'}`;
+    if (line.textContent !== label) line.textContent = label;
+    const changed = !row.hasAttribute('data-ka-muted') || row.hasAttribute('data-ka-revealed') !== shown;
+    row.setAttribute('data-ka-muted', '');
+    row.toggleAttribute('data-ka-revealed', shown);
+    if (changed) remeasure(row);
+    return !shown;
+  }
+
+  // ---- Repeated messages -----------------------------------------------------------
+  // A run of consecutive identical messages (from anyone) shows only its newest
+  // copy, with ×N; the earlier copies are hidden (zero-height rows, which the
+  // virtualizer handles fine). "Identical" ignores case, spacing and the invisible
+  // characters people add to get past Kick's duplicate-message check. Rows in the
+  // list have consecutive data-index values, so runs are found from the DOM.
+
+  const INVISIBLE_CHARS = /[\u{E0000}-\u{E007F}\u034F\u115F\u1160\u17B4\u17B5\u180E\u200B-\u200F\u2060-\u2064\u3164\uFEFF\uFFA0]/gu;
+
+  function repeatKey(content) {
+    return plainText(content).replace(INVISIBLE_CHARS, '').replace(/\s+/g, ' ').trim().toLowerCase();
+  }
+
+  // ---- Replies ----------------------------------------------------------------------
+  // Kick's reply header component gets the original as props (originalMessageId,
+  // originalContent, originalSenderUsername), so it's found through React, not by
+  // its text. Kick's own tap opens a thread panel, which never fires on iOS (taps
+  // on chat rows don't become clicks); we jump to the original instead.
+
+  function replyHeaderAt(target) {
+    if (!target.closest?.(LIST_SELECTOR)) return null;
+    const row = target.closest(ROW_SELECTOR);
+    for (let node = target; node && node !== row; node = node.parentElement) {
+      let fiber = rowFiber(node);
+      for (let depth = 0; fiber && depth < 3; depth++, fiber = fiber.return) {
+        const props = fiber.memoizedProps;
+        if (typeof props?.originalMessageId === 'string') {
+          return {
+            element: node,
+            original: {
+              id: props.originalMessageId,
+              content: typeof props.originalContent === 'string' ? props.originalContent : '',
+              username: typeof props.originalSenderUsername === 'string' ? props.originalSenderUsername : ''
+            }
+          };
+        }
+      }
+    }
+    return null;
+  }
+
+  function openReplyOriginal(element, original) {
+    closeCard();
+    const virtualizer = chatVirtualizer();
+    if (virtualizer && itemIndex(virtualizer, original.id) >= 0) {
+      scrollToMessage(original.id).then(row => {
+        if (row) flashRow(row);
+      }).catch(err => {
+        lastError = `reply: ${err?.message || err}`;
+      });
+      return;
+    }
+    const content = original.content || history.get(original.id)?.content || '';
+    const preview = el('div', 'ka-card-message');
+    if (content) preview.append(renderContent(content));
+    else preview.textContent = '(original message deleted)';
+    showCard(element, 'Original message', [
+      el('div', 'ka-card-meta', `${original.username || 'Original message'} · no longer in chat`),
+      preview
+    ]);
+  }
+
+  // ---- Hidden messages (emote-only, words to hide) -------------------------------------
+  // With the setting on, messages made only of emotes (Kick's, and 7TV's while 7TV
+  // emotes are on) are hidden like the earlier copies of a repeat; so are messages
+  // with a word to hide. Your own messages and mentions of you stay.
+
+  const emoteOnlyEnabled = () => document.documentElement.hasAttribute(EMOTE_ONLY_ATTR);
+
+  function isEmoteOnly(content) {
+    if (!content) return false;
+    const words = content.replace(EMOTE_TOKEN, ' ').replace(INVISIBLE_CHARS, '').split(/\s+/).filter(Boolean);
+    if (!words.length) return content.includes('[emote:');
+    return sevenTvEnabled() && emotes.size > 0 && words.every(word => emotes.has(word));
+  }
+
+  function hasHiddenWord(message) {
+    const patterns = wordPatterns(HIDE_WORDS_ATTR);
+    if (!patterns.length || !message.content) return false;
+    const text = plainText(message.content);
+    return patterns.some(pattern => pattern.test(text));
+  }
+
+  function applyHidden(row, message) {
+    const self = selfUsername(row);
+    const kind = row.dataset.kaHighlight;
+    const hide = !row.hasAttribute('data-ka-muted')
+      && kind !== 'mention'
+      && !(self && message.sender?.username?.toLowerCase() === self.toLowerCase())
+      && ((emoteOnlyEnabled() && !kind && isEmoteOnly(message.content)) || hasHiddenWord(message));
+    if (row.hasAttribute('data-ka-hidden-row') === hide) return;
+    row.toggleAttribute('data-ka-hidden-row', hide);
+    remeasure(row);
+  }
+
+  function clearRepeat(row) {
+    row.querySelectorAll('.ka-repeat').forEach(node => node.remove());
+    row.removeAttribute('data-ka-dup');
+  }
+
+  function setRepeat(row, hidden, count) {
+    let changed = row.hasAttribute('data-ka-dup') !== hidden;
+    row.toggleAttribute('data-ka-dup', hidden);
+    let badge = row.querySelector('.ka-repeat');
+    if (count > 1) {
+      if (!badge) {
+        const anchor = row.querySelector('[data-ka-restored], [data-ka-7tv]') || row.querySelector('span[aria-hidden="true"] + span');
+        if (!anchor) {
+          if (changed) remeasure(row);
+          return;
+        }
+        badge = el('span', 'ka-repeat');
+        badge.setAttribute('role', 'button');
+        anchor.after(badge);
+        changed = true;
+      }
+      const label = `×${count}`;
+      if (badge.textContent !== label) badge.textContent = label;
+    } else if (badge) {
+      badge.remove();
+      changed = true;
+    }
+    if (changed) remeasure(row);
+  }
+
+  // Every pass looks at every row here, so keep each message's key.
+  const repeatKeys = new WeakMap(); // Kick's message object -> repeatKey
+
+  function messageRepeatKey(message) {
+    let key = repeatKeys.get(message);
+    if (key === undefined) {
+      key = repeatKey(message.content);
+      repeatKeys.set(message, key);
+    }
+    return key;
+  }
+
+  function collapseRepeats() {
+    const enabled = repeatsEnabled();
+    const entries = [...list.querySelectorAll(ROW_SELECTOR)].map(row => {
+      const message = enabled && !row.hasAttribute('data-ka-muted') ? readMessage(row) : null;
+      return { row, index: Number(row.dataset.index), key: message?.content ? messageRepeatKey(message) : '' };
+    }).sort((a, b) => a.index - b.index);
+
+    const sameAsNext = (entry, next) => Boolean(entry.key) && next?.key === entry.key && next.index === entry.index + 1;
+    let count = 0;
+    entries.forEach((entry, i) => {
+      count = i > 0 && sameAsNext(entries[i - 1], entry) ? count + 1 : 1;
+      const hidden = sameAsNext(entry, entries[i + 1]);
+      guarded('repeats', () => setRepeat(entry.row, hidden, hidden ? 1 : count));
+    });
+  }
+
+  // Who sent the copies of a run (the badge's row and the hidden rows before it).
+  function openRepeatCard(badge) {
+    const row = badge.closest(ROW_SELECTOR);
+    if (!row) return;
+    const senders = new Map();
+    let message = null;
+    for (let node = row, index = Number(row.dataset.index); node; ) {
+      const data = readMessage(node);
+      if (data) {
+        message ||= data;
+        const name = data.sender?.username || '?';
+        senders.set(name, (senders.get(name) || 0) + 1);
+      }
+      index--;
+      node = list?.querySelector(`${ROW_SELECTOR}[data-index="${index}"][data-ka-dup]`);
+    }
+    const total = [...senders.values()].reduce((sum, n) => sum + n, 0);
+    const preview = el('div', 'ka-card-message');
+    if (message) preview.append(renderContent(message.content));
+    const who = [...senders].sort((a, b) => b[1] - a[1]).map(([name, n]) => (n > 1 ? `${name} ×${n}` : name)).join(', ');
+    showCard(badge, 'Repeated message', [
+      el('div', 'ka-card-meta', `Sent ${total} times in a row`),
+      preview,
+      el('div', 'ka-card-meta ka-repeat-senders', `by ${who}`)
+    ]);
+  }
+
+  // ---- Row processing --------------------------------------------------------
+
+  function clearRow(row) {
+    clearRestore(row);
+    clearPreviews(row);
+    clear7tv(row);
+    clearMute(row);
+    clearRepeat(row);
+    clearCosmetics(row);
+    clearGhosts(row);
+    row.removeAttribute('data-ka-hidden-row');
+  }
+
+  // Every pass does every drawn row. Skipping rows whose React props looked unchanged
+  // missed deletions (tried in 6.1: the row's fiber can be the stale copy), so don't.
+  let rowsWaiting = false; // a pass was skipped while the page was hidden
+
+  function processRow(row) {
+    const message = readMessage(row);
+    if (!message) return;
+
+    // Rows are recycled while scrolling: drop anything added for a previous message.
+    if (row.dataset.kaId !== message.id) {
+      clearRow(row);
+      row.dataset.kaId = message.id;
+    }
+
+    remember(message);
+    const deleted = Boolean(findDeletedLabel(row, message));
+    if (deleted) clear7tv(row); // the 7TV copy would hide the deletion
+    const content = restoreEnabled() ? restoreDeleted(row, message) : message.content;
+    if (sevenTvEnabled() && emotes.size && !deleted) apply7tv(row);
+    const collapsed = applyMute(row, message);
+    if (previewsEnabled() && !collapsed) addPreviews(row, message.id, content);
+    applyHighlight(row, message);
+    applyHidden(row, message);
+    applyCosmetics(row, message);
+    applyGhosts(row, message);
+  }
+
+  function processAll() {
+    scheduled = false;
+    if (!list) return;
+    guarded('history', harvest); // also while hidden: keeps text for restore and search
+    // Nobody sees the rows of a hidden page: do them all when it's shown again.
+    if (document.hidden) {
+      rowsWaiting = true;
+      return;
+    }
+    // One broken row must not stop the rest.
+    list.querySelectorAll(ROW_SELECTOR).forEach(row => guarded('message', () => processRow(row)));
+    guarded('repeats', collapseRepeats);
+  }
+
+  // Batch bursts of chat mutations. Not requestAnimationFrame: it pauses while the
+  // page is hidden, and the deleted messages' text must still be harvested.
+  function schedule() {
+    if (scheduled) return;
+    scheduled = true;
+    setTimeout(processAll, BATCH_MS);
+  }
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden || !rowsWaiting) return;
+    rowsWaiting = false;
+    schedule();
+  });
+
+  // Our own nodes inside rows. Changes to them (ours, or a link preview arriving)
+  // don't need another pass.
+  const OWN_NODE = '[data-ka-restored], [data-ka-previews], [data-ka-7tv], .ka-ghosts, .ka-muted-line, .ka-repeat, .ka-7tv-badge';
+
+  // Only inside the list: settings put the same attributes on <html> (data-ka-7tv).
+  function isOwnNode(node) {
+    const element = node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement;
+    const own = element?.closest(OWN_NODE);
+    return Boolean(own && list?.contains(own) && own !== list);
+  }
+
+  // A pass only when Kick changed something.
+  function onListMutations(records) {
+    const kick = records.some(record => !isOwnNode(record.target)
+      && !(record.type === 'childList' && [...record.addedNodes, ...record.removedNodes].every(isOwnNode)));
+    if (kick) schedule();
+  }
+
+  // Settings changed: drop what was switched off and re-measure every row, since
+  // heights change (also when the text size changes).
+  function onSettingsChange() {
+    document.querySelectorAll('[data-ka-id]').forEach(row => {
+      if (!restoreEnabled()) clearRestore(row);
+      if (!previewsEnabled()) clearPreviews(row);
+      if (!sevenTvEnabled()) clear7tv(row);
+      if (!highlightsEnabled() && !streamerEnabled()) delete row.dataset.kaHighlight;
+      if (!muteEnabled()) clearMute(row);
+      remeasure(row);
+    });
+    if (!sevenTvEnabled()) {
+      closeCard();
+      hideSuggestions();
+    }
+    syncToolbar();
+    if (sevenTvEnabled()) syncEmotes();
+    schedule();
+  }
+
+  // Kick is an SPA: the chat list is replaced on channel switches.
+  function syncList() {
+    const current = document.querySelector(LIST_SELECTOR);
+    if (current === list) return;
+    if (listObserver) listObserver.disconnect();
+    list = current;
+    listObserver = null;
+    if (!list) return;
+    listObserver = new MutationObserver(onListMutations);
+    listObserver.observe(list, { childList: true, subtree: true, characterData: true });
+    if (sevenTvEnabled()) syncEmotes(); // may be a different channel now
+    schedule();
+  }
+
+  new MutationObserver(onSettingsChange).observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: [RESTORE_ATTR, PREVIEWS_ATTR, SEVENTV_ATTR, MESSAGES_ATTR, HIGHLIGHT_ATTR, HIGHLIGHT_WORDS_ATTR, STREAMER_ATTR, HIDE_WORDS_ATTR, MUTE_ATTR, MUTED_USERS_ATTR, REPEATS_ATTR, FONT_SIZE_ATTR, CHAT_FONT_ATTR, COSMETICS_ATTR, EMOTE_ONLY_ATTR]
+  });
+
+  // ---- Catching up after the page slept ----------------------------------------
+  // iOS freezes a background tab. When it wakes, Kick reconnects but doesn't load
+  // what was said meanwhile (its history load runs once per page); when iOS reloads
+  // the tab instead, Kick starts again from its last ~25 messages. Either way we
+  // know the newest message seen before (kept per channel in localStorage, so it
+  // survives a reload), read Kick's history forward from it, and rebuild Kick's list
+  // in time order with its own reset + hydrateFromHistory. A notice offers a jump
+  // to the first missed message.
+  // History: web.kick.com/api/v1/chat/{channel id}/history?start_time=ISO returns
+  // every message of the 5-second window (aligned to :00, :05 …) holding that time.
+  // (Its `cursor` skips ahead; not used. Without start_time: the newest ~25.)
+
+  const SEEN_KEY = 'kickoff:lastSeen';
+  const CATCHUP_GAP_MS = 15 * 1000;        // timers stopped this long = the page slept
+  const CATCHUP_MAX_AGE_MS = 60 * 60 * 1000; // longer away: Kick's fresh list is enough
+  const CATCHUP_WINDOW_MS = 5000;          // one request = 5 seconds of chat
+  const CATCHUP_MAX_SPAN_MS = 10 * 60 * 1000; // at most the last 10 minutes (120 requests)
+  const CATCHUP_PARALLEL = 6;
+  const CATCHUP_SETTLE_MS = 2500;          // let Kick reconnect / load its history first
+  const CATCHUP_LIST_LIMIT = 300;          // Kick keeps about this many
+  const CATCHUP_NOTICE_MS = 20 * 1000;
+
+  let seen = readSeen(channelSlug()); // { channel, id, at } of the newest message seen
+  let savedSeenAt = seen?.at || 0;
+  let lastTickAt = Date.now();
+  let catchingUp = false;
+  let catchupNotice = null;
+  let catchupNoticeTimer = 0;
+
+  function readSeen(channel) {
+    try {
+      const all = JSON.parse(localStorage.getItem(SEEN_KEY) || '{}');
+      const item = channel && all[channel];
+      return item && Date.now() - item.at < CATCHUP_MAX_AGE_MS ? { channel, ...item } : null;
+    } catch (err) {
+      return null;
+    }
+  }
+
+  function saveSeen() {
+    if (!seen || seen.at === savedSeenAt) return;
+    savedSeenAt = seen.at;
+    try {
+      const all = JSON.parse(localStorage.getItem(SEEN_KEY) || '{}');
+      all[seen.channel] = { id: seen.id, at: seen.at };
+      for (const [channel, item] of Object.entries(all)) {
+        if (!(Date.now() - item?.at < CATCHUP_MAX_AGE_MS)) delete all[channel];
+      }
+      localStorage.setItem(SEEN_KEY, JSON.stringify(all));
+    } catch (err) { /* not kept */ }
+  }
+
+  // Called from harvest with Kick's list (oldest first).
+  function noteSeen(messages) {
+    const channel = channelSlug();
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const data = messages[i]?.data;
+      if (messages[i]?.type !== 'message' || !data?.id) continue;
+      const at = Date.parse(data.created_at) || 0;
+      if (seen?.channel !== channel || at > seen.at) seen = { channel, id: data.id, at };
+      return;
+    }
+  }
+
+  // Kick's chat store (Zustand) getState: a 0-arg function in a useMemo dependency
+  // list above the chat, returning the state with hydrateFromHistory.
+  function chatStore() {
+    let fiber = list && rowFiber(list);
+    for (let depth = 0; fiber && depth < 80; depth++, fiber = fiber.return) {
+      for (let hook = fiber.memoizedState, n = 0; hook && n < 80; hook = hook.next, n++) {
+        const deps = Array.isArray(hook.memoizedState) && Array.isArray(hook.memoizedState[1]) ? hook.memoizedState[1] : null;
+        for (const candidate of deps || []) {
+          if (typeof candidate !== 'function' || candidate.length > 0) continue;
+          try {
+            const state = candidate();
+            if (typeof state?.hydrateFromHistory === 'function' && typeof state.reset === 'function' && Array.isArray(state.entries)) return candidate;
+          } catch (err) { /* not it */ }
+        }
+      }
+    }
+    return null;
+  }
+
+  // Two ids: the history API wants the channel id (messages from history carry it
+  // as chat_id), the store the chatroom id (live messages: chatroom_id; the store's
+  // currentChatroomId is 0 in the popout). Kick's channel API has both.
+  const channelIds = new Map(); // slug -> { channel, chatroom }
+
+  async function chatIds(slug) {
+    if (!channelIds.has(slug)) {
+      const response = await fetch(`/api/v2/channels/${encodeURIComponent(slug)}`, { headers: { Accept: 'application/json' } });
+      if (!response.ok) throw new Error(`channel ${response.status}`);
+      const data = await response.json();
+      if (!data?.id || !data.chatroom?.id) return null;
+      channelIds.set(slug, { channel: data.id, chatroom: data.chatroom.id });
+    }
+    return channelIds.get(slug);
+  }
+
+  async function historyWindow(id, at) {
+    const response = await fetch(`https://web.kick.com/api/v1/chat/${id}/history?start_time=${encodeURIComponent(new Date(at).toISOString())}`, {
+      credentials: 'include',
+      cache: 'no-cache',
+      headers: { Accept: 'application/json', 'x-app-platform': 'web' }
+    });
+    if (!response.ok) throw new Error(`history ${response.status}`);
+    const messages = (await response.json())?.data?.messages;
+    return Array.isArray(messages) ? messages : [];
+  }
+
+  async function catchUp(from) {
+    if (catchingUp || !from || from.channel !== channelSlug()) return;
+    const getState = chatStore();
+    if (!getState) return;
+    catchingUp = true;
+    try {
+      const ids = await chatIds(from.channel);
+      if (!ids) return;
+      const now = Date.now();
+      const begin = Math.max(from.at, now - CATCHUP_MAX_SPAN_MS);
+      let complete = begin === from.at;
+      const windows = [];
+      for (let at = begin - begin % CATCHUP_WINDOW_MS; at < now; at += CATCHUP_WINDOW_MS) windows.push(at);
+      const fetched = [];
+      for (let i = 0; i < windows.length; i += CATCHUP_PARALLEL) {
+        const batch = await Promise.all(windows.slice(i, i + CATCHUP_PARALLEL).map(at => historyWindow(ids.channel, at).catch(() => null)));
+        if (batch.includes(null)) complete = false;
+        const messages = batch.flat().filter(Boolean);
+        fetched.push(...messages);
+        // Reached what Kick already shows (arrived live after it reconnected).
+        const shown = new Set(getState().entries.map(entry => entry?.data?.id));
+        if (messages.length && messages.every(message => shown.has(message.id) || message.id === from.id)
+          && messages.some(message => (Date.parse(message.created_at) || 0) > from.at)) break;
+      }
+      mergeMissed(getState, ids.chatroom, from, fetched, complete);
+    } finally {
+      catchingUp = false;
+    }
+  }
+
+  function mergeMissed(getState, chatroomId, from, fetched, complete) {
+    const state = getState();
+    if (from.channel !== channelSlug()) return;
+    const kept = state.entries.filter(entry => entry?.type === 'message' && entry.data?.id).map(entry => entry.data);
+    const shown = new Set(kept.map(message => message.id));
+    const missed = fetched.filter(message => message?.id && !shown.has(message.id)
+      && message.id !== from.id && (Date.parse(message.created_at) || 0) >= from.at);
+    if (!missed.length) return;
+    // Time order; equal times keep Kick's order (missed ones after).
+    const merged = [...kept, ...missed]
+      .map((message, index) => ({ message, index, at: Date.parse(message.created_at) || 0 }))
+      .sort((a, b) => a.at - b.at || a.index - b.index)
+      .slice(-CATCHUP_LIST_LIMIT)
+      .map(item => item.message);
+    // reset only clears once the store has a chatroom id (the popout leaves it 0).
+    if (!getState().currentChatroomId) getState().reset(chatroomId);
+    getState().reset(chatroomId);
+    getState().hydrateFromHistory(merged.slice().reverse()); // it expects newest first
+    missed.sort((a, b) => Date.parse(a.created_at) - Date.parse(b.created_at));
+    showCatchupNotice(missed.length, missed[0].id, complete);
+    schedule();
+  }
+
+  function showCatchupNotice(count, firstId, complete) {
+    closeCatchupNotice();
+    catchupNotice = el('button', 'ka-catchup');
+    catchupNotice.type = 'button';
+    catchupNotice.dataset.id = firstId;
+    catchupNotice.textContent = `↑ ${count} missed message${count === 1 ? '' : 's'}${complete ? '' : ' (older ones not loaded)'}`;
+    catchupNotice.addEventListener('mousedown', event => event.preventDefault());
+    placeAboveInput(catchupNotice);
+    catchupNoticeTimer = setTimeout(closeCatchupNotice, CATCHUP_NOTICE_MS);
+  }
+
+  function closeCatchupNotice() {
+    clearTimeout(catchupNoticeTimer);
+    catchupNotice?.remove();
+    catchupNotice = null;
+  }
+
+  function openCatchupNotice() {
+    const id = catchupNotice?.dataset.id;
+    closeCatchupNotice();
+    if (id) scrollToMessage(id).then(row => row && flashRow(row)).catch(() => {});
+  }
+
+  // From tick, before harvest: a long gap since the last tick means the page was
+  // frozen (or just loaded with an earlier visit remembered).
+  function checkCatchup() {
+    const now = Date.now();
+    const slept = now - lastTickAt > CATCHUP_GAP_MS;
+    lastTickAt = now;
+    if (slept && seen) {
+      const from = { ...seen };
+      setTimeout(() => catchUp(from).catch(err => { lastError = `catch-up: ${err?.message || err}`; }), CATCHUP_SETTLE_MS);
+    }
+  }
+
+  // Page load: wait for Kick's own history, then fill the gap from the last visit.
+  function catchupAfterLoad(from, tries = 0) {
+    const state = chatStore()?.();
+    if (!state?.hydratedFromHistory || !state.entries.length) {
+      if (tries < 20) setTimeout(() => catchupAfterLoad(from, tries + 1), 1000);
+      return;
+    }
+    catchUp(from).catch(err => { lastError = `catch-up: ${err?.message || err}`; });
+  }
+
+  if (seen) {
+    const from = { ...seen };
+    setTimeout(() => catchupAfterLoad(from), CATCHUP_SETTLE_MS);
+  }
+
+  window.addEventListener('pagehide', saveSeen);
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) saveSeen();
+  });
+
+  // ---- Status (shown in the settings panel by content.js) -----------------------
+  // A failing step must not stop the others, and the last error is reported in
+  // html[data-ka-status] so problems are visible on the phone.
+
+  let lastError = '';
+
+  function guarded(name, step) {
+    try {
+      step();
+    } catch (err) {
+      lastError = `${name}: ${err?.message || err}`;
+      console.error('Kickoff:', lastError, err);
+    }
+  }
+
+  function publishStatus() {
+    document.documentElement.dataset.kaStatus = JSON.stringify({
+      rows: list ? list.querySelectorAll(ROW_SELECTOR).length : 0,
+      readable: list ? [...list.querySelectorAll(ROW_SELECTOR)].filter(readMessage).length : 0,
+      emotes: emotes.size,
+      emoteCounts,
+      emoteLoading: emoteLoadStarted ? Math.round((Date.now() - emoteLoadStarted) / 1000) : null,
+      inputs: document.querySelectorAll('[data-testid="chat-input"]').length,
+      editableInput: Boolean(chatInput()),
+      footer: Boolean(inputFooter()),
+      kickToolbar: Boolean(kickToolbar()),
+      emoteButton: Boolean(inputFooter()?.querySelector('button svg[data-ds-icon="Smile"]')),
+      ourToolbar: Boolean(toolbar?.isConnected),
+      channel: channelSlug(),
+      adsRemoved,
+      error: [lastError, emoteError].filter(Boolean).join('\n')
+    });
+  }
+
+  window.addEventListener('error', event => {
+    if (String(event.filename || '').includes('page-hook')) lastError = event.message;
+  });
+  window.addEventListener('unhandledrejection', event => {
+    if (String(event.reason?.stack || '').includes('page-hook')) lastError = `async: ${event.reason.message}`;
+  });
+
+  // Retry 7TV emotes that failed to load (they're otherwise only loaded when the
+  // chat element changes).
+  function retryEmotes() {
+    if (!sevenTvEnabled() || emotes.size || !list || Date.now() < emotesRetryAt) return;
+    emotesRetryAt = Date.now() + EMOTES_RETRY_MS;
+    emotesSlug = null;
+    syncEmotes();
+  }
+
+  function tick() {
+    guarded('catch-up', checkCatchup);
+    guarded('chat', syncList);
+    guarded('history', harvest);
+    guarded('bans', listenForBans);
+    guarded('catch-up', saveSeen);
+    if (document.hidden) return; // the rest only matters on screen
+    guarded('7TV', retryEmotes);
+    guarded('7TV cosmetics', () => {
+      renderPaintStyles();
+      flushCosmetics(); // e.g. chatters queued while the setting was off
+    });
+    guarded('autocomplete', syncAutocomplete);
+    guarded('toolbar', syncToolbar);
+    guarded('status', publishStatus);
+  }
+
+  tick();
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) tick();
+  });
+  if (rememberedInputHidden()) setTimeout(() => toolbar && setInputHidden(true, { remember: false }), 2000);
+  setInterval(tick, LIST_POLL_MS);
+})();
