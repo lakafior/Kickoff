@@ -22,6 +22,11 @@ Safari's "describe extension" feature; now a regular Xcode project.
   (also hard-coded in `Shared (App)/ViewController.swift`).
 - Internal prefixes: storage/message keys `kickoff…` / `kickoff:…`; DOM attributes
   and CSS classes `data-ka-*` / `.ka-*`.
+- Text: every on-screen string is in `strings.js` (English + Polish, same keys),
+  read by content.js and page-hook.js as `t('key', { values })`. Add new text there
+  in both languages, never inline. Manifest name/description are in `_locales/`;
+  the app window is `Shared (App)/Resources/Base.lproj` + `pl.lproj/Main.html`.
+  The "Page script" troubleshooting text in the panel stays English on purpose.
 - Versioning: bump `MARKETING_VERSION` / `CURRENT_PROJECT_VERSION` in Xcode for
   releases; keep `manifest.json` `version` in step with `MARKETING_VERSION`.
 

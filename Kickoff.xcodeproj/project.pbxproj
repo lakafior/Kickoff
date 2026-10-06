@@ -33,12 +33,16 @@
 		48297EA73074D2D000EC882D /* images in Resources */ = {isa = PBXBuildFile; fileRef = 48297EA13074D2D000EC882D /* images */; };
 		48297EA83074D2D000EC882D /* manifest.json in Resources */ = {isa = PBXBuildFile; fileRef = 48297EA23074D2D000EC882D /* manifest.json */; };
 		48297EA93074D2D000EC882D /* page-hook.js in Resources */ = {isa = PBXBuildFile; fileRef = 48297EA33074D2D000EC882D /* page-hook.js */; };
+		48297EF43074D2D000EC882D /* strings.js in Resources */ = {isa = PBXBuildFile; fileRef = 48297EF33074D2D000EC882D /* strings.js */; };
+		48297EF73074D2D000EC882D /* _locales in Resources */ = {isa = PBXBuildFile; fileRef = 48297EF63074D2D000EC882D /* _locales */; };
 		48297EAA3074D2D000EC882D /* content.js in Resources */ = {isa = PBXBuildFile; fileRef = 48297EA43074D2D000EC882D /* content.js */; };
 		48297EAB3074D2D000EC882D /* kickoff.css in Resources */ = {isa = PBXBuildFile; fileRef = 48297EA53074D2D000EC882D /* kickoff.css */; };
 		48297EAC3074D2D000EC882D /* background.js in Resources */ = {isa = PBXBuildFile; fileRef = 48297EA03074D2D000EC882D /* background.js */; };
 		48297EAD3074D2D000EC882D /* images in Resources */ = {isa = PBXBuildFile; fileRef = 48297EA13074D2D000EC882D /* images */; };
 		48297EAE3074D2D000EC882D /* manifest.json in Resources */ = {isa = PBXBuildFile; fileRef = 48297EA23074D2D000EC882D /* manifest.json */; };
 		48297EAF3074D2D000EC882D /* page-hook.js in Resources */ = {isa = PBXBuildFile; fileRef = 48297EA33074D2D000EC882D /* page-hook.js */; };
+		48297EF53074D2D000EC882D /* strings.js in Resources */ = {isa = PBXBuildFile; fileRef = 48297EF33074D2D000EC882D /* strings.js */; };
+		48297EF83074D2D000EC882D /* _locales in Resources */ = {isa = PBXBuildFile; fileRef = 48297EF63074D2D000EC882D /* _locales */; };
 		48297EB03074D2D000EC882D /* content.js in Resources */ = {isa = PBXBuildFile; fileRef = 48297EA43074D2D000EC882D /* content.js */; };
 		48297EB13074D2D000EC882D /* kickoff.css in Resources */ = {isa = PBXBuildFile; fileRef = 48297EA53074D2D000EC882D /* kickoff.css */; };
 		48297EF13074D2D000EC882D /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = 48297EF03074D2D000EC882D /* AppIcon.icon */; };
@@ -109,6 +113,9 @@
 		48297EA13074D2D000EC882D /* images */ = {isa = PBXFileReference; lastKnownFileType = folder; name = images; path = Resources/images; sourceTree = "<group>"; };
 		48297EA23074D2D000EC882D /* manifest.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; name = manifest.json; path = Resources/manifest.json; sourceTree = "<group>"; };
 		48297EA33074D2D000EC882D /* page-hook.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; name = "page-hook.js"; path = "Resources/page-hook.js"; sourceTree = "<group>"; };
+		48297EF33074D2D000EC882D /* strings.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; name = strings.js; path = Resources/strings.js; sourceTree = "<group>"; };
+		48297EF63074D2D000EC882D /* _locales */ = {isa = PBXFileReference; lastKnownFileType = folder; name = _locales; path = Resources/_locales; sourceTree = "<group>"; };
+		48297EF93074D2D000EC882D /* pl */ = {isa = PBXFileReference; lastKnownFileType = text.html; name = pl; path = pl.lproj/Main.html; sourceTree = "<group>"; };
 		48297EA43074D2D000EC882D /* content.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; name = content.js; path = Resources/content.js; sourceTree = "<group>"; };
 		48297EA53074D2D000EC882D /* kickoff.css */ = {isa = PBXFileReference; lastKnownFileType = text.css; name = kickoff.css; path = Resources/kickoff.css; sourceTree = "<group>"; };
 		48297EF03074D2D000EC882D /* AppIcon.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; path = AppIcon.icon; sourceTree = "<group>"; };
@@ -238,6 +245,8 @@
 				48297EA13074D2D000EC882D /* images */,
 				48297EA23074D2D000EC882D /* manifest.json */,
 				48297EA33074D2D000EC882D /* page-hook.js */,
+				48297EF33074D2D000EC882D /* strings.js */,
+				48297EF63074D2D000EC882D /* _locales */,
 				48297EA43074D2D000EC882D /* content.js */,
 				48297EA53074D2D000EC882D /* kickoff.css */,
 			);
@@ -346,6 +355,7 @@
 			knownRegions = (
 				en,
 				Base,
+				pl,
 			);
 			mainGroup = 48297E3F3074D2CF00EC882D;
 			minimizedProjectReferenceProxies = 1;
@@ -395,6 +405,8 @@
 				48297EB13074D2D000EC882D /* kickoff.css in Resources */,
 				48297EAE3074D2D000EC882D /* manifest.json in Resources */,
 				48297EAF3074D2D000EC882D /* page-hook.js in Resources */,
+				48297EF53074D2D000EC882D /* strings.js in Resources */,
+				48297EF83074D2D000EC882D /* _locales in Resources */,
 				48297EAC3074D2D000EC882D /* background.js in Resources */,
 				48297EB03074D2D000EC882D /* content.js in Resources */,
 			);
@@ -406,6 +418,8 @@
 				48297EAB3074D2D000EC882D /* kickoff.css in Resources */,
 				48297EA83074D2D000EC882D /* manifest.json in Resources */,
 				48297EA93074D2D000EC882D /* page-hook.js in Resources */,
+				48297EF43074D2D000EC882D /* strings.js in Resources */,
+				48297EF73074D2D000EC882D /* _locales in Resources */,
 				48297EA63074D2D000EC882D /* background.js in Resources */,
 				48297EAA3074D2D000EC882D /* content.js in Resources */,
 			);
@@ -460,6 +474,7 @@
 			isa = PBXVariantGroup;
 			children = (
 				48297E473074D2D000EC882D /* Base */,
+				48297EF93074D2D000EC882D /* pl */,
 			);
 			name = Main.html;
 			sourceTree = "<group>";

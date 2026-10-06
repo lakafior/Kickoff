@@ -6,6 +6,9 @@
 (() => {
   if (window.kickoff) return; // already loaded in this tab
 
+  // On-screen text in Safari's language (strings.js, loaded just before this).
+  const t = kickoffStrings(browser.i18n?.getUILanguage?.() || navigator.language);
+
   const SETTINGS_KEY = 'kickoffSettings';
   // Set once the settings panel has been opened; until then the rocket button
   // in the strip carries a green dot so people find it.
@@ -55,31 +58,31 @@
   };
 
   const TOGGLES = [
-    ['wakeLock', 'Keep screen awake'],
-    ['chatOnly', 'Chat-only layout'],
-    ['restoreDeleted', 'Show deleted messages'],
-    ['linkPreviews', 'Link previews'],
-    ['sevenTv', '7TV emotes'],
-    ['sevenTvCosmetics', '7TV name paints & badges'],
-    ['streamInfo', 'Stream info (popout)'],
-    ['savedMessages', 'Saved messages'],
-    ['highlights', 'Highlight mentions & words'],
-    ['highlightStreamer', 'Highlight streamer'],
-    ['muteUsers', 'Collapse muted users'],
-    ['collapseRepeats', 'Collapse repeated messages'],
-    ['hideEmoteOnly', 'Hide emote-only messages'],
-    ['iosInput', 'iOS-style message box']
+    ['wakeLock', t('setting.wakeLock')],
+    ['chatOnly', t('setting.chatOnly')],
+    ['restoreDeleted', t('setting.restoreDeleted')],
+    ['linkPreviews', t('setting.linkPreviews')],
+    ['sevenTv', t('setting.sevenTv')],
+    ['sevenTvCosmetics', t('setting.sevenTvCosmetics')],
+    ['streamInfo', t('setting.streamInfo')],
+    ['savedMessages', t('setting.savedMessages')],
+    ['highlights', t('setting.highlights')],
+    ['highlightStreamer', t('setting.highlightStreamer')],
+    ['muteUsers', t('setting.muteUsers')],
+    ['collapseRepeats', t('setting.collapseRepeats')],
+    ['hideEmoteOnly', t('setting.hideEmoteOnly')],
+    ['iosInput', t('setting.iosInput')]
   ];
 
   const PLAYER_TOGGLES = [
-    ['nativePlayer', 'Native player (channel page)'],
-    ['backgroundAudio', 'Keep playing when locked (audio only)'],
-    ['popoutAudio', 'Listen button (popout)'],
-    ['channelStrip', 'Compact channel info (channel page)']
+    ['nativePlayer', t('setting.nativePlayer')],
+    ['backgroundAudio', t('setting.backgroundAudio')],
+    ['popoutAudio', t('setting.popoutAudio')],
+    ['channelStrip', t('setting.channelStrip')]
   ];
 
   const KICK_TOGGLES = [
-    ['blockAds', 'Block ads & trackers']
+    ['blockAds', t('setting.blockAds')]
   ];
 
   // Network blocking runs in background.js, which reports here how it went.
@@ -87,12 +90,12 @@
   const BLOCK_HINTS = {
     active: '',
     off: '',
-    unavailable: "Kick's player ads only: blocking trackers needs a rebuild with the blocking permission"
+    unavailable: t('block.unavailable')
   };
 
   // Chat font: Kick's own, or Apple's San Francisco, New York (serif) or SF Mono.
   const CHAT_FONT_ATTR = 'data-ka-font';
-  const CHAT_FONTS = [['kick', 'Kick'], ['sf', 'SF'], ['serif', 'Serif'], ['mono', 'Mono']];
+  const CHAT_FONTS = [['kick', 'Kick'], ['sf', 'SF'], ['serif', t('font.serif')], ['mono', t('font.mono')]];
   const POPOUT_ATTR = 'data-ka-popout'; // the stream info line is popout-only
   const CHANNEL_STRIP_ATTR = 'data-ka-channel-strip'; // kickoff.css hides Kick's channel info
   const POPOUT_PATH = /^\/popout\/([^/]+)\/chat\/?$/;
@@ -136,12 +139,20 @@
 
   // Deleted-message restore and link previews need React's message data, which
   // only the page's own JS world can read, so load page-hook.js there.
+  // strings.js goes first (same text table as here), then page-hook.js, which
+  // reads the language from its script tag. async = false keeps that order.
   function injectPageHook() {
     if (document.querySelector('script[data-kickoff-hook]')) return;
-    const script = document.createElement('script');
-    script.src = browser.runtime.getURL('page-hook.js');
-    script.dataset.kickoffHook = '';
-    (document.head || root).append(script);
+    for (const file of ['strings.js', 'page-hook.js']) {
+      const script = document.createElement('script');
+      script.src = browser.runtime.getURL(file);
+      script.async = false;
+      if (file === 'page-hook.js') {
+        script.dataset.kickoffHook = '';
+        script.dataset.lang = t.lang;
+      }
+      (document.head || root).append(script);
+    }
   }
 
   // ---- Saved messages: storage for page-hook.js --------------------------------
@@ -425,7 +436,7 @@
     panel.hidden = true;
     const details = el('div', 'ka-stream-details');
     details.hidden = true;
-    panel.append(details, el('div', 'ka-settings-section', 'Chat'));
+    panel.append(details, el('div', 'ka-settings-section', t('section.chat')));
 
     const addToggle = (key, label) => {
       const row = el('label', 'ka-settings-row');
@@ -461,14 +472,14 @@
       row.append(el('span', 'ka-settings-label', label), input);
       panel.append(row);
     };
-    addWordsRow('highlightWords', 'Words to highlight', 'e.g. giveaway, poll');
-    addWordsRow('hideWords', 'Hide messages with', 'e.g. sponsor, bonus');
+    addWordsRow('highlightWords', t('words.highlight'), t('words.highlightExample'));
+    addWordsRow('hideWords', t('words.hide'), t('words.hideExample'));
 
     // Muted users: chips to unmute, and a field to add names (comma-separated).
     const muteRow = el('label', 'ka-settings-row ka-words-row');
     const muteInput = el('input', 'ka-words-input ka-mute-input');
     muteInput.type = 'text';
-    muteInput.placeholder = 'Add username';
+    muteInput.placeholder = t('mute.add');
     muteInput.autocomplete = 'off';
     muteInput.autocapitalize = 'off';
     muteInput.spellcheck = false;
@@ -479,7 +490,7 @@
     muteInput.addEventListener('keydown', event => {
       if (event.key === 'Enter') muteInput.blur();
     });
-    muteRow.append(el('span', 'ka-settings-label', 'Muted users'), muteInput);
+    muteRow.append(el('span', 'ka-settings-label', t('mute.label')), muteInput);
     panel.append(muteRow, el('div', 'ka-mute-list'));
 
     const fontRow = el('div', 'ka-settings-row');
@@ -491,7 +502,7 @@
       option.addEventListener('click', () => saveSettings({ chatFont: value }));
       fonts.append(option);
     }
-    fontRow.append(el('span', 'ka-settings-label', 'Chat font'), fonts);
+    fontRow.append(el('span', 'ka-settings-label', t('font.label')), fonts);
     panel.append(fontRow);
 
     const sizeRow = el('div', 'ka-settings-row');
@@ -499,18 +510,18 @@
     const minus = el('button', 'ka-size-button', '−');
     const value = el('span', 'ka-size-value');
     const plus = el('button', 'ka-size-button', '+');
-    const reset = el('button', 'ka-size-reset', 'Reset');
+    const reset = el('button', 'ka-size-reset', t('size.reset'));
     for (const button of [minus, plus, reset]) button.type = 'button';
-    minus.setAttribute('aria-label', 'Smaller text');
-    plus.setAttribute('aria-label', 'Larger text');
+    minus.setAttribute('aria-label', t('size.smaller'));
+    plus.setAttribute('aria-label', t('size.larger'));
     minus.addEventListener('click', () => stepFontSize(-1));
     plus.addEventListener('click', () => stepFontSize(1));
     reset.addEventListener('click', () => saveSettings({ fontSize: null }));
     controls.append(minus, value, plus, reset);
-    sizeRow.append(el('span', 'ka-settings-label', 'Text size'), controls);
-    panel.append(sizeRow, el('div', 'ka-settings-section', 'Player'));
+    sizeRow.append(el('span', 'ka-settings-label', t('size.label')), controls);
+    panel.append(sizeRow, el('div', 'ka-settings-section', t('section.player')));
     for (const [key, label] of PLAYER_TOGGLES) addToggle(key, label);
-    panel.append(el('div', 'ka-settings-section', 'Kick'));
+    panel.append(el('div', 'ka-settings-section', t('section.kick')));
     for (const [key, label] of KICK_TOGGLES) addToggle(key, label);
     const health = el('div', 'ka-health');
     health.hidden = true;
@@ -524,19 +535,19 @@
     inboxButton.addEventListener('click', () => setInboxOpen(!isInboxOpen()));
     const searchButton = el('button', 'ka-strip-button ka-search-button');
     searchButton.type = 'button';
-    searchButton.setAttribute('aria-label', 'Search chat');
+    searchButton.setAttribute('aria-label', t('strip.search'));
     searchButton.setAttribute('aria-expanded', 'false');
     searchButton.append(searchIcon());
     searchButton.addEventListener('click', () => setSearchOpen(!isSearchOpen()));
     const listenButton = el('button', 'ka-strip-button ka-listen-button');
     listenButton.type = 'button';
-    listenButton.setAttribute('aria-label', 'Listen');
+    listenButton.setAttribute('aria-label', t('strip.listen'));
     listenButton.append(playerIcon('headphones'));
     listenButton.addEventListener('click', toggleListen);
     const settingsButton = el('button', 'ka-strip-button ka-settings-button');
     settingsButton.type = 'button';
-    settingsButton.title = 'Kickoff settings';
-    settingsButton.setAttribute('aria-label', 'Kickoff settings');
+    settingsButton.title = t('strip.settings');
+    settingsButton.setAttribute('aria-label', t('strip.settings'));
     settingsButton.setAttribute('aria-expanded', 'false');
     settingsButton.append(rocketIcon());
     settingsButton.addEventListener('click', () => setPanelOpen(!isPanelOpen()));
@@ -552,7 +563,7 @@
     search.hidden = true;
     const field = el('input', 'ka-words-input ka-search-input');
     field.type = 'search';
-    field.placeholder = 'Search chat · from:name';
+    field.placeholder = t('search.placeholder');
     field.autocomplete = 'off';
     field.autocapitalize = 'off';
     field.spellcheck = false;
@@ -570,7 +581,7 @@
     results.addEventListener('click', event => {
       const name = event.target.closest('.ka-inbox-user')?.textContent;
       if (name) {
-        field.value = `from:${name}`;
+        field.value = `${t('search.from')}${name}`;
         runSearch();
         return;
       }
@@ -582,7 +593,7 @@
     const inbox = el('div', 'ka-inbox');
     inbox.hidden = true;
     const inboxHead = el('div', 'ka-inbox-head');
-    const clear = el('button', 'ka-size-reset ka-inbox-clear', 'Clear');
+    const clear = el('button', 'ka-size-reset ka-inbox-clear', t('inbox.clear'));
     clear.type = 'button';
     clear.addEventListener('click', () => {
       const channel = currentChannel();
@@ -671,11 +682,11 @@
     // Next to the stream line there's only room for an icon.
     const compact = state.bar.hasAttribute('data-stream');
     status.textContent = compact
-      ? { off: '', active: '☀', waiting: '☾ tap' }[wakeState]
-      : { off: '', active: '☀ screen awake', waiting: '☾ tap to keep awake' }[wakeState];
-    status.title = { off: '', active: 'Screen kept awake', waiting: 'Tap anywhere to keep the screen awake' }[wakeState];
+      ? { off: '', active: '☀', waiting: t('wake.waitingShort') }[wakeState]
+      : { off: '', active: t('wake.active'), waiting: t('wake.waiting') }[wakeState];
+    status.title = { off: '', active: t('wake.activeTitle'), waiting: t('wake.waitingTitle') }[wakeState];
     state.bar.querySelector('.ka-wake-hint').textContent =
-      { off: '', active: 'Active', waiting: 'Paused, tap anywhere to resume' }[wakeState];
+      { off: '', active: t('wake.activeHint'), waiting: t('wake.waitingHint') }[wakeState];
   }
 
   function renderBar() {
@@ -705,7 +716,7 @@
     const hint = state.bar?.querySelector('.ka-block-hint');
     if (!hint) return;
     const status = state.settings.blockAds ? state.blockStatus || '' : 'off';
-    hint.textContent = BLOCK_HINTS[status] ?? (status.startsWith('error') ? `Blocking trackers failed (${status.slice(7)})` : '');
+    hint.textContent = BLOCK_HINTS[status] ?? (status.startsWith('error') ? t('block.error', { error: status.slice(7) }) : '');
   }
 
   // The panel scrolls itself: on iOS the chat column (and the page) can't be
@@ -821,10 +832,10 @@
   function renderSearchResults({ requestId, results, total, since }) {
     if (!isSearchOpen() || requestId !== searchRequest || !Array.isArray(results)) return;
     const query = state.bar.querySelector('.ka-search-input').value.trim();
-    const span = since ? `, since ${new Date(since).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : '';
+    const span = since ? t('search.since', { time: new Date(since).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }) : '';
     state.bar.querySelector('.ka-search-summary').textContent = query
-      ? `${results.length === 100 ? '100+' : results.length} found in the last ${total} messages${span}`
-      : `Searching the last ${total} messages${span}. Kept while this page is open.`;
+      ? t('search.found', { found: results.length === 100 ? '100+' : results.length, total, since: span })
+      : t('search.idle', { total, since: span });
     const list = state.bar.querySelector('.ka-search-results');
     // Re-render only when the results changed (keeps the scroll position).
     const signature = results.map(item => item.id).join();
@@ -868,7 +879,7 @@
     }
     item.setAttribute('data-gone', '');
     item.querySelector('.ka-inbox-ago').textContent =
-      reason === 'unavailable' ? 'can\'t jump here' : 'no longer in chat';
+      reason === 'unavailable' ? t('jump.unavailable') : t('jump.gone');
   }
 
   function applyInbox(inbox) {
@@ -878,9 +889,9 @@
 
   function formatAgo(at) {
     const minutes = Math.floor((Date.now() - at) / 60000);
-    if (minutes < 1) return 'now';
-    if (minutes < 60) return `${minutes}m ago`;
-    if (minutes < 24 * 60) return `${Math.floor(minutes / 60)}h ago`;
+    if (minutes < 1) return t('ago.now');
+    if (minutes < 60) return t('ago.minutes', { n: minutes });
+    if (minutes < 24 * 60) return t('ago.hours', { n: Math.floor(minutes / 60) });
     return new Date(at).toLocaleDateString([], { day: 'numeric', month: 'short' });
   }
 
@@ -912,16 +923,16 @@
     const unread = open ? 0 : entry.items.filter(item => item.at > entry.seen).length;
     button.querySelector('.ka-inbox-count').textContent = unread ? String(unread) : '';
     button.toggleAttribute('data-unread', unread > 0);
-    button.setAttribute('aria-label', unread ? `Mentions, ${unread} new` : 'Mentions');
+    button.setAttribute('aria-label', unread ? t('inbox.labelUnread', { count: unread }) : t('inbox.label'));
     if (!open) return;
 
     state.bar.querySelector('.ka-inbox-title').textContent =
-      `Mentions & words${channel ? ` · ${channel}` : ''}`;
+      `${t('inbox.title')}${channel ? ` · ${channel}` : ''}`;
     state.bar.querySelector('.ka-inbox-clear').hidden = !entry.items.length;
     const list = state.bar.querySelector('.ka-inbox .ka-inbox-list');
     if (!entry.items.length) {
       list.replaceChildren(el('div', 'ka-inbox-empty',
-        'Nothing yet. Messages that mention you or contain your highlight words are collected here.'));
+        t('inbox.empty')));
       return;
     }
     list.replaceChildren(...[...entry.items].reverse().map(item => {
@@ -943,13 +954,13 @@
     const list = state.bar.querySelector('.ka-mute-list');
     const names = state.settings.mutedUsers;
     if (!names.length) {
-      list.replaceChildren(el('span', 'ka-mute-empty', 'No one muted. Tap a message in chat → Mute.'));
+      list.replaceChildren(el('span', 'ka-mute-empty', t('mute.empty')));
       return;
     }
     list.replaceChildren(...[...names].sort((a, b) => a.localeCompare(b)).map(name => {
       const chip = el('button', 'ka-mute-chip', `${name} ✕`);
       chip.type = 'button';
-      chip.setAttribute('aria-label', `Unmute ${name}`);
+      chip.setAttribute('aria-label', t('mute.unmute', { name }));
       chip.addEventListener('click', () => removeMuted(name));
       return chip;
     }));
@@ -1056,19 +1067,19 @@
       details.replaceChildren();
       details.hidden = true;
     } else if (!stream.live) {
-      line.replaceChildren(el('span', 'ka-offline', 'Offline'));
+      line.replaceChildren(el('span', 'ka-offline', t('stream.offline')));
       details.replaceChildren();
       details.hidden = true;
     } else {
       const uptime = Number.isNaN(stream.startedAt) ? '' : ` · ${formatUptime(Date.now() - stream.startedAt)}`;
       line.replaceChildren(
-        el('span', 'ka-live', 'LIVE'),
+        el('span', 'ka-live', t('stream.live')),
         el('span', 'ka-stream-meta', `${formatCount(stream.viewers)}${uptime}`),
         el('span', 'ka-stream-title', stream.title)
       );
       const since = Number.isNaN(stream.startedAt)
         ? ''
-        : `live since ${new Date(stream.startedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+        : t('stream.liveSince', { time: new Date(stream.startedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) });
       const meta = el('div', 'ka-stream-details-meta');
       if (stream.category && stream.categorySlug && !popoutSlug) {
         const link = el('a', 'ka-stream-category', stream.category);
@@ -1077,7 +1088,7 @@
       } else if (stream.category) {
         meta.append(`${stream.category} · `);
       }
-      meta.append([`${stream.viewers.toLocaleString()} viewers`, since].filter(Boolean).join(' · '));
+      meta.append([t('stream.viewers', { count: stream.viewers }), since].filter(Boolean).join(' · '));
       details.replaceChildren(el('div', 'ka-stream-details-title', stream.title), meta);
       details.hidden = false;
     }
@@ -1096,7 +1107,7 @@
   }
 
   function channelButtonLabel(button) {
-    return button.getAttribute('aria-label') || button.textContent.trim() || 'Channel button';
+    return button.getAttribute('aria-label') || button.textContent.trim() || t('strip.channelButton');
   }
 
   // Kick's subscribe/bell menus are popovers placed next to their button, so the
@@ -1271,7 +1282,7 @@
         const bandwidth = Number(line.match(/BANDWIDTH=(\d+)/)?.[1]) || 0;
         const label = name || (height ? `${height}p` : 'audio_only');
         pending = label === 'audio_only'
-          ? { id: AUDIO_ONLY, name: 'Audio only', bandwidth }
+          ? { id: AUDIO_ONLY, name: t('player.audioOnly'), bandwidth }
           : { id: label.toLowerCase(), name: label, bandwidth };
         name = null;
       } else if (line && !line.startsWith('#') && pending) {
@@ -1316,7 +1327,7 @@
   // Stops the player and the popout's audio after the chosen time. Checked by a timer
   // and also on every timeupdate, in case iOS holds back timers on the lock screen.
 
-  const SLEEP_CHOICES = [[0, 'Sleep timer off'], [15, '15 min'], [30, '30 min'], [60, '1 hour'], [90, '1.5 hours']];
+  const SLEEP_CHOICES = [[0, t('sleep.off')], [15, t('sleep.minutes', { n: 15 })], [30, t('sleep.minutes', { n: 30 })], [60, t('sleep.hour')], [90, t('sleep.hourHalf')]];
   const sleep = { minutes: 0, until: 0, timer: null };
 
   function setSleep(minutes) {
@@ -1336,9 +1347,9 @@
 
   function sleepControl() {
     const control = el('label', 'ka-sleep');
-    control.title = 'Sleep timer';
+    control.title = t('sleep.title');
     const select = el('select', 'ka-sleep-select');
-    select.setAttribute('aria-label', 'Sleep timer');
+    select.setAttribute('aria-label', t('sleep.title'));
     for (const [minutes, label] of SLEEP_CHOICES) {
       const option = el('option', '', label);
       option.value = String(minutes);
@@ -1357,7 +1368,7 @@
       const text = left ? `${left}m` : '';
       const leftNode = control.querySelector('.ka-sleep-left');
       if (leftNode.textContent !== text) leftNode.textContent = text;
-      control.title = left ? `Sleep timer: stops in ${left} min` : 'Sleep timer';
+      control.title = left ? t('sleep.stopsIn', { n: left }) : t('sleep.title');
       const select = control.querySelector('select');
       if (document.activeElement !== select) select.value = String(sleep.minutes);
     }
@@ -1680,8 +1691,8 @@
     video.setAttribute('x-webkit-airplay', 'allow');
     video.preload = 'auto';
     const audioCard = el('div', 'ka-player-audio-card');
-    audioCard.append(el('img', 'ka-player-avatar'), el('span', 'ka-player-audio-label', 'Audio only'));
-    const unmute = el('button', 'ka-player-unmute', 'Tap to unmute');
+    audioCard.append(el('img', 'ka-player-avatar'), el('span', 'ka-player-audio-label', t('player.audioOnly')));
+    const unmute = el('button', 'ka-player-unmute', t('player.tapToUnmute'));
     unmute.type = 'button';
     stage.append(video, audioCard, unmute);
 
@@ -1708,8 +1719,8 @@
     stage.addEventListener('dblclick', toggleFullscreen);
 
     const bar = el('div', 'ka-player-bar');
-    const play = playerButton('play', 'Play', () => (video.paused ? playOrLive() : pauseByUser()));
-    const mute = playerButton('volume', 'Mute', () => {
+    const play = playerButton('play', t('player.play'), () => (video.paused ? playOrLive() : pauseByUser()));
+    const mute = playerButton('volume', t('player.mute'), () => {
       if (player.autoMuted || video.muted) unmuteNow();
       else {
         video.muted = true;
@@ -1722,7 +1733,7 @@
     volume.min = '0';
     volume.max = '1';
     volume.step = '0.05';
-    volume.setAttribute('aria-label', 'Volume');
+    volume.setAttribute('aria-label', t('player.volume'));
     volume.hidden = !volumeSettable;
     volume.addEventListener('input', () => {
       video.volume = Number(volume.value);
@@ -1731,33 +1742,33 @@
       savePlayerPrefs(video);
     });
     const live = el('button', 'ka-player-live');
-    live.append(el('span', 'ka-player-live-label', 'LIVE'), el('span', 'ka-player-live-delay'));
+    live.append(el('span', 'ka-player-live-label', t('player.live')), el('span', 'ka-player-live-delay'));
     live.type = 'button';
-    live.title = 'Go to live';
+    live.title = t('player.goLiveTitle');
     live.addEventListener('click', event => {
       event.stopPropagation();
       goLive();
     });
     const quality = el('select', 'ka-player-quality');
-    quality.setAttribute('aria-label', 'Quality');
+    quality.setAttribute('aria-label', t('player.quality'));
     quality.addEventListener('change', () => {
       player.quality = quality.value;
       player.background = false;
       switchSource(player.quality);
     });
-    const clip = playerButton('clip', 'Clip', () => kickButton('clip')?.click());
+    const clip = playerButton('clip', t('player.clip'), () => kickButton('clip')?.click());
     const airplay = playerButton('airplay', 'AirPlay', () => video.webkitShowPlaybackTargetPicker?.());
     airplay.hidden = true;
     video.addEventListener('webkitplaybacktargetavailabilitychanged', event => {
       airplay.hidden = event.availability !== 'available';
     });
-    const pip = playerButton('pip', 'Picture in picture', togglePictureInPicture);
+    const pip = playerButton('pip', t('player.pip'), togglePictureInPicture);
     pip.hidden = !(video.webkitSupportsPresentationMode?.('picture-in-picture') || document.pictureInPictureEnabled);
-    const theatre = playerButton('theatre', 'Theatre mode', () => {
+    const theatre = playerButton('theatre', t('player.theatre'), () => {
       kickButton('theatre-mode')?.click();
       setTimeout(renderPlayer, 100);
     });
-    const fullscreen = playerButton('fullscreen', 'Fullscreen', toggleFullscreen);
+    const fullscreen = playerButton('fullscreen', t('player.fullscreen'), toggleFullscreen);
     bar.append(play, mute, volume, live, el('span', 'ka-player-spacer'), sleepControl(), quality, clip, airplay, pip, theatre, fullscreen);
     wrap.append(stage, bar);
     bar.addEventListener('click', () => showControls());
@@ -1884,12 +1895,14 @@
     const delay = video.paused || video.readyState < 2 ? null : liveDelay(video);
     const text = delay == null ? '' : formatDelay(delay);
     live.toggleAttribute('data-behind', behind);
-    const label = behind ? 'Go live' : 'LIVE';
+    const label = behind ? t('player.goLive') : t('player.live');
     const labelNode = live.querySelector('.ka-player-live-label');
     if (labelNode.textContent !== label) labelNode.textContent = label;
     const delayNode = live.querySelector('.ka-player-live-delay');
     if (delayNode.textContent !== text) delayNode.textContent = text;
-    live.title = behind ? `Jump to live${text ? ` (${text} behind)` : ''}` : `${text || 'Live'} behind the streamer`;
+    live.title = behind
+      ? (text ? t('player.jumpToLiveBehind', { delay: text }) : t('player.jumpToLive'))
+      : (text ? t('player.behind', { delay: text }) : t('player.liveTitle'));
   }
 
   function renderPlayer() {
@@ -1905,18 +1918,18 @@
 
     const play = wrap.querySelector('.ka-player-play');
     setIcon(play, video.paused ? 'play' : 'pause');
-    play.setAttribute('aria-label', video.paused ? 'Play' : 'Pause');
+    play.setAttribute('aria-label', video.paused ? t('player.play') : t('player.pause'));
     const mute = wrap.querySelector('.ka-player-mute');
     setIcon(mute, video.muted ? 'muted' : 'volume');
-    mute.setAttribute('aria-label', video.muted ? 'Unmute' : 'Mute');
+    mute.setAttribute('aria-label', video.muted ? t('player.unmute') : t('player.mute'));
     mute.title = mute.getAttribute('aria-label');
     const slider = wrap.querySelector('.ka-player-slider');
     if (document.activeElement !== slider) slider.value = String(video.muted ? 0 : video.volume);
 
     const quality = wrap.querySelector('.ka-player-quality');
     const size = player.quality === AUTO && !audioOnly && video.videoHeight ? ` · ${video.videoHeight}p` : '';
-    const options = [[AUTO, `Auto${size}`], ...player.variants.filter(v => v.id !== AUDIO_ONLY).map(v => [v.id, v.name])];
-    if (player.variants.some(v => v.id === AUDIO_ONLY)) options.push([AUDIO_ONLY, 'Audio only']);
+    const options = [[AUTO, `${t('player.auto')}${size}`], ...player.variants.filter(v => v.id !== AUDIO_ONLY).map(v => [v.id, v.name])];
+    if (player.variants.some(v => v.id === AUDIO_ONLY)) options.push([AUDIO_ONLY, t('player.audioOnly')]);
     const signature = options.map(([id, name]) => `${id}=${name}`).join();
     if (quality.dataset.signature !== signature) {
       quality.dataset.signature = signature;
@@ -2041,7 +2054,7 @@
       : audio.paused ? 'paused' : audio.readyState < 3 ? 'loading' : 'playing';
     button.setAttribute('aria-pressed', String(on));
     state.bar.querySelector('.ka-listen-sleep').hidden = button.hidden || (!on && !sleep.until);
-    const label = on ? 'Stop listening' : listen.info && !listen.info.live ? 'Offline' : 'Listen (audio only)';
+    const label = on ? t('listen.stop') : listen.info && !listen.info.live ? t('listen.offline') : t('listen.start');
     button.setAttribute('aria-label', label);
     button.title = label;
     if (flash) {

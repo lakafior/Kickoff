@@ -1,0 +1,419 @@
+// Kickoff's on-screen text, in every language it speaks. Loaded before content.js
+// (as a content script) and before page-hook.js (injected into the page), so both
+// read the same table: `const t = kickoffStrings(language)`, then `t('key')` or
+// `t('key', { name: 'value' })`. {name} in a text is replaced by that value
+// (numbers are written the local way: 12,345 or 12 345).
+//
+// An entry can be an object of plural forms ({ one, few, many, other }, picked by
+// Intl.PluralRules for `count`): Polish needs three ("1 widz", "2 widzów"…).
+// A text missing in Polish falls back to English. The extension's name and
+// description for Safari's settings are in _locales/, which is the only place
+// Safari reads those from.
+(() => {
+  const STRINGS = {
+    en: {
+      // Settings panel: switches
+      'setting.wakeLock': 'Keep screen awake',
+      'setting.chatOnly': 'Chat-only layout',
+      'setting.restoreDeleted': 'Show deleted messages',
+      'setting.linkPreviews': 'Link previews',
+      'setting.sevenTv': '7TV emotes',
+      'setting.sevenTvCosmetics': '7TV name paints & badges',
+      'setting.streamInfo': 'Stream info (popout)',
+      'setting.savedMessages': 'Saved messages',
+      'setting.highlights': 'Highlight mentions & words',
+      'setting.highlightStreamer': 'Highlight streamer',
+      'setting.muteUsers': 'Collapse muted users',
+      'setting.collapseRepeats': 'Collapse repeated messages',
+      'setting.hideEmoteOnly': 'Hide emote-only messages',
+      'setting.iosInput': 'iOS-style message box',
+      'setting.nativePlayer': 'Native player (channel page)',
+      'setting.backgroundAudio': 'Keep playing when locked (audio only)',
+      'setting.popoutAudio': 'Listen button (popout)',
+      'setting.channelStrip': 'Compact channel info (channel page)',
+      'setting.blockAds': 'Block ads & trackers',
+
+      // Settings panel: other rows
+      'section.chat': 'Chat',
+      'section.player': 'Player',
+      'section.kick': 'Kick',
+      'words.highlight': 'Words to highlight',
+      'words.highlightExample': 'e.g. giveaway, poll',
+      'words.hide': 'Hide messages with',
+      'words.hideExample': 'e.g. sponsor, bonus',
+      'mute.label': 'Muted users',
+      'mute.add': 'Add username',
+      'mute.empty': 'No one muted. Tap a message in chat → Mute.',
+      'mute.unmute': 'Unmute {name}',
+      'font.label': 'Chat font',
+      'font.serif': 'Serif',
+      'font.mono': 'Mono',
+      'size.label': 'Text size',
+      'size.smaller': 'Smaller text',
+      'size.larger': 'Larger text',
+      'size.reset': 'Reset',
+      'block.unavailable': "Kick's player ads only: blocking trackers needs a rebuild with the blocking permission",
+      'block.error': 'Blocking trackers failed ({error})',
+
+      // Wake lock status, in the strip and under its switch
+      'wake.active': '☀ screen awake',
+      'wake.waiting': '☾ tap to keep awake',
+      'wake.waitingShort': '☾ tap',
+      'wake.activeTitle': 'Screen kept awake',
+      'wake.waitingTitle': 'Tap anywhere to keep the screen awake',
+      'wake.activeHint': 'Active',
+      'wake.waitingHint': 'Paused, tap anywhere to resume',
+
+      // Strip buttons
+      'strip.search': 'Search chat',
+      'strip.listen': 'Listen',
+      'strip.settings': 'Kickoff settings',
+      'strip.channelButton': 'Channel button',
+
+      // Search ("from:" is what people type; "od:" works too)
+      'search.placeholder': 'Search chat · from:name',
+      'search.from': 'from:',
+      'search.since': ', since {time}',
+      'search.found': '{found} found in the last {total} messages{since}',
+      'search.idle': 'Searching the last {total} messages{since}. Kept while this page is open.',
+      'jump.unavailable': "can't jump here",
+      'jump.gone': 'no longer in chat',
+
+      // Times
+      'ago.now': 'now',
+      'ago.minutes': '{n}m ago',
+      'ago.hours': '{n}h ago',
+
+      // Mentions inbox
+      'inbox.label': 'Mentions',
+      'inbox.labelUnread': 'Mentions, {count} new',
+      'inbox.title': 'Mentions & words',
+      'inbox.clear': 'Clear',
+      'inbox.empty': 'Nothing yet. Messages that mention you or contain your highlight words are collected here.',
+
+      // Stream info
+      'stream.offline': 'Offline',
+      'stream.live': 'LIVE',
+      'stream.liveSince': 'live since {time}',
+      'stream.viewers': { one: '{count} viewer', other: '{count} viewers' },
+
+      // Sleep timer
+      'sleep.title': 'Sleep timer',
+      'sleep.off': 'Sleep timer off',
+      'sleep.minutes': '{n} min',
+      'sleep.hour': '1 hour',
+      'sleep.hourHalf': '1.5 hours',
+      'sleep.stopsIn': 'Sleep timer: stops in {n} min',
+
+      // Player
+      'player.audioOnly': 'Audio only',
+      'player.tapToUnmute': 'Tap to unmute',
+      'player.play': 'Play',
+      'player.pause': 'Pause',
+      'player.mute': 'Mute',
+      'player.unmute': 'Unmute',
+      'player.volume': 'Volume',
+      'player.quality': 'Quality',
+      'player.auto': 'Auto',
+      'player.clip': 'Clip',
+      'player.pip': 'Picture in picture',
+      'player.theatre': 'Theatre mode',
+      'player.fullscreen': 'Fullscreen',
+      'player.live': 'LIVE',
+      'player.goLive': 'Go live',
+      'player.goLiveTitle': 'Go to live',
+      'player.jumpToLive': 'Jump to live',
+      'player.jumpToLiveBehind': 'Jump to live ({delay} behind)',
+      'player.behind': '{delay} behind the streamer',
+      'player.liveTitle': 'Live',
+
+      // Listen button (popout)
+      'listen.start': 'Listen (audio only)',
+      'listen.stop': 'Stop listening',
+      'listen.offline': 'Offline',
+
+      // Chat: deleted, timed-out and banned messages
+      'deleted.tag': 'deleted',
+      'removed.timeout': 'timed out',
+      'removed.ban': 'banned',
+      'removed.other': 'removed',
+
+      // Link previews
+      'preview.kickClip': 'Kick clip',
+      'preview.kickClipBy': 'Kick clip · {channel}',
+      'preview.views': { one: '{count} view', other: '{count} views' },
+      'preview.igPost': 'Post',
+      'preview.igStory': 'Story',
+      'preview.igReel': 'Reel',
+      'preview.igBy': '{kind} by @{user}',
+
+      // Cards (tap an emote or a message)
+      'card.copy': 'Copy',
+      'card.copied': 'Copied ✓',
+      'card.copyFailed': 'Copy failed',
+      'card.insert': 'Insert',
+      'card.emote': 'Emote',
+      'emote.channel': '7TV · channel emote',
+      'emote.global': '7TV · global emote',
+      'emote.zeroWidth': 'zero-width',
+      'card.saveMessage': 'Save message',
+      'card.saveHere': 'Save · this channel',
+      'card.saveEverywhere': 'Save · all channels',
+      'card.saving': 'Saving…',
+      'card.saved': 'Saved ✓',
+      'card.notSaved': 'Not saved',
+      'card.mute': 'Mute {name}',
+      'card.muted': 'Muted ✓',
+      'card.messageFrom': 'Message from {name}',
+      'card.messageFromChat': 'Message from chat',
+
+      // 7TV emote picker and the toolbar above the message box
+      'picker.search': 'Search 7TV emotes',
+      'picker.close': 'Close 7TV emotes',
+      'picker.results': 'Results',
+      'picker.recent': 'Recent',
+      'picker.channel': 'Channel',
+      'picker.global': 'Global',
+      'picker.noMatch': 'No matching 7TV emotes',
+      'picker.none': 'No 7TV emotes for this channel',
+      'toolbar.emotes': '7TV emotes',
+      'toolbar.messages': 'Saved messages',
+      'toolbar.hideInput': 'Hide message box',
+      'toolbar.showInput': '⌃  Show message box',
+
+      // Saved messages
+      'messages.search': 'Search saved messages',
+      'messages.close': 'Close saved messages',
+      'messages.edit': 'Edit',
+      'messages.done': 'Done',
+      'messages.editOne': 'Edit message',
+      'messages.deleteOne': 'Delete message',
+      'messages.deleted': 'Message deleted',
+      'messages.undo': 'Undo',
+      'messages.new': '+ New message',
+      'messages.thisChannel': 'This channel',
+      'messages.thisChannelNamed': 'This channel · {channel}',
+      'messages.thisChannelOption': 'This channel ({channel})',
+      'messages.allChannels': 'All channels',
+      'messages.noMatch': 'No matching saved messages',
+      'messages.empty': 'No saved messages yet. Tap a message in chat to save it, or use Edit → + New message.',
+      'messages.placeholder': 'Message to save',
+      'messages.cancel': 'Cancel',
+      'messages.save': 'Save',
+      'messages.saveFailed': "Not saved: the extension's storage didn't answer. Try again, or reload the page.",
+
+      // Muted users, replies, repeats, catching up
+      'muted.line': '{name} (muted) · tap to show',
+      'muted.lineShown': '{name} (muted) · tap to hide',
+      'reply.original': 'Original message',
+      'reply.deleted': '(original message deleted)',
+      'reply.gone': '{name} · no longer in chat',
+      'repeat.title': 'Repeated message',
+      'repeat.sent': { one: 'Sent once', other: 'Sent {count} times in a row' },
+      'repeat.by': 'by {who}',
+      'catchup.missed': { one: '↑ {count} missed message', other: '↑ {count} missed messages' },
+      'catchup.partial': ' (older ones not loaded)'
+    },
+
+    pl: {
+      'setting.wakeLock': 'Nie wygaszaj ekranu',
+      'setting.chatOnly': 'Układ z samym czatem',
+      'setting.restoreDeleted': 'Pokazuj usunięte wiadomości',
+      'setting.linkPreviews': 'Podgląd linków',
+      'setting.sevenTv': 'Emotki 7TV',
+      'setting.sevenTvCosmetics': 'Kolorowe nicki i odznaki 7TV',
+      'setting.streamInfo': 'Informacje o streamie (popout)',
+      'setting.savedMessages': 'Zapisane wiadomości',
+      'setting.highlights': 'Wyróżniaj wzmianki i słowa',
+      'setting.highlightStreamer': 'Wyróżniaj streamera',
+      'setting.muteUsers': 'Zwijaj wyciszonych użytkowników',
+      'setting.collapseRepeats': 'Zwijaj powtórzone wiadomości',
+      'setting.hideEmoteOnly': 'Ukrywaj wiadomości z samych emotek',
+      'setting.iosInput': 'Pole wiadomości w stylu iOS',
+      'setting.nativePlayer': 'Natywny odtwarzacz (strona kanału)',
+      'setting.backgroundAudio': 'Graj po zablokowaniu (tylko dźwięk)',
+      'setting.popoutAudio': 'Przycisk słuchania (popout)',
+      'setting.channelStrip': 'Kompaktowe info o kanale (strona kanału)',
+      'setting.blockAds': 'Blokuj reklamy i trackery',
+
+      'section.chat': 'Czat',
+      'section.player': 'Odtwarzacz',
+      'section.kick': 'Kick',
+      'words.highlight': 'Słowa do wyróżnienia',
+      'words.highlightExample': 'np. giveaway, ankieta',
+      'words.hide': 'Ukryj wiadomości ze słowami',
+      'words.hideExample': 'np. sponsor, bonus',
+      'mute.label': 'Wyciszeni użytkownicy',
+      'mute.add': 'Dodaj nick',
+      'mute.empty': 'Nikt nie jest wyciszony. Stuknij wiadomość w czacie → Wycisz.',
+      'mute.unmute': 'Przestań wyciszać {name}',
+      'font.label': 'Czcionka czatu',
+      'font.serif': 'Szeryfowa',
+      'font.mono': 'Mono',
+      'size.label': 'Rozmiar tekstu',
+      'size.smaller': 'Mniejszy tekst',
+      'size.larger': 'Większy tekst',
+      'size.reset': 'Resetuj',
+      'block.unavailable': 'Tylko reklamy w odtwarzaczu Kicka: blokowanie trackerów wymaga uprawnienia do blokowania',
+      'block.error': 'Blokowanie trackerów nie powiodło się ({error})',
+
+      'wake.active': '☀ ekran nie gaśnie',
+      'wake.waiting': '☾ stuknij, by nie gasł',
+      'wake.waitingShort': '☾ stuknij',
+      'wake.activeTitle': 'Ekran nie gaśnie',
+      'wake.waitingTitle': 'Stuknij gdziekolwiek, żeby ekran nie gasł',
+      'wake.activeHint': 'Włączone',
+      'wake.waitingHint': 'Wstrzymane, stuknij gdziekolwiek, by wznowić',
+
+      'strip.search': 'Szukaj w czacie',
+      'strip.listen': 'Słuchaj',
+      'strip.settings': 'Ustawienia Kickoff',
+      'strip.channelButton': 'Przycisk kanału',
+
+      'search.placeholder': 'Szukaj w czacie · od:nick',
+      'search.from': 'od:',
+      'search.since': ', od {time}',
+      'search.found': 'Znaleziono {found} w ostatnich {total} wiadomościach{since}',
+      'search.idle': 'Szukam w ostatnich {total} wiadomościach{since}. Pamiętane, dopóki strona jest otwarta.',
+      'jump.unavailable': 'nie da się tu przejść',
+      'jump.gone': 'już nie ma w czacie',
+
+      'ago.now': 'teraz',
+      'ago.minutes': '{n} min temu',
+      'ago.hours': '{n} godz. temu',
+
+      'inbox.label': 'Wzmianki',
+      'inbox.labelUnread': { one: 'Wzmianki, {count} nowa', few: 'Wzmianki, {count} nowe', many: 'Wzmianki, {count} nowych', other: 'Wzmianki, {count} nowych' },
+      'inbox.title': 'Wzmianki i słowa',
+      'inbox.clear': 'Wyczyść',
+      'inbox.empty': 'Na razie pusto. Tu trafiają wiadomości, które cię wspominają albo zawierają twoje wyróżnione słowa.',
+
+      'stream.offline': 'Offline',
+      'stream.live': 'LIVE',
+      'stream.liveSince': 'na żywo od {time}',
+      'stream.viewers': { one: '{count} widz', few: '{count} widzów', many: '{count} widzów', other: '{count} widza' },
+
+      'sleep.title': 'Wyłącznik czasowy',
+      'sleep.off': 'Wyłącznik czasowy: wył.',
+      'sleep.minutes': '{n} min',
+      'sleep.hour': '1 godz.',
+      'sleep.hourHalf': '1,5 godz.',
+      'sleep.stopsIn': 'Wyłącznik czasowy: stop za {n} min',
+
+      'player.audioOnly': 'Tylko dźwięk',
+      'player.tapToUnmute': 'Stuknij, by włączyć dźwięk',
+      'player.play': 'Odtwórz',
+      'player.pause': 'Pauza',
+      'player.mute': 'Wycisz',
+      'player.unmute': 'Włącz dźwięk',
+      'player.volume': 'Głośność',
+      'player.quality': 'Jakość',
+      'player.auto': 'Auto',
+      'player.clip': 'Klip',
+      'player.pip': 'Obraz w obrazie',
+      'player.theatre': 'Tryb kinowy',
+      'player.fullscreen': 'Pełny ekran',
+      'player.live': 'LIVE',
+      'player.goLive': 'Na żywo',
+      'player.goLiveTitle': 'Przejdź na żywo',
+      'player.jumpToLive': 'Przejdź na żywo',
+      'player.jumpToLiveBehind': 'Przejdź na żywo ({delay} opóźnienia)',
+      'player.behind': '{delay} za streamerem',
+      'player.liveTitle': 'Na żywo',
+
+      'listen.start': 'Słuchaj (tylko dźwięk)',
+      'listen.stop': 'Przestań słuchać',
+      'listen.offline': 'Offline',
+
+      'deleted.tag': 'usunięta',
+      'removed.timeout': 'timeout',
+      'removed.ban': 'ban',
+      'removed.other': 'usunięta',
+
+      'preview.kickClip': 'Klip z Kicka',
+      'preview.kickClipBy': 'Klip z Kicka · {channel}',
+      'preview.views': { one: '{count} wyświetlenie', few: '{count} wyświetlenia', many: '{count} wyświetleń', other: '{count} wyświetlenia' },
+      'preview.igPost': 'Post',
+      'preview.igStory': 'Relacja',
+      'preview.igReel': 'Rolka',
+      'preview.igBy': '{kind} · @{user}',
+
+      'card.copy': 'Kopiuj',
+      'card.copied': 'Skopiowano ✓',
+      'card.copyFailed': 'Nie skopiowano',
+      'card.insert': 'Wstaw',
+      'card.emote': 'Emotka',
+      'emote.channel': '7TV · emotka kanału',
+      'emote.global': '7TV · emotka globalna',
+      'emote.zeroWidth': 'nakładka',
+      'card.saveMessage': 'Zapisz wiadomość',
+      'card.saveHere': 'Zapisz · ten kanał',
+      'card.saveEverywhere': 'Zapisz · wszystkie kanały',
+      'card.saving': 'Zapisuję…',
+      'card.saved': 'Zapisano ✓',
+      'card.notSaved': 'Nie zapisano',
+      'card.mute': 'Wycisz {name}',
+      'card.muted': 'Wyciszono ✓',
+      'card.messageFrom': 'Wiadomość od {name}',
+      'card.messageFromChat': 'Wiadomość z czatu',
+
+      'picker.search': 'Szukaj emotek 7TV',
+      'picker.close': 'Zamknij emotki 7TV',
+      'picker.results': 'Wyniki',
+      'picker.recent': 'Ostatnie',
+      'picker.channel': 'Kanał',
+      'picker.global': 'Globalne',
+      'picker.noMatch': 'Brak pasujących emotek 7TV',
+      'picker.none': 'Ten kanał nie ma emotek 7TV',
+      'toolbar.emotes': 'Emotki 7TV',
+      'toolbar.messages': 'Zapisane wiadomości',
+      'toolbar.hideInput': 'Ukryj pole wiadomości',
+      'toolbar.showInput': '⌃  Pokaż pole wiadomości',
+
+      'messages.search': 'Szukaj w zapisanych',
+      'messages.close': 'Zamknij zapisane wiadomości',
+      'messages.edit': 'Edytuj',
+      'messages.done': 'Gotowe',
+      'messages.editOne': 'Edytuj wiadomość',
+      'messages.deleteOne': 'Usuń wiadomość',
+      'messages.deleted': 'Wiadomość usunięta',
+      'messages.undo': 'Cofnij',
+      'messages.new': '+ Nowa wiadomość',
+      'messages.thisChannel': 'Ten kanał',
+      'messages.thisChannelNamed': 'Ten kanał · {channel}',
+      'messages.thisChannelOption': 'Ten kanał ({channel})',
+      'messages.allChannels': 'Wszystkie kanały',
+      'messages.noMatch': 'Brak pasujących zapisanych wiadomości',
+      'messages.empty': 'Nie masz jeszcze zapisanych wiadomości. Stuknij wiadomość w czacie, żeby ją zapisać, albo użyj Edytuj → + Nowa wiadomość.',
+      'messages.placeholder': 'Wiadomość do zapisania',
+      'messages.cancel': 'Anuluj',
+      'messages.save': 'Zapisz',
+      'messages.saveFailed': 'Nie zapisano: pamięć rozszerzenia nie odpowiedziała. Spróbuj ponownie albo odśwież stronę.',
+
+      'muted.line': '{name} (wyciszony) · stuknij, by pokazać',
+      'muted.lineShown': '{name} (wyciszony) · stuknij, by ukryć',
+      'reply.original': 'Oryginalna wiadomość',
+      'reply.deleted': '(oryginalna wiadomość usunięta)',
+      'reply.gone': '{name} · już nie ma w czacie',
+      'repeat.title': 'Powtórzona wiadomość',
+      'repeat.sent': { one: 'Wysłana raz', few: 'Wysłana {count} razy z rzędu', many: 'Wysłana {count} razy z rzędu', other: 'Wysłana {count} razy z rzędu' },
+      'repeat.by': 'od: {who}',
+      'catchup.missed': { one: '↑ {count} przegapiona wiadomość', few: '↑ {count} przegapione wiadomości', many: '↑ {count} przegapionych wiadomości', other: '↑ {count} przegapionej wiadomości' },
+      'catchup.partial': ' (starszych nie wczytano)'
+    }
+  };
+
+  globalThis.kickoffStrings = language => {
+    const lang = String(language || '').toLowerCase().startsWith('pl') ? 'pl' : 'en';
+    const table = STRINGS[lang];
+    const plurals = new Intl.PluralRules(lang);
+    const t = (key, values = {}) => {
+      let text = table[key] ?? STRINGS.en[key] ?? key;
+      if (typeof text === 'object') text = text[plurals.select(Number(values.count))] ?? text.other;
+      const show = value => (typeof value === 'number' ? value.toLocaleString(lang) : String(value));
+      return text.replace(/\{(\w+)\}/g, (match, name) => (name in values ? show(values[name]) : match));
+    };
+    t.lang = lang;
+    return t;
+  };
+})();

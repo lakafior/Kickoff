@@ -22,7 +22,7 @@ async function ensureContentScript(tabId) {
   } catch {
     await browser.scripting.executeScript({
       target: { tabId },
-      files: ['content.js']
+      files: ['strings.js', 'content.js']
     });
   }
 }

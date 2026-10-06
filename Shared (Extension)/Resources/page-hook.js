@@ -23,6 +23,10 @@
   if (window.__kickoffHook) return;
   window.__kickoffHook = true;
 
+  // On-screen text: strings.js was injected just before this script, and
+  // content.js put Safari's language on our script tag.
+  const t = kickoffStrings(document.currentScript?.dataset.lang);
+
   const RESTORE_ATTR = 'data-ka-restore';
   const PREVIEWS_ATTR = 'data-ka-link-previews';
   const FONT_SIZE_ATTR = 'data-ka-font-size';
@@ -193,7 +197,7 @@
 
   // ---- Search (UI in content.js) -----------------------------------------------
   // Words must all appear (any case, Polish letters folded: "zolw" finds "żółw");
-  // "from:name" keeps messages from users whose name starts with name.
+  // "from:name" (or Polish "od:name") keeps messages from users whose name starts with name.
 
   const SEARCH_LIMIT = 100;
 
@@ -206,7 +210,7 @@
     let from = '';
     const words = [];
     for (const part of String(query || '').trim().split(/\s+/)) {
-      const match = part.match(/^from:@?(.*)$/i);
+      const match = part.match(/^(?:from|od):@?(.*)$/i); // od: is Polish for from:
       if (match) from = fold(match[1]);
       else if (part) words.push(fold(part));
     }
@@ -407,7 +411,7 @@
     banScope = realtime.scope;
     const unsubscribe = realtime.handle.subscribe(banScope, 'App\\Events\\UserBannedEvent', event => {
       if (event?.user?.id == null) return;
-      banReasons.set(String(event.user.id), { reason: event.expires_at ? 'timed out' : 'banned', at: Date.now() });
+      banReasons.set(String(event.user.id), { reason: event.expires_at ? t('removed.timeout') : t('removed.ban'), at: Date.now() });
     });
     banUnsubscribe = typeof unsubscribe === 'function' ? unsubscribe : null;
   }
@@ -429,7 +433,7 @@
     if (removed.some(i => previous[i].data.sender.id !== senderId)) return; // not one user's timeout
     const ban = banReasons.get(String(senderId));
     const banned = Boolean(ban && Date.now() - ban.at < BAN_REASON_MS);
-    const reason = banned ? ban.reason : 'removed';
+    const reason = banned ? ban.reason : t('removed.other');
     // Your own message being replaced (sent → confirmed) also leaves the list.
     const replaced = entry => next.some(other => other.data?.sender?.id === senderId && other.data?.content === entry.data.content);
     for (const i of removed) {
@@ -503,7 +507,7 @@
 
     const tag = document.createElement('span');
     tag.className = 'ka-deleted-tag';
-    tag.textContent = 'deleted';
+    tag.textContent = t('deleted.tag');
     restored.append(tag);
 
     label.setAttribute('data-ka-hidden', '');
@@ -606,9 +610,9 @@
         const channel = clip.channel?.username || clip.channel?.slug;
         return {
           kind: 'card',
-          site: channel ? `Kick clip · ${channel}` : 'Kick clip',
+          site: channel ? t('preview.kickClipBy', { channel }) : t('preview.kickClip'),
           title: clip.title || '',
-          text: clip.views != null ? `${Number(clip.views).toLocaleString()} views` : '',
+          text: clip.views != null ? t('preview.views', { count: Number(clip.views) }) : '',
           thumb: clip.thumbnail_url || ''
         };
       };
@@ -619,12 +623,12 @@
       if (!hostIs(url, 'instagram.com')) return null;
       const match = url.pathname.match(/^\/(?:([\w.]+)\/)?(p|reels?|tv|stories)\/([\w-]+)/);
       if (!match) return null;
-      const kind = match[2] === 'p' ? 'Post' : match[2] === 'stories' ? 'Story' : 'Reel';
+      const kind = match[2] === 'p' ? t('preview.igPost') : match[2] === 'stories' ? t('preview.igStory') : t('preview.igReel');
 
       return async () => ({
         kind: 'card',
         site: 'Instagram',
-        title: match[1] ? `${kind} by @${match[1]}` : kind,
+        title: match[1] ? t('preview.igBy', { kind, user: match[1] }) : kind,
         text: '',
         thumb: ''
       });
@@ -1346,19 +1350,19 @@
 
     const info = el('div', 'ka-card-info');
     info.append(el('div', 'ka-card-name', emote.name));
-    const meta = [emote.scope === 'channel' ? '7TV · channel emote' : '7TV · global emote'];
-    if (emote.zeroWidth) meta.push('zero-width');
+    const meta = [emote.scope === 'channel' ? t('emote.channel') : t('emote.global')];
+    if (emote.zeroWidth) meta.push(t('emote.zeroWidth'));
     info.append(el('div', 'ka-card-meta', meta.join(' · ')));
 
     const actions = el('div', 'ka-card-actions');
-    const copy = el('button', 'ka-card-button', 'Copy');
+    const copy = el('button', 'ka-card-button', t('card.copy'));
     copy.type = 'button';
     copy.addEventListener('click', async () => {
-      copy.textContent = (await copyText(emote.name)) ? 'Copied ✓' : 'Copy failed';
+      copy.textContent = (await copyText(emote.name)) ? t('card.copied') : t('card.copyFailed');
     });
     actions.append(copy);
     if (chatInput()) {
-      const insert = el('button', 'ka-card-button', 'Insert');
+      const insert = el('button', 'ka-card-button', t('card.insert'));
       insert.type = 'button';
       insert.addEventListener('click', () => {
         if (insertAtEnd(emote.name)) {
@@ -1382,7 +1386,7 @@
     const list7tv = images.map(img => emotes.get(img.alt)).filter(Boolean);
     if (!list7tv.length) return;
 
-    showCard(target, 'Emote', list7tv.map(cardRow));
+    showCard(target, t('card.emote'), list7tv.map(cardRow));
   }
 
   // A small card next to `target`: above it if there is room, else below; kept
@@ -1790,13 +1794,13 @@
     usage = readUsage(); // pick up emotes used in other tabs
     if (query) {
       const lower = query.toLowerCase();
-      sections.push(['Results', emoteIndex.filter(emote => emote.name.toLowerCase().includes(lower)).sort(byUsage)]);
+      sections.push([t('picker.results'), emoteIndex.filter(emote => emote.name.toLowerCase().includes(lower)).sort(byUsage)]);
     } else {
       const byName = (a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
       const all = [...emotes.values()];
-      sections.push(['Recent', recentEmotes()]);
-      sections.push(['Channel', all.filter(emote => emote.scope === 'channel').sort(byName)]);
-      sections.push(['Global', all.filter(emote => emote.scope === 'global').sort(byName)]);
+      sections.push([t('picker.recent'), recentEmotes()]);
+      sections.push([t('picker.channel'), all.filter(emote => emote.scope === 'channel').sort(byName)]);
+      sections.push([t('picker.global'), all.filter(emote => emote.scope === 'global').sort(byName)]);
     }
 
     pickerImages?.disconnect();
@@ -1819,7 +1823,7 @@
     grid.replaceChildren();
     grid.scrollTop = 0;
     if (pickerQueue.length) appendPickerBatch();
-    else grid.append(el('div', 'ka-picker-empty', query ? 'No matching 7TV emotes' : 'No 7TV emotes for this channel'));
+    else grid.append(el('div', 'ka-picker-empty', query ? t('picker.noMatch') : t('picker.none')));
   }
 
   function openPicker() {
@@ -1830,13 +1834,13 @@
       const head = el('div', 'ka-picker-head');
       const search = el('input', 'ka-picker-search');
       search.type = 'search';
-      search.placeholder = 'Search 7TV emotes';
+      search.placeholder = t('picker.search');
       search.autocomplete = 'off';
       search.spellcheck = false;
       search.addEventListener('input', renderPickerGrid);
       const close = el('button', 'ka-picker-close', '✕');
       close.type = 'button';
-      close.setAttribute('aria-label', 'Close 7TV emotes');
+      close.setAttribute('aria-label', t('picker.close'));
       head.append(search, close);
       picker.append(head, el('div', 'ka-picker-grid'));
     }
@@ -1901,9 +1905,9 @@
     }
     if (!toolbar) {
       toolbar = el('div', 'ka-toolbar');
-      pickerButton = toolbarButton('ka-7tv-button', '7TV emotes', '7TV');
-      messagesButton = toolbarButton('ka-messages-button', 'Saved messages', '📋');
-      const collapse = toolbarButton('ka-collapse-button', 'Hide message box', '⌄');
+      pickerButton = toolbarButton('ka-7tv-button', t('toolbar.emotes'), '7TV');
+      messagesButton = toolbarButton('ka-messages-button', t('toolbar.messages'), '📋');
+      const collapse = toolbarButton('ka-collapse-button', t('toolbar.hideInput'), '⌄');
       toolbar.append(pickerButton, messagesButton, collapse);
     }
     pickerButton.hidden = !want7tv;
@@ -2007,7 +2011,7 @@
       closeMessages();
       hideSuggestions();
       if (!revealBar) {
-        revealBar = el('button', 'ka-reveal', '⌃  Show message box');
+        revealBar = el('button', 'ka-reveal', t('toolbar.showInput'));
         revealBar.type = 'button';
         revealBar.addEventListener('mousedown', event => event.preventDefault());
       }
@@ -2123,11 +2127,11 @@
     if (messagesEditMode) {
       const edit = el('button', 'ka-msg-action', '✎');
       edit.type = 'button';
-      edit.setAttribute('aria-label', 'Edit message');
+      edit.setAttribute('aria-label', t('messages.editOne'));
       edit.addEventListener('click', () => openEditor(item));
       const remove = el('button', 'ka-msg-action ka-msg-delete', '✕');
       remove.type = 'button';
-      remove.setAttribute('aria-label', 'Delete message');
+      remove.setAttribute('aria-label', t('messages.deleteOne'));
       remove.addEventListener('click', () => deleteMessage(item));
       row.append(edit, remove);
     }
@@ -2139,7 +2143,7 @@
     const body = messagesPanel.querySelector('.ka-msg-body');
     const editToggle = messagesPanel.querySelector('.ka-msg-edit-toggle');
     const search = messagesPanel.querySelector('.ka-msg-search');
-    editToggle.textContent = messagesEditMode ? 'Done' : 'Edit';
+    editToggle.textContent = messagesEditMode ? t('messages.done') : t('messages.edit');
     editToggle.setAttribute('aria-pressed', String(messagesEditMode));
 
     if (messageDraft) {
@@ -2158,25 +2162,25 @@
 
     if (undoItem) {
       const undo = el('div', 'ka-msg-undo');
-      const button = el('button', 'ka-msg-undo-button', 'Undo');
+      const button = el('button', 'ka-msg-undo-button', t('messages.undo'));
       button.type = 'button';
       button.addEventListener('click', () => {
         saveMessage(undoItem);
         clearUndo();
       });
-      undo.append(el('span', null, 'Message deleted'), button);
+      undo.append(el('span', null, t('messages.deleted')), button);
       nodes.push(undo);
     }
     if (messagesEditMode) {
-      const add = el('button', 'ka-msg-new', '+ New message');
+      const add = el('button', 'ka-msg-new', t('messages.new'));
       add.type = 'button';
       add.addEventListener('click', () => openEditor(null));
       nodes.push(add);
     }
 
     const sections = [
-      [slug ? `This channel · ${slug}` : 'This channel', visible.filter(item => item.channel)],
-      ['All channels', visible.filter(item => !item.channel)]
+      [slug ? t('messages.thisChannelNamed', { channel: slug }) : t('messages.thisChannel'), visible.filter(item => item.channel)],
+      [t('messages.allChannels'), visible.filter(item => !item.channel)]
     ];
     for (const [title, list] of sections) {
       if (!list.length) continue;
@@ -2185,8 +2189,8 @@
     }
     if (!visible.length && !undoItem) {
       nodes.push(el('div', 'ka-picker-empty', query
-        ? 'No matching saved messages'
-        : 'No saved messages yet. Tap a message in chat to save it, or use Edit → + New message.'));
+        ? t('messages.noMatch')
+        : t('messages.empty')));
     }
     body.replaceChildren(...nodes);
   }
@@ -2197,7 +2201,7 @@
     const input = el('textarea', 'ka-msg-input');
     input.rows = 4;
     input.value = draft.text;
-    input.placeholder = 'Message to save';
+    input.placeholder = t('messages.placeholder');
     const counter = el('div', 'ka-msg-counter');
     const updateCounter = () => {
       const length = asOneLine(input.value).length;
@@ -2212,7 +2216,9 @@
 
     const scope = el('div', 'ka-msg-scope');
     const slug = channelSlug();
-    const options = slug ? [[slug, `This channel (${slug})`], [null, 'All channels']] : [[null, 'All channels']];
+    const options = slug
+      ? [[slug, t('messages.thisChannelOption', { channel: slug })], [null, t('messages.allChannels')]]
+      : [[null, t('messages.allChannels')]];
     if (!slug && draft.channel === undefined) draft.channel = null;
     for (const [value, label] of options) {
       const option = el('button', 'ka-msg-scope-option', label);
@@ -2226,20 +2232,20 @@
     }
 
     const actions = el('div', 'ka-msg-editor-actions');
-    const cancel = el('button', 'ka-card-button', 'Cancel');
+    const cancel = el('button', 'ka-card-button', t('messages.cancel'));
     cancel.type = 'button';
     cancel.addEventListener('click', () => {
       messageDraft = null;
       renderMessages();
     });
-    const save = el('button', 'ka-card-button ka-card-button--primary', 'Save');
+    const save = el('button', 'ka-card-button ka-card-button--primary', t('messages.save'));
     save.type = 'button';
     const status = el('div', 'ka-msg-status');
     save.addEventListener('click', async () => {
       const text = input.value.trim();
       if (!text) return;
       save.disabled = true;
-      save.textContent = 'Saving…';
+      save.textContent = t('card.saving');
       status.textContent = '';
       const saved = await saveMessage({ ...draft, text });
       if (messageDraft !== draft) return; // editor closed meanwhile
@@ -2248,8 +2254,8 @@
         renderMessages();
       } else {
         save.disabled = false;
-        save.textContent = 'Save';
-        status.textContent = 'Not saved: the extension\'s storage didn\'t answer. Try again, or reload the page.';
+        save.textContent = t('messages.save');
+        status.textContent = t('messages.saveFailed');
       }
     });
     actions.append(cancel, save);
@@ -2290,10 +2296,10 @@
       const head = el('div', 'ka-picker-head');
       const search = el('input', 'ka-picker-search ka-msg-search');
       search.type = 'search';
-      search.placeholder = 'Search saved messages';
+      search.placeholder = t('messages.search');
       search.autocomplete = 'off';
       search.addEventListener('input', renderMessages);
-      const editToggle = el('button', 'ka-msg-edit-toggle', 'Edit');
+      const editToggle = el('button', 'ka-msg-edit-toggle', t('messages.edit'));
       editToggle.type = 'button';
       editToggle.addEventListener('click', () => {
         messagesEditMode = !messagesEditMode;
@@ -2302,7 +2308,7 @@
       });
       const close = el('button', 'ka-picker-close', '✕');
       close.type = 'button';
-      close.setAttribute('aria-label', 'Close saved messages');
+      close.setAttribute('aria-label', t('messages.close'));
       close.addEventListener('click', closeMessages);
       head.append(search, editToggle, close);
       messagesPanel.append(head, el('div', 'ka-picker-grid ka-msg-body'));
@@ -2349,45 +2355,45 @@
       button.type = 'button';
       button.addEventListener('click', async () => {
         actions.querySelectorAll('button').forEach(node => { node.disabled = true; });
-        button.textContent = 'Saving…';
+        button.textContent = t('card.saving');
         const saved = await saveMessage({ id: newId(), text: message.content, channel, created: Date.now(), used: 0 });
         if (saved) {
-          button.textContent = 'Saved ✓';
+          button.textContent = t('card.saved');
           setTimeout(closeCard, 900);
         } else {
-          button.textContent = 'Not saved';
+          button.textContent = t('card.notSaved');
           actions.querySelectorAll('button').forEach(node => { node.disabled = false; });
         }
       });
       return button;
     };
     if (messagesEnabled()) {
-      if (slug) actions.append(saveButton('Save · this channel', slug));
-      actions.append(saveButton('Save · all channels', null));
+      if (slug) actions.append(saveButton(t('card.saveHere'), slug));
+      actions.append(saveButton(t('card.saveEverywhere'), null));
     }
-    const copy = el('button', 'ka-card-button', 'Copy');
+    const copy = el('button', 'ka-card-button', t('card.copy'));
     copy.type = 'button';
     copy.addEventListener('click', async () => {
-      copy.textContent = (await copyText(plainText(message.content))) ? 'Copied ✓' : 'Copy failed';
+      copy.textContent = (await copyText(plainText(message.content))) ? t('card.copied') : t('card.copyFailed');
     });
     actions.append(copy);
 
     const username = message.sender?.username;
     const self = selfUsername(row);
     if (muteEnabled() && username && username.toLowerCase() !== self?.toLowerCase()) {
-      const mute = el('button', 'ka-card-button ka-card-button--mute', `Mute ${username}`);
+      const mute = el('button', 'ka-card-button ka-card-button--mute', t('card.mute', { name: username }));
       mute.type = 'button';
       mute.addEventListener('click', () => {
         sendToExtension('mute:add', { username });
         mute.disabled = true;
-        mute.textContent = 'Muted ✓';
+        mute.textContent = t('card.muted');
         setTimeout(closeCard, 700);
       });
       actions.append(mute);
     }
 
-    const head = el('div', 'ka-card-meta', `Message from ${username || 'chat'}`);
-    showCard(row.querySelector('span[aria-hidden="true"] + span, [data-ka-7tv], [data-ka-restored]') || row, 'Save message', [head, preview, actions]);
+    const head = el('div', 'ka-card-meta', username ? t('card.messageFrom', { name: username }) : t('card.messageFromChat'));
+    showCard(row.querySelector('span[aria-hidden="true"] + span, [data-ka-7tv], [data-ka-restored]') || row, t('card.saveMessage'), [head, preview, actions]);
   }
 
 
@@ -2535,7 +2541,7 @@
       row.prepend(line);
     }
     line.dataset.id = message.id;
-    const label = `${username} (muted) · ${shown ? 'tap to hide' : 'tap to show'}`;
+    const label = t(shown ? 'muted.lineShown' : 'muted.line', { name: username });
     if (line.textContent !== label) line.textContent = label;
     const changed = !row.hasAttribute('data-ka-muted') || row.hasAttribute('data-ka-revealed') !== shown;
     row.setAttribute('data-ka-muted', '');
@@ -2599,9 +2605,9 @@
     const content = original.content || history.get(original.id)?.content || '';
     const preview = el('div', 'ka-card-message');
     if (content) preview.append(renderContent(content));
-    else preview.textContent = '(original message deleted)';
-    showCard(element, 'Original message', [
-      el('div', 'ka-card-meta', `${original.username || 'Original message'} · no longer in chat`),
+    else preview.textContent = t('reply.deleted');
+    showCard(element, t('reply.original'), [
+      el('div', 'ka-card-meta', t('reply.gone', { name: original.username || t('reply.original') })),
       preview
     ]);
   }
@@ -2717,10 +2723,10 @@
     const preview = el('div', 'ka-card-message');
     if (message) preview.append(renderContent(message.content));
     const who = [...senders].sort((a, b) => b[1] - a[1]).map(([name, n]) => (n > 1 ? `${name} ×${n}` : name)).join(', ');
-    showCard(badge, 'Repeated message', [
-      el('div', 'ka-card-meta', `Sent ${total} times in a row`),
+    showCard(badge, t('repeat.title'), [
+      el('div', 'ka-card-meta', t('repeat.sent', { count: total })),
       preview,
-      el('div', 'ka-card-meta ka-repeat-senders', `by ${who}`)
+      el('div', 'ka-card-meta ka-repeat-senders', t('repeat.by', { who }))
     ]);
   }
 
@@ -3017,7 +3023,7 @@
     catchupNotice = el('button', 'ka-catchup');
     catchupNotice.type = 'button';
     catchupNotice.dataset.id = firstId;
-    catchupNotice.textContent = `↑ ${count} missed message${count === 1 ? '' : 's'}${complete ? '' : ' (older ones not loaded)'}`;
+    catchupNotice.textContent = t('catchup.missed', { count }) + (complete ? '' : t('catchup.partial'));
     catchupNotice.addEventListener('mousedown', event => event.preventDefault());
     placeAboveInput(catchupNotice);
     catchupNoticeTimer = setTimeout(closeCatchupNotice, CATCHUP_NOTICE_MS);

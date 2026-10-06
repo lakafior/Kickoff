@@ -1,0 +1,14 @@
+{
+  "extName": {
+    "message": "Kickoff",
+    "description": "Extension name, shown in Safari's settings."
+  },
+  "extDescription": {
+    "message": "Kick.com chat helpers: keep the screen awake, SF font, chat-only popout layout, deleted messages and link previews.",
+    "description": "Extension description, shown in Safari's settings."
+  },
+  "actionTitle": {
+    "message": "Kickoff settings",
+    "description": "Tooltip of the toolbar button."
+  }
+}

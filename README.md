@@ -42,6 +42,8 @@ Every feature can be switched on or off: tap the **rocket** at the top of the ch
 ### Kick
 - **Ad & tracker blocking** on kick.com.
 
+Kickoff speaks **English and Polish**, following your device's language.
+
 ## Where it works
 
 | | Stream page | Popout chat |
