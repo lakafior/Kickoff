@@ -28,11 +28,13 @@
     hideWords: [], // messages containing these are hidden
     muteUsers: true,
     mutedUsers: [], // usernames as shown in chat; matched in any case
+    highlightUsers: [], // same, their messages are highlighted
     collapseRepeats: true,
     sevenTvCosmetics: true,
     hideEmoteOnly: false,
     hideBots: true,
     readableNames: true,
+    userCard: true,
     chatStripes: false,
     iosInput: true,
     fontSize: null, // null = Kick's own size
@@ -59,6 +61,7 @@
     hideEmoteOnly: 'data-ka-emote-only',
     hideBots: 'data-ka-bots',
     readableNames: 'data-ka-readable-names',
+    userCard: 'data-ka-user-card',
     chatStripes: 'data-ka-stripes',
     iosInput: 'data-ka-ios',
     blockAds: 'data-ka-block-ads' // page-hook.js rewrites Kick's player answer
@@ -68,8 +71,8 @@
   // the other names are the rows buildBar makes itself.
   const SETTINGS_TABS = {
     general: ['wakeLock', 'chatOnly', 'streamInfo', 'channelStrip', 'blockAds'],
-    chat: ['font', 'size', 'readableNames', 'chatStripes', 'sevenTv', 'sevenTvCosmetics', 'linkPreviews', 'restoreDeleted', 'savedMessages', 'iosInput'],
-    filters: ['highlights', 'highlightWords', 'highlightStreamer', 'hideWords', 'hideEmoteOnly', 'collapseRepeats', 'hideBots', 'muteUsers', 'mutedUsers'],
+    chat: ['font', 'size', 'readableNames', 'chatStripes', 'sevenTv', 'sevenTvCosmetics', 'linkPreviews', 'restoreDeleted', 'savedMessages', 'userCard', 'iosInput'],
+    filters: ['highlights', 'highlightWords', 'highlightUsers', 'highlightStreamer', 'hideWords', 'hideEmoteOnly', 'collapseRepeats', 'hideBots', 'muteUsers', 'mutedUsers'],
     player: ['nativePlayer', 'liveCatchUp', 'backgroundAudio', 'popoutAudio']
   };
   // Switches that only do something while another one is on; dimmed otherwise.
@@ -97,6 +100,12 @@
   const HIGHLIGHT_WORDS_ATTR = 'data-ka-highlight-words'; // JSON list, read by page-hook.js
   const HIDE_WORDS_ATTR = 'data-ka-hide-words'; // JSON list, read by page-hook.js
   const MUTED_USERS_ATTR = 'data-ka-muted-users'; // JSON list, read by page-hook.js
+  const HIGHLIGHT_USERS_ATTR = 'data-ka-highlight-users'; // JSON list, read by page-hook.js
+  // Username lists edited in the panel (chips + a field) and from Kick's user card.
+  const USER_LISTS = {
+    mutedUsers: { label: 'mute.label', empty: 'mute.empty', remove: 'mute.unmute' },
+    highlightUsers: { label: 'users.highlight', empty: 'users.highlightEmpty', remove: 'users.unhighlight' }
+  };
   const USERNAME = /^[\w.-]{1,40}$/;
   const ROCKET_PATHS = [
     'm217.2 1005.6c-12 0-22.801-9.6016-22.801-22.801 0-21.602 2.3984-58.801 9.6016-100.8l-64.801-66c-94.801 111.6-105.6 271.2-106.8 328.8 0 12 9.6016 22.801 22.801 22.801 57.602-1.1992 217.2-12 328.8-106.8l-66-64.801c-42 7.1992-79.199 8.3984-100.8 9.6016z',
@@ -236,8 +245,14 @@
       await storeUsage(usage);
       return;
     }
-    if (type === 'mute:add') {
-      addMuted([username]);
+    // From Kick's user card (page-hook.js): mute / highlight, and undo.
+    const userList = { mute: 'mutedUsers', highlight: 'highlightUsers' }[String(type).split(':')[0]];
+    if (userList && type.endsWith(':add')) {
+      addUsers(userList, [username]);
+      return;
+    }
+    if (userList && type.endsWith(':remove')) {
+      removeUser(userList, username);
       return;
     }
     if (type === 'inbox:add') {
@@ -346,17 +361,19 @@
     return USERNAME.test(clean) ? clean : null;
   }
 
-  function addMuted(names) {
-    const list = [...state.settings.mutedUsers];
+  function addUsers(key, names) {
+    const list = [...state.settings[key]];
     for (const name of names) {
       const clean = cleanUsername(name);
       if (clean && !list.some(existing => existing.toLowerCase() === clean.toLowerCase())) list.push(clean);
     }
-    if (list.length !== state.settings.mutedUsers.length) saveSettings({ mutedUsers: list });
+    if (list.length !== state.settings[key].length) saveSettings({ [key]: list });
   }
 
-  function removeMuted(name) {
-    saveSettings({ mutedUsers: state.settings.mutedUsers.filter(existing => existing !== name) });
+  function removeUser(key, name) {
+    const lower = String(name ?? '').replace(/^@/, '').toLowerCase();
+    const list = state.settings[key].filter(existing => existing.toLowerCase() !== lower);
+    if (list.length !== state.settings[key].length) saveSettings({ [key]: list });
   }
 
   // One request at a time, so quick edits can't overwrite each other. The first
@@ -518,8 +535,8 @@
       return row;
     };
 
-    // Muted users: chips to unmute, and a field to add names (comma-separated).
-    const mutedRows = () => {
+    // Muted / highlighted users: chips to remove, and a field to add names (comma-separated).
+    const userRows = key => {
       const row = el('label', 'ka-settings-row ka-words-row');
       const input = el('input', 'ka-words-input ka-mute-input');
       input.type = 'text';
@@ -527,15 +544,18 @@
       input.autocomplete = 'off';
       input.autocapitalize = 'off';
       input.spellcheck = false;
+      input.dataset.users = key;
       input.addEventListener('change', () => {
-        addMuted(input.value.split(','));
+        addUsers(key, input.value.split(','));
         input.value = '';
       });
       input.addEventListener('keydown', event => {
         if (event.key === 'Enter') input.blur();
       });
-      row.append(el('span', 'ka-settings-label', t('mute.label')), input);
-      return [row, el('div', 'ka-mute-list')];
+      row.append(el('span', 'ka-settings-label', t(USER_LISTS[key].label)), input);
+      const list = el('div', 'ka-mute-list');
+      list.dataset.users = key;
+      return [row, list];
     };
 
     const fontRow = () => {
@@ -575,7 +595,8 @@
       size: sizeRow,
       highlightWords: () => wordsRow('highlightWords', t('words.highlight'), t('words.highlightExample')),
       hideWords: () => wordsRow('hideWords', t('words.hide'), t('words.hideExample')),
-      mutedUsers: mutedRows
+      mutedUsers: () => userRows('mutedUsers'),
+      highlightUsers: () => userRows('highlightUsers')
     };
 
     // Segmented control on top, one page of rows per tab.
@@ -812,7 +833,8 @@
       if (document.activeElement !== words) words.value = (state.settings[words.dataset.words] || []).join(', ');
     }
     state.bar.querySelector('[data-words="highlightWords"]').disabled = !state.settings.highlights;
-    renderMuted();
+    state.bar.querySelector('input[data-users="highlightUsers"]').disabled = !state.settings.highlights;
+    for (const key of Object.keys(USER_LISTS)) renderUserList(key);
     for (const option of state.bar.querySelectorAll('.ka-font-option')) {
       option.setAttribute('aria-pressed', String(option.dataset.font === state.settings.chatFont));
     }
@@ -1063,18 +1085,18 @@
   }
 
 
-  function renderMuted() {
-    const list = state.bar.querySelector('.ka-mute-list');
-    const names = state.settings.mutedUsers;
+  function renderUserList(key) {
+    const list = state.bar.querySelector(`.ka-mute-list[data-users="${key}"]`);
+    const names = state.settings[key];
     if (!names.length) {
-      list.replaceChildren(el('span', 'ka-mute-empty', t('mute.empty')));
+      list.replaceChildren(el('span', 'ka-mute-empty', t(USER_LISTS[key].empty)));
       return;
     }
     list.replaceChildren(...[...names].sort((a, b) => a.localeCompare(b)).map(name => {
       const chip = el('button', 'ka-mute-chip', `${name} ✕`);
       chip.type = 'button';
-      chip.setAttribute('aria-label', t('mute.unmute', { name }));
-      chip.addEventListener('click', () => removeMuted(name));
+      chip.setAttribute('aria-label', t(USER_LISTS[key].remove, { name }));
+      chip.addEventListener('click', () => removeUser(key, name));
       return chip;
     }));
   }
@@ -2257,6 +2279,8 @@
     setAttr(HIDE_WORDS_ATTR, hidden.length > 0, JSON.stringify(hidden));
     const muted = state.settings.mutedUsers;
     setAttr(MUTED_USERS_ATTR, muted.length > 0, JSON.stringify(muted));
+    const highlighted = state.settings.highlightUsers;
+    setAttr(HIGHLIGHT_USERS_ATTR, highlighted.length > 0, JSON.stringify(highlighted));
     if (state.fontStyle && !state.fontStyle.isConnected) (document.head || root).append(state.fontStyle);
   }
 
@@ -2264,7 +2288,9 @@
 
   function applySettings(settings) {
     state.settings = { ...DEFAULTS, ...settings };
-    if (!Array.isArray(state.settings.mutedUsers)) state.settings.mutedUsers = [];
+    for (const key of Object.keys(USER_LISTS)) {
+      if (!Array.isArray(state.settings[key])) state.settings[key] = [];
+    }
     // Before the font choice there was only the SF switch (sfFont).
     if (!CHAT_FONTS.some(([value]) => value === settings.chatFont)) {
       state.settings.chatFont = settings.sfFont === false ? 'kick' : 'sf';

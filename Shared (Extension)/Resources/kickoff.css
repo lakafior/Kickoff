@@ -985,6 +985,11 @@ html[data-ka-stripes] [data-index][data-ka-alt] > div > div:first-child {
     box-shadow: inset 3px 0 0 #4da3ff;
 }
 
+[data-index][data-ka-highlight="user"] > div > div:first-child {
+    background: rgba(190, 140, 255, 0.16) !important;
+    box-shadow: inset 3px 0 0 #be8cff;
+}
+
 /* "Words to highlight" field in the settings panel */
 .ka-words-row {
     cursor: default;
@@ -1031,6 +1036,65 @@ html[data-ka-stripes] [data-index][data-ka-alt] > div > div:first-child {
 
 .ka-card-button--mute {
     color: #ff8a8a;
+}
+
+/* Our part of Kick's user card: mention / highlight / mute, then recent messages. */
+.ka-user-tools {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 8px 0;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    font-size: 13px;
+    text-align: left;
+}
+
+.ka-user-tools .ka-card-actions {
+    margin-top: 0;
+}
+
+.ka-card-button--on {
+    background: rgba(190, 140, 255, 0.25);
+}
+
+.ka-user-history {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    max-height: 180px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+}
+
+.ka-user-message {
+    display: block;
+    padding: 4px 6px;
+    border: 0;
+    border-radius: 6px;
+    background: none;
+    color: inherit;
+    font: inherit;
+    line-height: 1.4;
+    text-align: left;
+    overflow-wrap: anywhere;
+    cursor: pointer;
+}
+
+.ka-user-message:hover {
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.ka-user-message-time {
+    margin-right: 6px;
+    font-size: 11px;
+    opacity: 0.5;
+}
+
+.ka-user-message .ka-emote,
+.ka-user-message .ka-7tv-emote {
+    height: 1.6em;
+    margin: -0.3em 1px;
 }
 
 /* Muted users in the settings panel */

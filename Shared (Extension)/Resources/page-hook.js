@@ -42,7 +42,8 @@
   const BOTS_ATTR = 'data-ka-bots';
   const READABLE_NAMES_ATTR = 'data-ka-readable-names';
   const STRIPES_ATTR = 'data-ka-stripes';
-  const BOT_NAMES = new Set(['botrix', 'kickbot', 'streamelements']); // lower case
+  const BOT_NAMES = new Set(['botrix', 'kickbot', 'streamelements', 'fossabot']); // lower case
+  const HIGHLIGHT_USERS_ATTR = 'data-ka-highlight-users';
   const REPEATS_ATTR = 'data-ka-repeats';
   const LIST_SELECTOR = '#chatroom-messages';
   const ROW_SELECTOR = '[data-index]';
@@ -2484,8 +2485,9 @@
     return null;
   }
 
-  // Mentions of you win; then the streamer; then your words (unless the message
-  // also has a word to hide). Only mentions and words go to the inbox.
+  // Mentions of you win; then the streamer; then users you highlight; then your
+  // words (unless the message also has a word to hide). Only mentions and words go
+  // to the inbox.
   function highlightKind(row, message) {
     const text = plainText(message.content);
     const self = selfUsername(row);
@@ -2495,6 +2497,7 @@
       if (mentionPatterns.get(self).test(text)) return 'mention';
     }
     if (streamerEnabled() && fromStreamer(message)) return 'streamer';
+    if (highlightsEnabled() && isHighlightedUser(message.sender?.username)) return 'user';
     if (highlightsEnabled() && !fromSelf && !hasHiddenWord(message)
       && wordPatterns(HIGHLIGHT_WORDS_ATTR).some(pattern => pattern.test(text))) return 'keyword';
     return null;
@@ -2533,21 +2536,25 @@
   // attribute. Their messages collapse to one line; tapping it shows the message.
   // Known chat bots (BOT_NAMES) collapse the same way when that switch is on.
 
-  let mutedCache = { raw: null, names: new Set() };
+  const nameLists = new Map(); // html attribute -> { raw, names: Set of lower-case names }
   const revealed = new Set(); // message ids shown anyway
   const REVEALED_LIMIT = 300;
 
-  function isMuted(username) {
-    const raw = document.documentElement.getAttribute(MUTED_USERS_ATTR) || '[]';
-    if (mutedCache.raw !== raw) {
+  // A JSON username list from content.js in an html attribute (cached until it changes).
+  function inNameList(attr, username) {
+    const raw = document.documentElement.getAttribute(attr) || '[]';
+    if (nameLists.get(attr)?.raw !== raw) {
       let names = [];
       try {
         names = JSON.parse(raw);
       } catch (err) { /* none */ }
-      mutedCache = { raw, names: new Set((Array.isArray(names) ? names : []).map(name => String(name).toLowerCase())) };
+      nameLists.set(attr, { raw, names: new Set((Array.isArray(names) ? names : []).map(name => String(name).toLowerCase())) });
     }
-    return Boolean(username) && mutedCache.names.has(username.toLowerCase());
+    return Boolean(username) && nameLists.get(attr).names.has(username.toLowerCase());
   }
+
+  const isMuted = username => inNameList(MUTED_USERS_ATTR, username);
+  const isHighlightedUser = username => inNameList(HIGHLIGHT_USERS_ATTR, username);
 
   const isBot = username => Boolean(username) && BOT_NAMES.has(username.toLowerCase());
 
@@ -2881,6 +2888,123 @@
     }
   }
 
+  // ---- Kick's user card ------------------------------------------------------------
+  // Tapping a name opens Kick's card (#user-identity, added to <body> and removed on
+  // close). Below Kick's own buttons we add: @ mention, highlight and mute toggles,
+  // and that user's messages from this visit (tap one to jump to it).
+
+  const USER_CARD_SELECTOR = '#user-identity';
+  const USER_CARD_ATTR = 'data-ka-user-card';
+  const userCardEnabled = () => document.documentElement.hasAttribute(USER_CARD_ATTR);
+  const USER_HISTORY_LIMIT = 50;
+  let userCardObserver = null;
+
+  function userCardName(card) {
+    return card.querySelector('a[title][href^="https://kick.com/"]')?.title || null;
+  }
+
+  function closeUserCard() {
+    document.querySelector(`${USER_CARD_SELECTOR} svg[data-ds-icon="Cross"]`)?.closest('button')?.click();
+  }
+
+  function timeAgo(at) {
+    const minutes = Math.floor((Date.now() - at) / 60000);
+    if (minutes < 1) return t('ago.now');
+    if (minutes < 60) return t('ago.minutes', { n: minutes });
+    return t('ago.hours', { n: Math.floor(minutes / 60) });
+  }
+
+  function userHistory(username) {
+    const slug = channelSlug();
+    const lower = username.toLowerCase();
+    return [...history.values()]
+      .filter(entry => entry.channel === slug && entry.username.toLowerCase() === lower)
+      .sort((a, b) => b.at - a.at)
+      .slice(0, USER_HISTORY_LIMIT);
+  }
+
+  function userCardButton(label, onClick, extra = '') {
+    const button = el('button', `ka-card-button ${extra}`.trim(), label);
+    button.type = 'button';
+    button.addEventListener('click', onClick);
+    return button;
+  }
+
+  function buildUserTools(username) {
+    const tools = el('div', 'ka-user-tools');
+    tools.dataset.user = username;
+    const self = selfUsername(list?.querySelector(ROW_SELECTOR));
+    const isSelf = Boolean(self) && self.toLowerCase() === username.toLowerCase();
+
+    const actions = el('div', 'ka-card-actions ka-card-actions--wrap');
+    if (!isSelf) {
+      actions.append(userCardButton(t('user.mention'), () => {
+        insertAtEnd(`@${username}`);
+        closeUserCard();
+      }));
+      if (highlightsEnabled()) {
+        const on = isHighlightedUser(username);
+        actions.append(userCardButton(t(on ? 'user.unhighlight' : 'user.highlight'), () => {
+          sendToExtension(on ? 'highlight:remove' : 'highlight:add', { username });
+        }, on ? 'ka-card-button--on' : ''));
+      }
+      if (muteEnabled()) {
+        const on = isMuted(username);
+        actions.append(userCardButton(t(on ? 'user.unmute' : 'user.mute'), () => {
+          sendToExtension(on ? 'mute:remove' : 'mute:add', { username });
+        }, on ? 'ka-card-button--on' : 'ka-card-button--mute'));
+      }
+    }
+
+    const messages = userHistory(username);
+    const head = el('div', 'ka-card-meta', messages.length
+      ? t('user.messages', { count: messages.length })
+      : t('user.noMessages'));
+    const items = el('div', 'ka-user-history');
+    for (const entry of messages) {
+      const item = el('button', 'ka-user-message');
+      item.type = 'button';
+      item.append(el('span', 'ka-user-message-time', timeAgo(entry.at)), renderContent(entry.content));
+      item.addEventListener('click', () => {
+        closeUserCard();
+        scrollToMessage(entry.id).then(row => row && flashRow(row)).catch(() => {});
+      });
+      items.append(item);
+    }
+    tools.append(...(actions.childElementCount ? [actions] : []), head, items);
+    return tools;
+  }
+
+  // Adds (or redraws) our part of the card; also after Kick re-renders the card.
+  function syncUserCard(redraw = false) {
+    const card = document.querySelector(USER_CARD_SELECTOR);
+    if (!card) {
+      userCardObserver?.disconnect();
+      userCardObserver = null;
+      return;
+    }
+    const current = card.querySelector('.ka-user-tools');
+    if (!userCardEnabled()) {
+      current?.remove();
+      return;
+    }
+    const username = userCardName(card);
+    if (!username) return;
+    if (current && current.dataset.user === username && !redraw) return;
+    const box = card.querySelector('a[title][href^="https://kick.com/"]').parentElement?.parentElement || card;
+    const tools = buildUserTools(username);
+    if (current) current.replaceWith(tools);
+    else box.append(tools);
+    if (!userCardObserver) {
+      userCardObserver = new MutationObserver(() => guarded('user card', () => syncUserCard()));
+      userCardObserver.observe(card, { childList: true, subtree: true });
+    }
+  }
+
+  // The card is a direct child of <body>, so watching only <body>'s children is cheap.
+  new MutationObserver(() => guarded('user card', () => syncUserCard()))
+    .observe(document.body, { childList: true });
+
   // ---- Row processing --------------------------------------------------------
 
   function clearRow(row) {
@@ -2986,6 +3110,7 @@
     }
     syncToolbar();
     if (sevenTvEnabled()) syncEmotes();
+    guarded('user card', () => syncUserCard(true)); // mute / highlight labels
     schedule();
   }
 
@@ -3005,7 +3130,7 @@
 
   new MutationObserver(onSettingsChange).observe(document.documentElement, {
     attributes: true,
-    attributeFilter: [RESTORE_ATTR, PREVIEWS_ATTR, SEVENTV_ATTR, MESSAGES_ATTR, HIGHLIGHT_ATTR, HIGHLIGHT_WORDS_ATTR, STREAMER_ATTR, HIDE_WORDS_ATTR, MUTE_ATTR, MUTED_USERS_ATTR, BOTS_ATTR, READABLE_NAMES_ATTR, STRIPES_ATTR, REPEATS_ATTR, FONT_SIZE_ATTR, CHAT_FONT_ATTR, COSMETICS_ATTR, EMOTE_ONLY_ATTR]
+    attributeFilter: [RESTORE_ATTR, PREVIEWS_ATTR, SEVENTV_ATTR, MESSAGES_ATTR, HIGHLIGHT_ATTR, HIGHLIGHT_WORDS_ATTR, STREAMER_ATTR, HIDE_WORDS_ATTR, MUTE_ATTR, MUTED_USERS_ATTR, HIGHLIGHT_USERS_ATTR, USER_CARD_ATTR, BOTS_ATTR, READABLE_NAMES_ATTR, STRIPES_ATTR, REPEATS_ATTR, FONT_SIZE_ATTR, CHAT_FONT_ATTR, COSMETICS_ATTR, EMOTE_ONLY_ATTR]
   });
 
   // ---- Catching up after the page slept ----------------------------------------

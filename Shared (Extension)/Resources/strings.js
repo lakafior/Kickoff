@@ -26,6 +26,7 @@
       'setting.muteUsers': 'Collapse muted users',
       'setting.hideBots': 'Collapse bots (BotRix, KickBot, StreamElements)',
       'setting.readableNames': 'Readable name colours',
+      'setting.userCard': 'Tools in user card (tap a name)',
       'setting.chatStripes': 'Alternating message background',
       'setting.collapseRepeats': 'Collapse repeated messages',
       'setting.hideEmoteOnly': 'Hide emote-only messages',
@@ -50,6 +51,9 @@
       'mute.add': 'Add username',
       'mute.empty': 'No one muted. Tap a message in chat → Mute.',
       'mute.unmute': 'Unmute {name}',
+      'users.highlight': 'Highlighted users',
+      'users.highlightEmpty': 'No one highlighted. Tap a name in chat → Highlight.',
+      'users.unhighlight': 'Stop highlighting {name}',
       'font.label': 'Chat font',
       'font.serif': 'Serif',
       'font.mono': 'Mono',
@@ -221,7 +225,16 @@
       'catchup.missed': { one: '↑ {count} missed message', other: '↑ {count} missed messages' },
       'catchup.partial': ' (older ones not loaded)',
       'catchup.newest': '↓ Back to newest',
-      'catchup.dismiss': 'Dismiss'
+      'catchup.dismiss': 'Dismiss',
+
+      // Kick's user card (tap a name in chat)
+      'user.mention': '@ Mention',
+      'user.highlight': 'Highlight',
+      'user.unhighlight': 'Stop highlighting',
+      'user.mute': 'Mute',
+      'user.unmute': 'Unmute',
+      'user.messages': { one: '{count} recent message', other: '{count} recent messages' },
+      'user.noMessages': 'No recent messages in this chat'
     },
 
     pl: {
@@ -238,6 +251,7 @@
       'setting.muteUsers': 'Zwijaj wyciszonych użytkowników',
       'setting.hideBots': 'Zwijaj boty (BotRix, KickBot, StreamElements)',
       'setting.readableNames': 'Czytelne kolory nicków',
+      'setting.userCard': 'Narzędzia w karcie użytkownika (stuknij nick)',
       'setting.chatStripes': 'Naprzemienne tło wiadomości',
       'setting.collapseRepeats': 'Zwijaj powtórzone wiadomości',
       'setting.hideEmoteOnly': 'Ukrywaj wiadomości z samych emotek',
@@ -261,6 +275,9 @@
       'mute.add': 'Dodaj nick',
       'mute.empty': 'Nikt nie jest wyciszony. Stuknij wiadomość w czacie → Wycisz.',
       'mute.unmute': 'Przestań wyciszać {name}',
+      'users.highlight': 'Wyróżnieni użytkownicy',
+      'users.highlightEmpty': 'Nikt nie jest wyróżniony. Stuknij nick w czacie → Wyróżnij.',
+      'users.unhighlight': 'Przestań wyróżniać {name}',
       'font.label': 'Czcionka czatu',
       'font.serif': 'Szeryfowa',
       'font.mono': 'Mono',
@@ -417,7 +434,15 @@
       'catchup.missed': { one: '↑ {count} przegapiona wiadomość', few: '↑ {count} przegapione wiadomości', many: '↑ {count} przegapionych wiadomości', other: '↑ {count} przegapionej wiadomości' },
       'catchup.partial': ' (starszych nie wczytano)',
       'catchup.newest': '↓ Wróć do najnowszych',
-      'catchup.dismiss': 'Zamknij'
+      'catchup.dismiss': 'Zamknij',
+
+      'user.mention': '@ Oznacz',
+      'user.highlight': 'Wyróżnij',
+      'user.unhighlight': 'Przestań wyróżniać',
+      'user.mute': 'Wycisz',
+      'user.unmute': 'Cofnij wyciszenie',
+      'user.messages': { one: '{count} ostatnia wiadomość', few: '{count} ostatnie wiadomości', many: '{count} ostatnich wiadomości', other: '{count} ostatniej wiadomości' },
+      'user.noMessages': 'Brak ostatnich wiadomości w tym czacie'
     }
   };
 
