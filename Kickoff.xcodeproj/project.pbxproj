@@ -27,8 +27,6 @@
 		48297E8A3074D2D000EC882D /* ViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 48297E4B3074D2D000EC882D /* ViewController.swift */; };
 		48297E8B3074D2D000EC882D /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 48297E4C3074D2D000EC882D /* Assets.xcassets */; };
 		48297E8C3074D2D000EC882D /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 48297E4C3074D2D000EC882D /* Assets.xcassets */; };
-		48297EF13074D2D000EC882D /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = 48297EF03074D2D000EC882D /* AppIcon.icon */; };
-		48297EF23074D2D000EC882D /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = 48297EF03074D2D000EC882D /* AppIcon.icon */; };
 		48297E8D3074D2D000EC882D /* SafariWebExtensionHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 48297E4E3074D2D000EC882D /* SafariWebExtensionHandler.swift */; };
 		48297E8E3074D2D000EC882D /* SafariWebExtensionHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 48297E4E3074D2D000EC882D /* SafariWebExtensionHandler.swift */; };
 		48297EA63074D2D000EC882D /* background.js in Resources */ = {isa = PBXBuildFile; fileRef = 48297EA03074D2D000EC882D /* background.js */; };
@@ -43,6 +41,8 @@
 		48297EAF3074D2D000EC882D /* page-hook.js in Resources */ = {isa = PBXBuildFile; fileRef = 48297EA33074D2D000EC882D /* page-hook.js */; };
 		48297EB03074D2D000EC882D /* content.js in Resources */ = {isa = PBXBuildFile; fileRef = 48297EA43074D2D000EC882D /* content.js */; };
 		48297EB13074D2D000EC882D /* kickoff.css in Resources */ = {isa = PBXBuildFile; fileRef = 48297EA53074D2D000EC882D /* kickoff.css */; };
+		48297EF13074D2D000EC882D /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = 48297EF03074D2D000EC882D /* AppIcon.icon */; };
+		48297EF23074D2D000EC882D /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = 48297EF03074D2D000EC882D /* AppIcon.icon */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -90,7 +90,6 @@
 		48297E4A3074D2D000EC882D /* Script.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = Script.js; sourceTree = "<group>"; };
 		48297E4B3074D2D000EC882D /* ViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewController.swift; sourceTree = "<group>"; };
 		48297E4C3074D2D000EC882D /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
-		48297EF03074D2D000EC882D /* AppIcon.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; path = AppIcon.icon; sourceTree = "<group>"; };
 		48297E4E3074D2D000EC882D /* SafariWebExtensionHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SafariWebExtensionHandler.swift; sourceTree = "<group>"; };
 		48297E533074D2D000EC882D /* Kickoff.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Kickoff.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		48297E563074D2D000EC882D /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
@@ -112,6 +111,7 @@
 		48297EA33074D2D000EC882D /* page-hook.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; name = "page-hook.js"; path = "Resources/page-hook.js"; sourceTree = "<group>"; };
 		48297EA43074D2D000EC882D /* content.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; name = content.js; path = Resources/content.js; sourceTree = "<group>"; };
 		48297EA53074D2D000EC882D /* kickoff.css */ = {isa = PBXFileReference; lastKnownFileType = text.css; name = kickoff.css; path = Resources/kickoff.css; sourceTree = "<group>"; };
+		48297EF03074D2D000EC882D /* AppIcon.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; path = AppIcon.icon; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -610,6 +610,7 @@
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 5TA8RF548P;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "iOS (Extension)/Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = "Kickoff Extension";
@@ -643,6 +644,7 @@
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 5TA8RF548P;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "iOS (Extension)/Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = "Kickoff Extension";
@@ -679,9 +681,11 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 5TA8RF548P;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "iOS (App)/Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = Kickoff;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.entertainment";
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
 				INFOPLIST_KEY_UIMainStoryboardFile = Main;
@@ -719,9 +723,11 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 5TA8RF548P;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "iOS (App)/Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = Kickoff;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.entertainment";
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
 				INFOPLIST_KEY_UIMainStoryboardFile = Main;
@@ -758,6 +764,7 @@
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 5TA8RF548P;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
@@ -793,6 +800,7 @@
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 5TA8RF548P;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
@@ -830,6 +838,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 5TA8RF548P;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES;
@@ -837,6 +846,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "macOS (App)/Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = Kickoff;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.entertainment";
 				INFOPLIST_KEY_NSMainStoryboardFile = Main;
 				INFOPLIST_KEY_NSPrincipalClass = NSApplication;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -871,6 +881,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 5TA8RF548P;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES;
@@ -878,6 +889,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "macOS (App)/Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = Kickoff;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.entertainment";
 				INFOPLIST_KEY_NSMainStoryboardFile = Main;
 				INFOPLIST_KEY_NSPrincipalClass = NSApplication;
 				LD_RUNPATH_SEARCH_PATHS = (
