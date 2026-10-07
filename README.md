@@ -8,6 +8,7 @@ links, adds 7TV emotes and gives the chat Apple's fonts. It works on stream page
 and on the chat-only popout.
 
 Every feature can be switched on or off: tap the **rocket** at the top of the chat.
+Settings are grouped in four tabs: **General**, **Chat**, **Filters** and **Player**.
 
 > Kickoff is an independent project and is not affiliated with or endorsed by Kick.
 
@@ -23,18 +24,32 @@ Every feature can be switched on or off: tap the **rocket** at the top of the ch
 - **Mentions inbox (@)**: the messages that mention you or your chosen words, so you
   can catch up later and jump back to them.
 - **Chat search**, including `from:name` to search one person's messages.
-- **Highlights**: mentions of you, words you choose and the streamer stand out.
+- **Highlights**: mentions of you, words you choose, users you choose and the
+  streamer stand out.
 - **Saved messages**: keep phrases you type often and send them in one tap.
-- **Tidier chat**: collapse muted users, repeated messages (shown once with ×N) and
-  emote-only messages, or hide messages containing words you choose.
+- **Tidier chat**: collapse muted users, chat bots (BotRix, KickBot, StreamElements,
+  Fossabot), repeated messages (shown once with ×N) and emote-only messages, or hide
+  messages containing words you choose.
+- **People in chat**: tap a name for their recent messages (tap one to jump to it),
+  and to @ mention, highlight or mute them.
+- **Notes about users**: keep a private note about anyone, shown when you tap their
+  name and marked with ✎ in chat. Notes work on every channel, sync through iCloud,
+  and can be searched and edited from the Filters tab.
 - **Fonts and size**: Kick's font or Apple's San Francisco, New York or SF Mono, plus
   adjustable text size.
-- **Catch up after sleep**: messages missed while the page was asleep are filled in.
+- **Readable name colours**: dark name colours get a lighter shade, and messages can
+  have alternating backgrounds.
+- **Catch up after sleep**: messages missed while the page was asleep are filled in,
+  with a pill to jump to the first one and back to the newest.
 - **iOS-style message box** on iPhone and iPad.
 
 ### Player
-- **Native player** on channel pages, played by Safari itself: smooth on iPhone,
-  picture in picture, AirPlay, a “behind live” indicator and Mac keyboard shortcuts.
+- **Native player** (optional, off by default) on channel pages, played by Safari
+  itself: smooth on iPhone, picture in picture, AirPlay, a “behind live” indicator and
+  Mac keyboard shortcuts. Safari's stream runs about 30 s behind live, against 5–6 s
+  in Kick's player.
+- **Catch up to live** (optional): after buffering, the player plays slightly faster
+  until it's back where it started.
 - **Keeps playing when locked** (audio only), with the stream on the lock screen.
 - **Listen button** in the popout chat: audio only, with a sleep timer.
 - **Compact channel info** under the player on channel pages.
@@ -74,10 +89,10 @@ Kickoff is coming to the App Store. Website: [kickoff.smigi.net](https://kickoff
 Full policy: [kickoff.smigi.net/privacy](https://kickoff.smigi.net/privacy/).
 
 Kickoff collects no data. There are no accounts, analytics or servers of its own.
-Your settings, saved messages and mentions inbox stay in Safari's storage on your
-device. Settings (except text size), saved messages and your 7TV emote usage also sync between your Mac,
-iPhone and iPad through your own iCloud key-value storage, which the developer can't
-access.
+Your settings, saved messages, notes about users and mentions inbox stay in Safari's
+storage on your device. Settings (except text size), saved messages, notes about
+users and your 7TV emote usage also sync between your Mac, iPhone and iPad through
+your own iCloud key-value storage, which the developer can't access.
 
 To do its job, the extension connects from your browser to:
 - **Kick** (`kick.com`, `web.kick.com`, `files.kick.com`) for stream info, chat
@@ -99,9 +114,12 @@ open Kickoff.xcodeproj
 ```
 
 - The extension lives in `Shared (Extension)/Resources/`: `manifest.json`,
-  `background.js` (ad blocking, toolbar button), `content.js` (settings panel,
-  player, wake lock), `page-hook.js` (chat features that need Kick's page data) and
+  `background.js` (ad blocking, toolbar button, iCloud sync), `content.js` (settings
+  panel, player, wake lock, notes), `page-hook.js` (chat features that need Kick's
+  page data), `strings.js` (all on-screen text, English and Polish) and
   `kickoff.css`.
+- `Shared (Extension)/SafariWebExtensionHandler.swift` stores the synced data in
+  iCloud's key-value store for `background.js`.
 - `Shared (App)/` is the container app that explains how to turn the extension on.
 - Run the **Kickoff (macOS)** scheme, then enable Kickoff in Safari ▸ Settings ▸
   Extensions. Local builds may need Safari ▸ Settings ▸ Developer ▸ **Allow unsigned

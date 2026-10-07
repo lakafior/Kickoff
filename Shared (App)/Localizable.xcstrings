@@ -1,0 +1,156 @@
+{
+  "sourceLanguage": "en",
+  "strings": {
+    "Loading…": {
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ładowanie…"
+          }
+        }
+      }
+    },
+    "Can't reach Kick. Trying again…": {
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Brak połączenia z Kickiem. Ponawiam…"
+          }
+        }
+      }
+    },
+    "%@ is offline": {
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ jest offline"
+          }
+        }
+      }
+    },
+    "Reconnecting…": {
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Łączę ponownie…"
+          }
+        }
+      }
+    },
+    "Jumping to live…": {
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Przeskakuję na żywo…"
+          }
+        }
+      }
+    },
+    "%.1f s behind live": {
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%.1f s za transmisją"
+          }
+        }
+      }
+    },
+    "Best": {
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Najlepsza"
+          }
+        }
+      }
+    },
+    "Auto (More Delay)": {
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Auto (większe opóźnienie)"
+          }
+        }
+      }
+    },
+    "Audio Only": {
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tylko dźwięk"
+          }
+        }
+      }
+    },
+    "Playback": {
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Odtwarzanie"
+          }
+        }
+      }
+    },
+    "Quality": {
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jakość"
+          }
+        }
+      }
+    },
+    "Float on Top": {
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zawsze na wierzchu"
+          }
+        }
+      }
+    },
+    "Open Chat in Browser": {
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Otwórz czat w przeglądarce"
+          }
+        }
+      }
+    },
+    "Jump to Live": {
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Przeskocz na żywo"
+          }
+        }
+      }
+    },
+    "Reload Stream": {
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wczytaj stream ponownie"
+          }
+        }
+      }
+    }
+  },
+  "version": "1.0"
+}

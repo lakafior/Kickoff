@@ -25,7 +25,9 @@ Safari's "describe extension" feature; now a regular Xcode project.
 - Text: every on-screen string is in `strings.js` (English + Polish, same keys),
   read by content.js and page-hook.js as `t('key', { values })`. Add new text there
   in both languages, never inline. Manifest name/description are in `_locales/`;
-  the app window is `Shared (App)/Resources/Base.lproj` + `pl.lproj/Main.html`.
+  the app window is `Shared (App)/Resources/Base.lproj` + `pl.lproj/Main.html`; the
+  app's player and Playback menu (Swift, `String(localized:)`) are in
+  `Shared (App)/Localizable.xcstrings`, the storyboard menus in `macOS (App)/pl.lproj/Main.strings`.
   The "Page script" troubleshooting text in the panel stays English on purpose.
 - iCloud sync: background.js syncs settings (minus `fontSize`), saved messages,
   7TV emote usage and notes about users through `SafariWebExtensionHandler.swift`

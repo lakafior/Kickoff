@@ -2295,6 +2295,21 @@ html[data-ka-player] #injected-channel-player {
     }
 }
 
+/* ---- Kickoff app player row (Player tab, Mac) ---- */
+.ka-app-quality {
+    height: 26px;
+}
+
+.ka-app-watch {
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.ka-app-watch:disabled {
+    opacity: 0.4;
+    cursor: default;
+}
+
 /* ---- Listen button (popout strip) ---- */
 .ka-listen-button {
     padding: 0 6px;

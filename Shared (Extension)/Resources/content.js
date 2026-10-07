@@ -38,10 +38,11 @@
     chatStripes: false,
     iosInput: true,
     fontSize: null, // null = Kick's own size
-    nativePlayer: true,
+    nativePlayer: false, // off: HLS in Safari sits ~30 s behind live vs ~5 s in Kick's player
     liveCatchUp: false,
     backgroundAudio: true,
     popoutAudio: true,
+    appQuality: 'best', // Kickoff app player (Mac): best, 1080…160 (height), auto, audio
     channelStrip: true,
     blockAds: true
   };
@@ -73,7 +74,7 @@
     general: ['wakeLock', 'chatOnly', 'streamInfo', 'channelStrip', 'blockAds'],
     chat: ['font', 'size', 'readableNames', 'chatStripes', 'sevenTv', 'sevenTvCosmetics', 'linkPreviews', 'restoreDeleted', 'savedMessages', 'userCard', 'iosInput'],
     filters: ['highlights', 'highlightWords', 'highlightUsers', 'highlightStreamer', 'hideWords', 'hideEmoteOnly', 'collapseRepeats', 'hideBots', 'muteUsers', 'mutedUsers', 'notes'],
-    player: ['nativePlayer', 'liveCatchUp', 'backgroundAudio', 'popoutAudio']
+    player: ['appPlayer', 'nativePlayer', 'liveCatchUp', 'backgroundAudio', 'popoutAudio']
   };
   // Switches that only do something while another one is on; dimmed otherwise.
   const SETTING_NEEDS = {
@@ -93,6 +94,12 @@
   // Chat font: Kick's own, or Apple's San Francisco, New York (serif) or SF Mono.
   const CHAT_FONT_ATTR = 'data-ka-font';
   const CHAT_FONTS = [['kick', 'Kick'], ['sf', 'SF'], ['serif', t('font.serif')], ['mono', t('font.mono')]];
+  // Kickoff app player qualities; the app takes the closest rendition the stream has.
+  // Auto lets the app switch, which costs it a few seconds of delay.
+  const APP_QUALITIES = [
+    ['best', t('app.best')], ['1080', '1080p'], ['720', '720p'], ['480', '480p'],
+    ['360', '360p'], ['160', '160p'], ['auto', t('app.auto')], ['audio', t('player.audioOnly')]
+  ];
   const POPOUT_ATTR = 'data-ka-popout'; // the stream info line is popout-only
   const CHANNEL_STRIP_ATTR = 'data-ka-channel-strip'; // kickoff.css hides Kick's channel info
   const POPOUT_PATH = /^\/popout\/([^/]+)\/chat\/?$/;
@@ -131,6 +138,8 @@
 
   const root = document.documentElement;
   const popoutSlug = location.pathname.match(POPOUT_PATH)?.[1] || null;
+  // Mac Safari (an iPad also says Macintosh, but has touch).
+  const IS_MAC = /Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints === 0;
 
   function saveSettings(changes) {
     const settings = { ...state.settings, ...changes };
@@ -824,7 +833,31 @@
       return row;
     };
 
+    // Mac only: quality and a button that opens the stream in the Kickoff app.
+    const appPlayerRow = () => {
+      if (!IS_MAC) return [];
+      const row = el('div', 'ka-settings-row');
+      const label = el('span', 'ka-settings-label', t('app.label'));
+      label.append(el('span', 'ka-wake-hint', t('app.hint')));
+      const controls = el('span', 'ka-size-controls');
+      const quality = el('select', 'ka-player-quality ka-app-quality');
+      quality.setAttribute('aria-label', t('app.quality'));
+      for (const [value, text] of APP_QUALITIES) {
+        const option = el('option', '', text);
+        option.value = value;
+        quality.append(option);
+      }
+      quality.addEventListener('change', () => saveSettings({ appQuality: quality.value }));
+      const watch = el('button', 'ka-size-button ka-app-watch', t('app.watch'));
+      watch.type = 'button';
+      watch.addEventListener('click', watchInApp);
+      controls.append(quality, watch);
+      row.append(label, controls);
+      return row;
+    };
+
     const ROWS = {
+      appPlayer: appPlayerRow,
       font: fontRow,
       size: sizeRow,
       highlightWords: () => wordsRow('highlightWords', t('words.highlight'), t('words.highlightExample')),
@@ -1075,6 +1108,8 @@
       option.setAttribute('aria-pressed', String(option.dataset.font === state.settings.chatFont));
     }
     state.bar.querySelector('.ka-size-reset').hidden = state.settings.fontSize == null;
+    const appQuality = state.bar.querySelector('.ka-app-quality');
+    if (appQuality) appQuality.value = state.settings.appQuality;
     renderStream();
     renderInbox();
     renderListen();
@@ -1419,6 +1454,8 @@
     if (!state.bar) return;
     const stream = showsStream() ? state.stream : null;
     state.bar.toggleAttribute('data-stream', Boolean(stream));
+    const watch = state.bar.querySelector('.ka-app-watch');
+    if (watch) watch.disabled = !appPlayerSlug() || stream?.live === false;
     const line = state.bar.querySelector('.ka-stream');
     const details = state.bar.querySelector('.ka-stream-details');
 
@@ -1464,6 +1501,22 @@
       details.hidden = false;
     }
     renderStatus();
+  }
+
+  // Mac: the stream in the Kickoff app's own player, about as close to live as
+  // Kick's (Shared (App)/LiveStream.swift), at the quality chosen in the Player tab.
+  // This page goes quiet so it isn't heard twice; chat stays here.
+  function appPlayerSlug() {
+    return popoutSlug || channelPageSlug();
+  }
+
+  function watchInApp() {
+    const slug = appPlayerSlug();
+    if (!slug) return;
+    for (const video of document.querySelectorAll('video')) video.pause();
+    if (isListening()) stopListen();
+    const quality = encodeURIComponent(state.settings.appQuality);
+    location.href = `kickoff://watch/${encodeURIComponent(slug)}?quality=${quality}`;
   }
 
   // Kick's channel buttons, wherever they are (its info block stays mounted, hidden).
