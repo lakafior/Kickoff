@@ -171,6 +171,57 @@
           }
         }
       }
+    },
+    "%@ watching": {
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ogląda: %@"
+          }
+        }
+      }
+    },
+    "Live for %@": {
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Transmisja trwa %@"
+          }
+        }
+      }
+    },
+    "LIVE": {
+      "comment": "Badge: the stream is live",
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "NA ŻYWO"
+          }
+        }
+      }
+    },
+    "Close": {
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zamknij"
+          }
+        }
+      }
+    },
+    "%.1f s behind": {
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%.1f s opóźnienia"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

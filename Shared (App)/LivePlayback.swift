@@ -32,6 +32,7 @@ final class LivePlayback {
     private static let catchUpMargin: TimeInterval = 3
     private static let catchUpAfter: TimeInterval = 5
     private static let catchUpInterval: TimeInterval = 120
+    private static let infoInterval: TimeInterval = 60 // viewers, title, category
 
     /// The quality the app plays (the extension's Watch link sets it too).
     static var savedRendition: Rendition {
@@ -42,10 +43,12 @@ final class LivePlayback {
     let slug: String
     let player = AVPlayer()
     private(set) var channel: KickChannel?
+    /// Seconds behind the newest segment while playing (nil otherwise), every second.
+    private(set) var delay: TimeInterval?
 
     /// Text over the video ("Loading…", "… is offline"); nil hides it.
     var onMessage: ((String?) -> Void)?
-    /// The channel's name and title, when (re)loaded.
+    /// The channel's name, title and stream info, when (re)loaded and every minute.
     var onChannel: ((KickChannel) -> Void)?
     /// The status line, every second: "2.1 s behind live · Best".
     var onStatus: ((String) -> Void)?
@@ -56,6 +59,7 @@ final class LivePlayback {
     private var notifications: [NSObjectProtocol] = []
     private var itemNotifications: [NSObjectProtocol] = []
     private var timer: Timer?
+    private var infoTimer: Timer?
     private var retryWork: DispatchWorkItem?
     private var retries = 0
     private var checkStart = false   // the current item's first play is still to be checked
@@ -107,6 +111,8 @@ final class LivePlayback {
         stopped = false
         timer?.invalidate()
         timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in self?.tick() }
+        infoTimer?.invalidate()
+        infoTimer = Timer.scheduledTimer(withTimeInterval: Self.infoInterval, repeats: true) { [weak self] _ in self?.refreshInfo() }
         onMessage?(String(localized: "Loading…"))
         load()
     }
@@ -114,6 +120,7 @@ final class LivePlayback {
     func stop() {
         stopped = true
         timer?.invalidate()
+        infoTimer?.invalidate()
         retryWork?.cancel()
         player.pause()
         player.replaceCurrentItem(with: nil)
@@ -134,6 +141,18 @@ final class LivePlayback {
     var chatURL: URL? { URL(string: "https://kick.com/popout/\(slug)/chat") }
 
     // MARK: Loading
+
+    // The channel again, for its info only: playing carries on.
+    private func refreshInfo() {
+        guard player.timeControlStatus == .playing else { return }
+        KickAPI.channel(slug) { [weak self] result in
+            DispatchQueue.main.async {
+                guard let self = self, !self.stopped, case .success(let channel) = result else { return }
+                self.channel = channel
+                self.onChannel?(channel)
+            }
+        }
+    }
 
     private func load() {
         retryWork?.cancel()
@@ -277,6 +296,7 @@ final class LivePlayback {
             delay = Date().timeIntervalSince(date)
             parts.append(String(format: String(localized: "%.1f s behind live"), delay!))
         }
+        self.delay = delay
         catchUpIfBehind(delay: delay)
         parts.append(player.isExternalPlaybackActive ? "AirPlay" : rendition.title)
         onStatus?(parts.joined(separator: " · "))

@@ -28,6 +28,9 @@ struct KickChannel {
     let title: String
     let avatar: URL?
     let playbackURL: URL? // nil while offline
+    let viewers: Int?
+    let startedAt: Date?
+    let category: String?
 }
 
 enum KickAPI {
@@ -52,6 +55,15 @@ enum KickAPI {
         }.resume()
     }
 
+    // "2026-10-02 16:04:09", in UTC.
+    private static let startTime: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone(identifier: "UTC")
+        formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
+        return formatter
+    }()
+
     static func channel(_ slug: String, completion: @escaping (Result<KickChannel, Error>) -> Void) {
         let url = URL(string: "\(origin)/api/v2/channels/\(slug)")!
         load(url) { result in
@@ -61,12 +73,16 @@ enum KickAPI {
                     let user = json["user"] as? [String: Any]
                     let livestream = json["livestream"] as? [String: Any]
                     let live = livestream?["is_live"] as? Bool ?? false
+                    let categories = livestream?["categories"] as? [[String: Any]]
                     return KickChannel(
                         slug: slug,
                         username: user?["username"] as? String ?? slug,
                         title: livestream?["session_title"] as? String ?? "",
                         avatar: (user?["profile_pic"] as? String).flatMap(URL.init(string:)),
-                        playbackURL: live ? (json["playback_url"] as? String).flatMap(URL.init(string:)) : nil
+                        playbackURL: live ? (json["playback_url"] as? String).flatMap(URL.init(string:)) : nil,
+                        viewers: live ? livestream?["viewer_count"] as? Int : nil,
+                        startedAt: live ? (livestream?["start_time"] as? String).flatMap(startTime.date(from:)) : nil,
+                        category: categories?.first?["name"] as? String
                     )
                 }
             })
