@@ -37,7 +37,7 @@
 <div class="wrap prose">
 
   <h1>Privacy Policy</h1>
-  <p class="updated">Last updated 6 October 2026. Applies to the Kickoff app and Safari extension for Mac, iPhone and iPad, and to this website.</p>
+  <p class="updated">Last updated 7 October 2026. Applies to the Kickoff app and Safari extension for Mac, iPhone and iPad, and to this website.</p>
 
   <p>
     <b>Kickoff collects no personal data.</b> It has no server, no user accounts
@@ -54,12 +54,14 @@
     website you visit.
   </p>
   <p>
-    The Kickoff app itself only explains how to turn the extension on. It makes
-    no network connections and stores nothing.
+    The Kickoff app explains how to turn the extension on, and has a player for
+    Kick streams, opened by the extension's <em>Watch</em> button. The app
+    connects to the network only while that player shows a stream, and only to
+    Kick (see below). It cannot see what you do in Safari.
   </p>
 
   <h2>What is stored, and where</h2>
-  <p>Everything Kickoff keeps is stored in Safari on your device:</p>
+  <p>Everything Kickoff keeps is stored on your device, in Safari or in the app:</p>
   <ul>
     <li>
       <b>In the extension's own storage:</b> your settings (which features are on,
@@ -72,6 +74,10 @@
       badges, which emotes you use most (for autocomplete), the player's volume,
       whether you hid the message box, and when you last saw each channel's chat
       (so missed messages can be filled in).
+    </li>
+    <li>
+      <b>In the Kickoff app:</b> the player's quality, volume and whether its
+      window floats on top. Nothing about what you watch.
     </li>
     <li>
       <b>In memory only:</b> recent chat messages, so ones a moderator deletes can
@@ -90,9 +96,10 @@
     on the device. Nothing else is uploaded anywhere by Kickoff.
   </p>
 
-  <h2>Who the extension talks to</h2>
+  <h2>Who Kickoff talks to</h2>
   <p>
-    To do its job, Kickoff makes requests from your browser to these services.
+    To do its job, Kickoff makes requests from your browser, or from the app's
+    player, to these services.
     They receive what any website you open receives, such as your IP address.
     Kickoff tells them only what it is looking up (a channel, an emote set, a
     link) and nothing about you.
@@ -100,8 +107,10 @@
   <ul>
     <li>
       <b>Kick</b> (<code>kick.com</code>, <code>web.kick.com</code>,
-      <code>files.kick.com</code>): stream details, chat history after the page
-      slept, and the video and audio stream for the native player.
+      <code>files.kick.com</code> and its video service
+      <code>*.live-video.net</code>): stream details, chat history after the page
+      slept, the video and audio stream for the native player and the app's
+      player, and the streamer's picture for the lock screen.
     </li>
     <li>
       <b>7TV</b> (<code>7tv.io</code>): emotes, name paints and badges.

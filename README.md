@@ -44,12 +44,14 @@ Settings are grouped in four tabs: **General**, **Chat**, **Filters** and **Play
 - **iOS-style message box** on iPhone and iPad.
 
 ### Player
+- **Kickoff app player**: **Watch** in the Player tab opens the stream in the Kickoff
+  app on Mac, iPhone and iPad, about as close to live as Kick's own player (around
+  2 s behind on a fixed quality), with picture in picture, AirPlay and sound on the
+  lock screen. Chat stays in Safari next to it. It jumps back to live after a stall
+  or on **Live**; **Auto** quality adapts to your connection but runs further behind.
 - **Native player** (optional, off by default) on channel pages, played by Safari
   itself: smooth on iPhone, picture in picture, AirPlay, a “behind live” indicator and
-  Mac keyboard shortcuts. Safari's stream runs about 30 s behind live, against 5–6 s
-  in Kick's player.
-- **Catch up to live** (optional): after buffering, the player plays slightly faster
-  until it's back where it started.
+  Mac keyboard shortcuts. Safari's stream runs about 30 s behind live.
 - **Keeps playing when locked** (audio only), with the stream on the lock screen.
 - **Listen button** in the popout chat: audio only, with a sleep timer.
 - **Compact channel info** under the player on channel pages.
@@ -95,11 +97,16 @@ users and your 7TV emote usage also sync between your Mac, iPhone and iPad throu
 your own iCloud key-value storage, which the developer can't access.
 
 To do its job, the extension connects from your browser to:
-- **Kick** (`kick.com`, `web.kick.com`, `files.kick.com`) for stream info, chat
-  history and the video stream;
+- **Kick** (`kick.com`, `web.kick.com`, `files.kick.com`, and its video service
+  `*.live-video.net`) for stream info, chat history and the video stream;
 - **7TV** (`7tv.io`) for emotes, name paints and badges;
 - **YouTube, TikTok and FxTwitter** (`api.fxtwitter.com`) for link previews;
 - the site hosting an image someone links in chat, to show its preview.
+
+The Kickoff app connects only when you open a stream in its player, and only to Kick:
+`kick.com` for stream info, `*.live-video.net` for the stream and `files.kick.com`
+for the streamer's picture on the lock screen. It remembers just its player choices
+(quality, volume, floating window) on your device.
 
 It blocks requests to ad and tracking services on kick.com, such as Google ads and
 analytics, Datadog and Mux.
@@ -120,7 +127,11 @@ open Kickoff.xcodeproj
   `kickoff.css`.
 - `Shared (Extension)/SafariWebExtensionHandler.swift` stores the synced data in
   iCloud's key-value store for `background.js`.
-- `Shared (App)/` is the container app that explains how to turn the extension on.
+- `Shared (App)/` is the container app: it explains how to turn the extension on and
+  has the player opened by `kickoff://watch/{channel}` (`LiveStream.swift` rewrites
+  Kick's playlists to start close to live, `LivePlayback.swift` keeps it there;
+  `macOS (App)/PlayerWindowController.swift` and `iOS (App)/PlayerViewController.swift`
+  put it on screen).
 - Run the **Kickoff (macOS)** scheme, then enable Kickoff in Safari ▸ Settings ▸
   Extensions. Local builds may need Safari ▸ Settings ▸ Developer ▸ **Allow unsigned
   extensions**.

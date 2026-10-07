@@ -39,7 +39,6 @@
     iosInput: true,
     fontSize: null, // null = Kick's own size
     nativePlayer: false, // off: HLS in Safari sits ~30 s behind live vs ~5 s in Kick's player
-    liveCatchUp: false,
     backgroundAudio: true,
     popoutAudio: true,
     appQuality: 'best', // Kickoff app player: best, 1080…160 (height), auto, audio
@@ -74,11 +73,10 @@
     general: ['wakeLock', 'chatOnly', 'streamInfo', 'channelStrip', 'blockAds'],
     chat: ['font', 'size', 'readableNames', 'chatStripes', 'sevenTv', 'sevenTvCosmetics', 'linkPreviews', 'restoreDeleted', 'savedMessages', 'userCard', 'iosInput'],
     filters: ['highlights', 'highlightWords', 'highlightUsers', 'highlightStreamer', 'hideWords', 'hideEmoteOnly', 'collapseRepeats', 'hideBots', 'muteUsers', 'mutedUsers', 'notes'],
-    player: ['appPlayer', 'nativePlayer', 'liveCatchUp', 'backgroundAudio', 'popoutAudio']
+    player: ['appPlayer', 'nativePlayer', 'backgroundAudio', 'popoutAudio']
   };
   // Switches that only do something while another one is on; dimmed otherwise.
   const SETTING_NEEDS = {
-    liveCatchUp: 'nativePlayer',
     backgroundAudio: 'nativePlayer'
   };
   const SETTINGS_TAB_KEY = 'kickoff:settingsTab'; // last open tab, in kick.com localStorage
@@ -733,6 +731,7 @@
       const text = el('span', 'ka-settings-label', t(`setting.${key}`));
       if (key === 'wakeLock') text.append(el('span', 'ka-wake-hint'));
       if (key === 'blockAds') text.append(el('span', 'ka-wake-hint ka-block-hint'));
+      if (key === 'nativePlayer') text.append(el('span', 'ka-wake-hint', t('setting.nativePlayerHint')));
       row.append(text, input);
       return row;
     };
@@ -1836,7 +1835,6 @@
     retries: 0,           // failed loads since it last played
     idleTimer: null,
     failed: null,         // slug our player gave up on (until the page changes)
-    liveBase: null,       // closest it has played to the live edge since (re)starting
     wrap: null,
     video: null
   };
@@ -2073,55 +2071,6 @@
     const edge = video && liveEdge(video);
     if (edge != null) video.currentTime = Math.max(0, edge - 2);
     if (video?.paused) startPlayback();
-    player.liveBase = null;
-  }
-
-  // Auto catch-up: a stall leaves the player further behind than where it started.
-  // Play a little faster (not audible) until it's most of the way back, as long as
-  // there's plenty of buffer, so it can't cause the next stall. It never aims
-  // closer to live than where it started or CATCHUP_FLOOR_S, and after running
-  // out of buffer it waits before trying again. Further behind than CATCHUP_MAX_S
-  // is left to "Go live".
-  const CATCHUP_START_S = 6;       // this much behind the start point: speed up
-  const CATCHUP_STOP_S = 2;        // back within this: normal speed
-  const CATCHUP_FLOOR_S = 5;       // never aim closer to the live edge than this
-  const CATCHUP_MAX_S = 60;
-  const CATCHUP_MIN_BUFFER_S = 4;  // buffered ahead needed to keep going faster
-  const CATCHUP_RATE = 1.05;
-  const CATCHUP_COOLDOWN_MS = 30 * 1000;
-  let catchupPausedUntil = 0;
-
-  function bufferedAhead(video) {
-    const { buffered } = video;
-    for (let i = 0; i < buffered.length; i++) {
-      if (buffered.start(i) <= video.currentTime + 0.1 && video.currentTime < buffered.end(i)) {
-        return buffered.end(i) - video.currentTime;
-      }
-    }
-    return 0;
-  }
-
-  function checkLiveCatchUp() {
-    const video = player.video;
-    if (!video) return;
-    const edge = liveEdge(video);
-    const behind = edge == null ? null : edge - video.currentTime;
-    const usable = state.settings.liveCatchUp && behind != null && !video.paused && !video.seeking && video.readyState >= 3;
-    if (!usable) {
-      if (video.playbackRate !== 1) video.playbackRate = 1;
-      return;
-    }
-    if (video.playbackRate === 1 && (player.liveBase == null || behind < player.liveBase)) player.liveBase = behind;
-    const extra = behind - Math.max(player.liveBase, CATCHUP_FLOOR_S);
-    const fast = video.playbackRate > 1;
-    const buffer = bufferedAhead(video);
-    let rate = 1;
-    if (fast && buffer <= CATCHUP_MIN_BUFFER_S) {
-      catchupPausedUntil = Date.now() + CATCHUP_COOLDOWN_MS; // ran short: back off
-    } else if (extra < CATCHUP_MAX_S && buffer > CATCHUP_MIN_BUFFER_S && Date.now() > catchupPausedUntil) {
-      if (extra > CATCHUP_START_S || (fast && extra > CATCHUP_STOP_S)) rate = CATCHUP_RATE;
-    }
-    if (video.playbackRate !== rate) video.playbackRate = rate;
   }
 
   // Background audio: the lock screen (and a hidden tab) switches to the
@@ -2257,8 +2206,6 @@
     });
     video.addEventListener('timeupdate', renderLive);
     video.addEventListener('timeupdate', checkSleep);
-    video.addEventListener('timeupdate', checkLiveCatchUp);
-    video.addEventListener('loadstart', () => { player.liveBase = null; }); // new source, new edge
     video.addEventListener('playing', () => { player.retries = 0; });
     video.addEventListener('playing', () => showControls());
     video.addEventListener('pause', () => showControls(false));
