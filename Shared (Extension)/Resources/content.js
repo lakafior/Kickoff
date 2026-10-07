@@ -830,7 +830,7 @@
       return row;
     };
 
-    // Quality and a button that opens the stream in the Kickoff app.
+    // Quality for the Kickoff app's player (opened from the view switcher).
     const appPlayerRow = () => {
       const row = el('div', 'ka-settings-row');
       const label = el('span', 'ka-settings-label', t('app.label'));
@@ -844,10 +844,7 @@
         quality.append(option);
       }
       quality.addEventListener('change', () => saveSettings({ appQuality: quality.value }));
-      const watch = el('button', 'ka-size-button ka-app-watch', t('app.watch'));
-      watch.type = 'button';
-      watch.addEventListener('click', watchInApp);
-      controls.append(quality, watch);
+      controls.append(quality);
       row.append(label, controls);
       return row;
     };
@@ -926,7 +923,7 @@
     actions.hidden = true;
     const listenSleep = sleepControl();
     listenSleep.classList.add('ka-listen-sleep');
-    head.append(toggle, actions, listenButton, listenSleep, searchButton, inboxButton, settingsButton);
+    head.append(buildViews(), toggle, actions, listenButton, listenSleep, searchButton, inboxButton, settingsButton);
 
     // Chat search: field, a summary line, results.
     const search = el('div', 'ka-search');
@@ -1450,8 +1447,7 @@
     if (!state.bar) return;
     const stream = showsStream() ? state.stream : null;
     state.bar.toggleAttribute('data-stream', Boolean(stream));
-    const watch = state.bar.querySelector('.ka-app-watch');
-    if (watch) watch.disabled = !appPlayerSlug() || stream?.live === false;
+    renderViews(stream);
     const line = state.bar.querySelector('.ka-stream');
     const details = state.bar.querySelector('.ka-stream-details');
 
@@ -1513,6 +1509,124 @@
     if (isListening()) stopListen();
     const quality = encodeURIComponent(state.settings.appQuality);
     location.href = `kickoff://watch/${encodeURIComponent(slug)}?quality=${quality}`;
+  }
+
+  // ---- View switcher (Stream · Chat · Player) ------------------------------------
+  // A glass pill at the start of the strip, the same in the popout and on channel
+  // pages. Closed it shows the current view's icon; tapped it opens to all three.
+  // Stream and Chat are kick.com pages (same tab), Player is the Kickoff app. It
+  // folds back after a few seconds, on a tap elsewhere, or when the chat is scrolled.
+  const VIEWS = ['stream', 'chat', 'player'];
+  const VIEW_ICONS = {
+    stream: ['M4.5 4h15A2.5 2.5 0 0 1 22 6.5v10a2.5 2.5 0 0 1-2.5 2.5h-15A2.5 2.5 0 0 1 2 16.5v-10A2.5 2.5 0 0 1 4.5 4z', 'M15 4v15', 'M6.5 9.5l4 2-4 2z'],
+    chat: ['M5 4h14a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-8l-5 4v-4H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z', 'M8 9h8M8 12.5h5'],
+    player: ['M5 4h14a2.5 2.5 0 0 1 2.5 2.5v8A2.5 2.5 0 0 1 19 17H5a2.5 2.5 0 0 1-2.5-2.5v-8A2.5 2.5 0 0 1 5 4z', 'M10 8l5 2.5-5 2.5z', 'M8 21h8']
+  };
+  const VIEWS_CLOSE_DELAY = 2500;
+  let viewsTimer = null;
+
+  function currentView() {
+    return popoutSlug ? 'chat' : 'stream';
+  }
+
+  function viewIcon(name) {
+    const ns = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(ns, 'svg');
+    svg.setAttribute('viewBox', '0 0 24 24');
+    svg.setAttribute('aria-hidden', 'true');
+    svg.classList.add('ka-view-icon');
+    VIEW_ICONS[name].forEach((d, index) => {
+      const path = document.createElementNS(ns, 'path');
+      path.setAttribute('d', d);
+      // The play triangles are filled; everything else is a line.
+      path.setAttribute('fill', /z$/.test(d) && index > 0 ? 'currentColor' : 'none');
+      path.setAttribute('stroke', 'currentColor');
+      path.setAttribute('stroke-width', '1.9');
+      path.setAttribute('stroke-linecap', 'round');
+      path.setAttribute('stroke-linejoin', 'round');
+      svg.append(path);
+    });
+    return svg;
+  }
+
+  function buildViews() {
+    const views = el('div', 'ka-views');
+    views.setAttribute('role', 'group');
+    views.setAttribute('aria-label', t('views.label'));
+    for (const view of VIEWS) {
+      const button = el('button', 'ka-view');
+      button.type = 'button';
+      button.dataset.view = view;
+      button.title = t(`views.${view}`);
+      button.setAttribute('aria-label', t(`views.${view}`));
+      button.append(viewIcon(view));
+      button.addEventListener('click', event => {
+        event.stopPropagation();
+        if (!views.hasAttribute('data-open')) setViewsOpen(true);
+        else if (view === currentView()) setViewsOpen(false);
+        else openView(view);
+      });
+      views.append(button);
+    }
+    views.addEventListener('pointermove', () => {
+      if (views.hasAttribute('data-open')) armViewsClose();
+    });
+    views.addEventListener('keydown', event => {
+      if (event.key === 'Escape') setViewsOpen(false);
+    });
+    views.addEventListener('focusout', event => {
+      if (!views.contains(event.relatedTarget)) setViewsOpen(false);
+    });
+    return views;
+  }
+
+  function armViewsClose() {
+    clearTimeout(viewsTimer);
+    viewsTimer = setTimeout(() => setViewsOpen(false), VIEWS_CLOSE_DELAY);
+  }
+
+  function setViewsOpen(open) {
+    const views = state.bar?.querySelector('.ka-views');
+    if (!views || views.hasAttribute('data-open') === open) return;
+    views.toggleAttribute('data-open', open);
+    state.bar.toggleAttribute('data-views-open', open);
+    renderViews();
+    if (open) armViewsClose();
+    else clearTimeout(viewsTimer);
+  }
+
+  // Hidden where there's no channel to switch between (e.g. a chat-less page).
+  function renderViews(stream = showsStream() ? state.stream : null) {
+    const views = state.bar?.querySelector('.ka-views');
+    if (!views) return;
+    views.hidden = !appPlayerSlug();
+    const open = views.hasAttribute('data-open');
+    for (const button of views.querySelectorAll('.ka-view')) {
+      const current = button.dataset.view === currentView();
+      if (current) button.setAttribute('aria-current', 'page');
+      else button.removeAttribute('aria-current');
+      // Closed, only the current view's icon is reachable (by tap or Tab).
+      button.tabIndex = open || current ? 0 : -1;
+      if (button.dataset.view === 'player') button.disabled = stream?.live === false;
+    }
+  }
+
+  function openView(view) {
+    const slug = appPlayerSlug();
+    setViewsOpen(false);
+    if (!slug) return;
+    if (view === 'player') return watchInApp();
+    location.href = view === 'chat' ? `/popout/${encodeURIComponent(slug)}/chat` : `/${encodeURIComponent(slug)}`;
+  }
+
+  // A tap elsewhere or scrolling the chat (by hand: new messages scroll it too) folds it.
+  document.addEventListener('click', event => {
+    if (!event.target.closest?.('.ka-views')) setViewsOpen(false);
+  }, true);
+  for (const type of ['wheel', 'touchmove']) {
+    document.addEventListener(type, event => {
+      if (event.target.closest?.('#chatroom-messages')) setViewsOpen(false);
+    }, { capture: true, passive: true });
   }
 
   // Kick's channel buttons, wherever they are (its info block stays mounted, hidden).

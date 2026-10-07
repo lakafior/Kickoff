@@ -34,7 +34,7 @@ final class LivePlayback {
     private static let catchUpInterval: TimeInterval = 120
     private static let infoInterval: TimeInterval = 60 // viewers, title, category
 
-    /// The quality the app plays (the extension's Watch link sets it too).
+    /// The quality the app plays (the extension's Player link sets it too).
     static var savedRendition: Rendition {
         get { Rendition(stored: UserDefaults.standard.string(forKey: renditionKey)) ?? .best }
         set { UserDefaults.standard.set(newValue.stored, forKey: renditionKey) }
@@ -126,7 +126,7 @@ final class LivePlayback {
         player.replaceCurrentItem(with: nil)
     }
 
-    /// Asked for (Watch, Quality, Reload): a late start may be retried again.
+    /// Asked for (Player link, Quality, Reload): a late start may be retried again.
     func restart(message: String = String(localized: "Loading…")) {
         onMessage?(message)
         lateStartRetried = false
@@ -139,6 +139,7 @@ final class LivePlayback {
     }
 
     var chatURL: URL? { URL(string: "https://kick.com/popout/\(slug)/chat") }
+    var streamURL: URL? { URL(string: "https://kick.com/\(slug)") }
 
     // MARK: Loading
 
@@ -300,5 +301,30 @@ final class LivePlayback {
         catchUpIfBehind(delay: delay)
         parts.append(player.isExternalPlaybackActive ? "AirPlay" : rendition.title)
         onStatus?(parts.joined(separator: " · "))
+    }
+}
+
+/// The three ways to watch a channel, in the order of the extension's view switcher
+/// (content.js): Kick's channel page with our chat, the chat popout, and this app's
+/// player. The players show the same three, with Player as the current one.
+enum WatchView: CaseIterable {
+    case stream, chat, player
+
+    var title: String {
+        switch self {
+        case .stream: return String(localized: "Stream", comment: "View switcher: Kick's channel page")
+        case .chat: return String(localized: "Chat")
+        case .player: return String(localized: "Player", comment: "View switcher: this app's player")
+        }
+    }
+
+    /// SF Symbols close to the extension's icons: video with chat beside it, a
+    /// speech bubble, a screen with a play button.
+    var symbol: String {
+        switch self {
+        case .stream: return "sidebar.right"
+        case .chat: return "text.bubble"
+        case .player: return "play.tv"
+        }
     }
 }

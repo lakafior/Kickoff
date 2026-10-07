@@ -44,9 +44,8 @@
       'tab.filters': 'Filters',
       'tab.player': 'Player',
       'app.label': 'Kickoff app player',
-      'app.hint': 'About as close to live as Kick\'s player, with picture in picture. Chat stays here.',
+      'app.hint': 'About as close to live as Kick\'s player, with picture in picture. Open it with Player in the switcher at the start of the strip; chat stays here.',
       'app.quality': 'Quality in the Kickoff app',
-      'app.watch': 'Watch',
       'app.best': 'Best',
       'app.auto': 'Auto (more delay)',
       'words.highlight': 'Words to highlight',
@@ -83,6 +82,11 @@
       'strip.search': 'Search chat',
       'strip.listen': 'Listen',
       'strip.settings': 'Kickoff settings',
+      // View switcher at the start of the strip
+      'views.label': 'View',
+      'views.stream': 'Stream',
+      'views.chat': 'Chat',
+      'views.player': 'Player (Kickoff app)',
       'strip.channelButton': 'Channel button',
 
       // Search ("from:" is what people type; "od:" works too)
@@ -288,9 +292,8 @@
       'tab.filters': 'Filtry',
       'tab.player': 'Odtwarzacz',
       'app.label': 'Odtwarzacz w aplikacji Kickoff',
-      'app.hint': 'Opóźnienie jak w odtwarzaczu Kicka, z obrazem w obrazie. Czat zostaje tutaj.',
+      'app.hint': 'Opóźnienie jak w odtwarzaczu Kicka, z obrazem w obrazie. Otwierasz go przyciskiem Odtwarzacz w przełączniku na początku paska; czat zostaje tutaj.',
       'app.quality': 'Jakość w aplikacji Kickoff',
-      'app.watch': 'Oglądaj',
       'app.best': 'Najlepsza',
       'app.auto': 'Auto (większe opóźnienie)',
       'words.highlight': 'Słowa do wyróżnienia',
@@ -325,6 +328,11 @@
       'strip.search': 'Szukaj w czacie',
       'strip.listen': 'Słuchaj',
       'strip.settings': 'Ustawienia Kickoff',
+      // View switcher at the start of the strip
+      'views.label': 'Widok',
+      'views.stream': 'Stream',
+      'views.chat': 'Czat',
+      'views.player': 'Odtwarzacz (aplikacja Kickoff)',
       'strip.channelButton': 'Przycisk kanału',
 
       'search.placeholder': 'Szukaj w czacie · od:nick',

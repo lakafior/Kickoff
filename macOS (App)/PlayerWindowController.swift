@@ -2,15 +2,16 @@
 //  PlayerWindowController.swift
 //  macOS (App)
 //
-//  The app's own player for a Kick channel, opened by kickoff://watch/{slug} (the
-//  extension's Watch button in the Player tab, with ?quality=): a window around
-//  LivePlayback, about as close to live as Kick's player. Chat stays in Safari.
+//  The app's own player for a Kick channel, opened by kickoff://watch/{slug} (Player
+//  in the extension's view switcher, with ?quality=): a window around LivePlayback,
+//  about as close to live as Kick's player. Chat stays in Safari. The toolbar has the
+//  same Stream | Chat | Player switcher as the extension, with Player current.
 //
 
 import AVKit
 import Cocoa
 
-final class PlayerWindowController: NSWindowController, NSWindowDelegate, NSMenuItemValidation {
+final class PlayerWindowController: NSWindowController, NSWindowDelegate, NSMenuItemValidation, NSToolbarDelegate {
 
     private static var open: [String: PlayerWindowController] = [:]
     private static weak var lastActive: PlayerWindowController?
@@ -43,6 +44,9 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate, NSMenu
         static let volume = "playerVolume"
     }
 
+    private static let viewsItem = NSToolbarItem.Identifier("views")
+    private static let kickGreen = NSColor(srgbRed: 0x53 / 255.0, green: 0xfc / 255.0, blue: 0x18 / 255.0, alpha: 1)
+
     private let playback: LivePlayback
     private let playerView = AVPlayerView()
     private let message = NSTextField(labelWithString: "")
@@ -63,6 +67,14 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate, NSMenu
         window.level = UserDefaults.standard.bool(forKey: Key.floats) ? .floating : .normal
         super.init(window: window)
         window.delegate = self
+
+        let toolbar = NSToolbar(identifier: "KickoffPlayer")
+        toolbar.delegate = self
+        toolbar.displayMode = .iconOnly
+        toolbar.allowsUserCustomization = false
+        if #available(macOS 13.0, *) { toolbar.centeredItemIdentifiers = [Self.viewsItem] }
+        window.toolbar = toolbar
+        window.toolbarStyle = .unified
 
         playerView.player = playback.player
         playerView.controlsStyle = .floating
@@ -137,6 +149,56 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate, NSMenu
     @objc func openChat(_ sender: Any?) {
         guard let url = playback.chatURL else { return }
         NSWorkspace.shared.open(url)
+    }
+
+    // Kick's own page has its own player: this window closes so it isn't heard twice.
+    @objc func openStream(_ sender: Any?) {
+        guard let url = playback.streamURL else { return }
+        window?.close()
+        NSWorkspace.shared.open(url)
+    }
+
+    // MARK: View switcher (toolbar)
+
+    // Stream | Chat | Player, like the extension's switcher when open; Player stays
+    // selected, the other two act and leave it so.
+    @objc private func switchView(_ sender: NSSegmentedControl) {
+        let view = WatchView.allCases[sender.selectedSegment]
+        sender.selectedSegment = WatchView.allCases.firstIndex(of: .player)!
+        switch view {
+        case .stream: openStream(sender)
+        case .chat: openChat(sender)
+        case .player: break
+        }
+    }
+
+    func toolbarAllowedItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
+        [.flexibleSpace, Self.viewsItem]
+    }
+
+    func toolbarDefaultItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
+        if #available(macOS 13.0, *) { return [Self.viewsItem] }
+        return [.flexibleSpace, Self.viewsItem, .flexibleSpace]
+    }
+
+    func toolbar(_ toolbar: NSToolbar, itemForItemIdentifier itemIdentifier: NSToolbarItem.Identifier,
+                 willBeInsertedIntoToolbar flag: Bool) -> NSToolbarItem? {
+        guard itemIdentifier == Self.viewsItem else { return nil }
+        let views = WatchView.allCases
+        let control = NSSegmentedControl(labels: views.map(\.title), trackingMode: .selectOne,
+                                         target: self, action: #selector(switchView(_:)))
+        for (index, view) in views.enumerated() {
+            control.setImage(NSImage(systemSymbolName: view.symbol, accessibilityDescription: nil), forSegment: index)
+            control.setImageScaling(.scaleProportionallyDown, forSegment: index)
+            control.setToolTip(view.title, forSegment: index)
+        }
+        control.selectedSegment = views.firstIndex(of: .player)!
+        control.selectedSegmentBezelColor = Self.kickGreen.withAlphaComponent(0.35)
+        control.setAccessibilityLabel(String(localized: "View", comment: "View switcher: accessibility name of the group"))
+        let item = NSToolbarItem(itemIdentifier: itemIdentifier)
+        item.view = control
+        item.label = String(localized: "View", comment: "View switcher: accessibility name of the group")
+        return item
     }
 
     @objc func jumpToLive(_ sender: Any?) {

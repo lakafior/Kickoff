@@ -2,11 +2,12 @@
 //  PlayerViewController.swift
 //  iOS (App)
 //
-//  The app's own player on iPhone and iPad, opened by kickoff://watch/{slug} (the
-//  extension's Watch button in the Player tab): LivePlayback in an
-//  AVPlayerViewController (picture in picture, also on leaving the app; AirPlay).
-//  Portrait: the video, a glass card with the channel, the live line and the stream
-//  info, and glass Chat / Quality / Live buttons, over the streamer's picture blurred.
+//  The app's own player on iPhone and iPad, opened by kickoff://watch/{slug} (Player
+//  in the extension's view switcher): LivePlayback in an AVPlayerViewController
+//  (picture in picture, also on leaving the app; AirPlay).
+//  Portrait: the video, the same Stream | Chat | Player switcher as the extension's
+//  (Player current), a glass card with the channel, the live line and the stream
+//  info, and glass Quality / Live buttons, over the streamer's picture blurred.
 //  Landscape: the video only. In the background without picture in picture, and
 //  when locked, the sound keeps playing (iOS pauses a video that's on screen, so
 //  the picture is let go of until the app is back) with the stream on the lock screen.
@@ -192,20 +193,17 @@ final class PlayerViewController: UIViewController, AVPlayerViewControllerDelega
         ])
 
         // Buttons.
-        let chat = Self.glassButton(String(localized: "Chat"), symbol: "bubble.left.and.bubble.right") { [weak self] in
-            guard let url = self?.playback.chatURL else { return }
-            UIApplication.shared.open(url)
-        }
         let live = Self.glassButton(String(localized: "Live", comment: "Button: jump to live"), symbol: "dot.radiowaves.left.and.right") { [weak self] in
             self?.playback.jumpToLive()
         }
         qualityButton.configuration?.image = UIImage(systemName: "slider.horizontal.3")
         qualityButton.showsMenuAsPrimaryAction = true
         updateQualityMenu()
-        let buttons = UIStackView(arrangedSubviews: [chat, qualityButton, live])
+        let buttons = UIStackView(arrangedSubviews: [qualityButton, live])
         buttons.spacing = 10
         buttons.distribution = .fillEqually
 
+        content.addArrangedSubview(viewSwitcher())
         content.addArrangedSubview(card)
         content.addArrangedSubview(buttons)
         content.axis = .vertical
@@ -213,6 +211,83 @@ final class PlayerViewController: UIViewController, AVPlayerViewControllerDelega
         content.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(content)
         updateLiveLine()
+    }
+
+    // MARK: View switcher
+
+    private static let kickGreen = UIColor(red: 0x53 / 255.0, green: 0xfc / 255.0, blue: 0x18 / 255.0, alpha: 1)
+
+    // Stream | Chat | Player in a glass capsule, centred, like the extension's switcher
+    // when open (here there's room to keep it open, with names). The current view,
+    // Player, has Kick's green; the other two go to Safari.
+    private func viewSwitcher() -> UIView {
+        let segments = UIStackView(arrangedSubviews: WatchView.allCases.map { view in
+            var configuration = UIButton.Configuration.plain()
+            configuration.title = view.title
+            configuration.image = UIImage(systemName: view.symbol)
+            configuration.preferredSymbolConfigurationForImage = UIImage.SymbolConfiguration(textStyle: .subheadline, scale: .medium)
+            configuration.imagePadding = 6
+            configuration.cornerStyle = .capsule
+            configuration.contentInsets = NSDirectionalEdgeInsets(top: 8, leading: 14, bottom: 8, trailing: 14)
+            configuration.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { attributes in
+                var attributes = attributes
+                attributes.font = Self.font(.subheadline, weight: .semibold)
+                return attributes
+            }
+            let current = view == .player
+            configuration.baseForegroundColor = current ? Self.kickGreen : .label
+            if current {
+                configuration.background.backgroundColor = Self.kickGreen.withAlphaComponent(0.18)
+                configuration.background.strokeColor = Self.kickGreen.withAlphaComponent(0.4)
+                configuration.background.strokeWidth = 1
+            }
+            let button = UIButton(configuration: configuration)
+            button.titleLabel?.adjustsFontForContentSizeCategory = true
+            if current {
+                button.accessibilityTraits.insert(.selected)
+            } else {
+                button.addAction(UIAction { [weak self] _ in self?.open(view) }, for: .touchUpInside)
+            }
+            return button
+        })
+        segments.spacing = 4
+        segments.translatesAutoresizingMaskIntoConstraints = false
+        segments.accessibilityLabel = String(localized: "View", comment: "View switcher: accessibility name of the group")
+
+        let capsule = Self.glassView(cornerRadius: 24)
+        if #available(iOS 26.0, *) { capsule.cornerConfiguration = .capsule() } // also with larger text
+        capsule.contentView.addSubview(segments)
+        let row = UIView()
+        capsule.translatesAutoresizingMaskIntoConstraints = false
+        row.addSubview(capsule)
+        NSLayoutConstraint.activate([
+            segments.topAnchor.constraint(equalTo: capsule.contentView.topAnchor, constant: 4),
+            segments.bottomAnchor.constraint(equalTo: capsule.contentView.bottomAnchor, constant: -4),
+            segments.leadingAnchor.constraint(equalTo: capsule.contentView.leadingAnchor, constant: 4),
+            segments.trailingAnchor.constraint(equalTo: capsule.contentView.trailingAnchor, constant: -4),
+            capsule.topAnchor.constraint(equalTo: row.topAnchor),
+            capsule.bottomAnchor.constraint(equalTo: row.bottomAnchor),
+            capsule.centerXAnchor.constraint(equalTo: row.centerXAnchor),
+            capsule.leadingAnchor.constraint(greaterThanOrEqualTo: row.leadingAnchor),
+            capsule.heightAnchor.constraint(greaterThanOrEqualToConstant: 48)
+        ])
+        return row
+    }
+
+    // Chat: the popout in Safari, the stream carries on (picture in picture on leaving
+    // the app). Stream: Kick's own page, so this player closes first and isn't heard twice.
+    private func open(_ view: WatchView) {
+        switch view {
+        case .chat:
+            guard let url = playback.chatURL else { return }
+            UIApplication.shared.open(url)
+        case .stream:
+            guard let url = playback.streamURL else { return }
+            playback.stop()
+            dismiss(animated: false) { UIApplication.shared.open(url) }
+        case .player:
+            break
+        }
     }
 
     // Liquid Glass on iOS 26, the closest material before.

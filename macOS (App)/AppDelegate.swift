@@ -18,7 +18,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         return true
     }
 
-    // kickoff://watch/… (WatchLink), from the extension's Watch button.
+    // kickoff://watch/… (WatchLink), from Player in the extension's view switcher.
     func application(_ application: NSApplication, open urls: [URL]) {
         for case let (slug, rendition)? in urls.map(WatchLink.parse) {
             PlayerWindowController.show(slug: slug, rendition: rendition)
@@ -37,6 +37,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     @objc func setQuality(_ sender: NSMenuItem) { PlayerWindowController.current?.setQuality(sender) }
     @objc func toggleFloatOnTop(_ sender: Any?) { PlayerWindowController.current?.toggleFloatOnTop(sender) }
     @objc func openChat(_ sender: Any?) { PlayerWindowController.current?.openChat(sender) }
+    @objc func openStream(_ sender: Any?) { PlayerWindowController.current?.openStream(sender) }
     @objc func jumpToLive(_ sender: Any?) { PlayerWindowController.current?.jumpToLive(sender) }
     @objc func reloadStream(_ sender: Any?) { PlayerWindowController.current?.reloadStream(sender) }
 
@@ -64,6 +65,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         let chat = NSMenuItem(title: String(localized: "Open Chat in Browser"), action: #selector(AppDelegate.openChat(_:)), keyEquivalent: "c")
         chat.keyEquivalentModifierMask = [.command, .option]
         menu.addItem(chat)
+        let stream = NSMenuItem(title: String(localized: "Open Stream on Kick"), action: #selector(AppDelegate.openStream(_:)), keyEquivalent: "k")
+        stream.keyEquivalentModifierMask = [.command, .option]
+        menu.addItem(stream)
         menu.addItem(NSMenuItem(title: String(localized: "Jump to Live"), action: #selector(AppDelegate.jumpToLive(_:)), keyEquivalent: "l"))
         menu.addItem(NSMenuItem(title: String(localized: "Reload Stream"), action: #selector(AppDelegate.reloadStream(_:)), keyEquivalent: "r"))
 

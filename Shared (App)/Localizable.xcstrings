@@ -222,6 +222,49 @@
           }
         }
       }
+    },
+    "Stream": {
+      "comment": "View switcher: Kick's channel page",
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stream"
+          }
+        }
+      }
+    },
+    "Player": {
+      "comment": "View switcher: this app's player",
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Odtwarzacz"
+          }
+        }
+      }
+    },
+    "View": {
+      "comment": "View switcher: accessibility name of the group",
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Widok"
+          }
+        }
+      }
+    },
+    "Open Stream on Kick": {
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Otwórz stream na Kicku"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

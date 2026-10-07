@@ -23,7 +23,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         open(url)
     }
 
-    // kickoff://watch/… (WatchLink), from the extension's Watch button.
+    // kickoff://watch/… (WatchLink), from Player in the extension's view switcher.
     func scene(_ scene: UIScene, openURLContexts URLContexts: Set<UIOpenURLContext>) {
         URLContexts.forEach { open($0.url) }
     }

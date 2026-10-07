@@ -90,8 +90,8 @@ enum KickAPI {
     }
 }
 
-/// kickoff://watch/{slug}?quality=best|1080…|auto|audio, from the extension's Watch
-/// button (Player tab).
+/// kickoff://watch/{slug}?quality=best|1080…|auto|audio, from Player in the
+/// extension's view switcher (quality from the Player tab).
 enum WatchLink {
     static func parse(_ url: URL) -> (slug: String, rendition: Rendition?)? {
         guard url.scheme == "kickoff", url.host == "watch" else { return nil }

@@ -1,3 +1,82 @@
+/* ---- Look and feel ----
+   One set of tokens for everything Kickoff draws: glass surfaces (translucent,
+   blurred, a light top edge), pill-shaped controls, Kick green for what's on or
+   current (a green tint with a green ring), and springy motion. On <html> so our
+   elements anywhere in Kick's page can use them; all names start with --ka-. */
+html {
+    --ka-font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+    --ka-accent: #53fc18;
+    --ka-accent-soft: rgba(83, 252, 24, 0.18);
+    --ka-accent-ring: inset 0 0 0 1px rgba(83, 252, 24, 0.4);
+    --ka-fill: rgba(255, 255, 255, 0.07);
+    --ka-fill-hover: rgba(255, 255, 255, 0.13);
+    --ka-separator: rgba(255, 255, 255, 0.08);
+    --ka-glass: rgba(255, 255, 255, 0.09);
+    --ka-glass-edge: rgba(255, 255, 255, 0.15);
+    --ka-glass-blur: blur(14px) saturate(180%);
+    --ka-glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.22);
+    --ka-glass-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28), inset 0 -1px 0 rgba(0, 0, 0, 0.25), 0 6px 18px rgba(0, 0, 0, 0.35);
+    --ka-sheet: rgba(30, 32, 36, 0.8);
+    --ka-sheet-blur: blur(24px) saturate(180%);
+    --ka-sheet-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 12px 32px rgba(0, 0, 0, 0.45);
+    --ka-focus: 0 0 0 3px rgba(83, 252, 24, 0.18);
+    --ka-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Small glass: the strip's buttons, chips and pills. */
+.ka-strip-button,
+.ka-listen-sleep,
+.ka-views,
+.ka-mute-chip,
+.ka-settings-tabs {
+    background: var(--ka-glass);
+    -webkit-backdrop-filter: var(--ka-glass-blur);
+    backdrop-filter: var(--ka-glass-blur);
+    border: 1px solid var(--ka-glass-edge);
+    box-shadow: var(--ka-glass-highlight);
+}
+
+/* Sheets: cards, pickers, autocomplete, the "missed messages" pill. */
+.ka-card,
+.ka-ac,
+.ka-picker {
+    background: var(--ka-sheet);
+    -webkit-backdrop-filter: var(--ka-sheet-blur);
+    backdrop-filter: var(--ka-sheet-blur);
+    border: 1px solid var(--ka-glass-edge);
+    box-shadow: var(--ka-sheet-shadow);
+}
+
+/* Pressing any of our buttons gives a little, then springs back. */
+:is(.ka-strip-button, .ka-view, .ka-size-button, .ka-size-reset, .ka-card-button, .ka-toolbar-button,
+    .ka-picker-close, .ka-msg-edit-toggle, .ka-msg-scope-option, .ka-ac-chip, .ka-mute-chip,
+    .ka-settings-tab, .ka-player-button, .ka-player-live, .ka-catchup-main, .ka-catchup-close) {
+    transition: background-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease, transform 0.35s var(--ka-spring);
+}
+
+:is(.ka-strip-button, .ka-view, .ka-size-button, .ka-size-reset, .ka-card-button, .ka-toolbar-button,
+    .ka-picker-close, .ka-msg-edit-toggle, .ka-msg-scope-option, .ka-ac-chip, .ka-mute-chip,
+    .ka-settings-tab, .ka-player-button, .ka-player-live):active:not(:disabled) {
+    transform: scale(0.94);
+}
+
+:is(.ka-strip-button, .ka-view, .ka-size-button, .ka-size-reset, .ka-card-button, .ka-toolbar-button,
+    .ka-picker-close, .ka-msg-edit-toggle, .ka-msg-scope-option, .ka-ac-chip, .ka-mute-chip,
+    .ka-settings-tab, .ka-player-button, .ka-player-live, .ka-player-quality):focus-visible {
+    outline: 2px solid var(--ka-accent);
+    outline-offset: 1px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .ka-views,
+    .ka-view,
+    .ka-switch,
+    .ka-switch::after,
+    .ka-settings-head > * {
+        transition: none !important;
+    }
+}
+
 /* Restored moderator-deleted messages and link previews (see page-hook.js). These
    elements only exist while their feature is on, so the rules need no switch. */
 [data-ka-hidden] {
@@ -40,7 +119,7 @@
     height: 120px;
     max-width: 100%;
     object-fit: contain;
-    border-radius: 6px;
+    border-radius: 10px;
 }
 
 /* Compact horizontal card: small thumbnail left, text right. */
@@ -49,9 +128,9 @@
     align-items: stretch;
     width: 300px;
     overflow: hidden;
-    border-radius: 8px;
-    background: rgba(255, 255, 255, 0.06);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    background: var(--ka-fill);
+    border: 1px solid var(--ka-separator);
 }
 
 .ka-preview-thumb {
@@ -115,8 +194,8 @@ html[data-ka-chatonly] #chatroom-footer div:has(> #quick-emotes-holder) {
    of the layout (not an overlay), so it never covers polls or pinned messages. */
 .ka-settings {
     flex: 0 0 auto;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+    border-bottom: 1px solid var(--ka-separator);
+    font-family: var(--ka-font);
     font-size: 12px;
     line-height: 1.3;
     color: rgba(255, 255, 255, 0.85);
@@ -143,7 +222,7 @@ html[data-ka-chatonly] #chatroom-footer div:has(> #quick-emotes-holder) {
 
 .ka-settings-status {
     flex: 1;
-    color: #53fc18;
+    color: var(--ka-accent);
     opacity: 0.8;
 }
 
@@ -201,7 +280,7 @@ html[data-ka-chatonly] #chatroom-footer div:has(> #quick-emotes-holder) {
 .ka-stream-details {
     padding: 6px 0 8px;
     margin-bottom: 2px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    border-bottom: 1px solid var(--ka-separator);
 }
 
 .ka-stream-details[hidden] {
@@ -236,7 +315,7 @@ html[data-ka-chatonly] #chatroom-footer div:has(> #quick-emotes-holder) {
 
 .ka-settings-chevron {
     opacity: 0.6;
-    transition: transform 0.15s ease;
+    transition: transform 0.35s var(--ka-spring);
 }
 
 .ka-settings[data-open] .ka-settings-chevron {
@@ -266,7 +345,7 @@ html[data-ka-chatonly] #chatroom-footer div:has(> #quick-emotes-holder) {
     align-items: center;
     justify-content: space-between;
     gap: 12px;
-    min-height: 32px;
+    min-height: 34px;
     font-size: 13px;
     cursor: pointer;
 }
@@ -285,7 +364,7 @@ html[data-ka-chatonly] #chatroom-footer div:has(> #quick-emotes-holder) {
 .ka-health {
     margin-top: 6px;
     padding-top: 6px;
-    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    border-top: 1px solid var(--ka-separator);
     font-size: 11px;
     line-height: 1.4;
     white-space: pre-line;
@@ -303,13 +382,14 @@ html[data-ka-chatonly] #chatroom-footer div:has(> #quick-emotes-holder) {
     -webkit-appearance: none;
     position: relative;
     flex: 0 0 auto;
-    width: 36px;
+    width: 38px;
     height: 22px;
     margin: 0;
     border-radius: 11px;
-    background: rgba(255, 255, 255, 0.2);
+    background: rgba(120, 120, 128, 0.36);
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.25);
     cursor: pointer;
-    transition: background 0.15s ease;
+    transition: background 0.2s ease;
 }
 
 .ka-switch::after {
@@ -321,15 +401,21 @@ html[data-ka-chatonly] #chatroom-footer div:has(> #quick-emotes-holder) {
     height: 18px;
     border-radius: 50%;
     background: #fff;
-    transition: transform 0.15s ease;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35), 0 0 0 0.5px rgba(0, 0, 0, 0.08);
+    transition: transform 0.4s var(--ka-spring);
 }
 
 .ka-switch:checked {
-    background: #53fc18;
+    background: var(--ka-accent);
 }
 
 .ka-switch:checked::after {
-    transform: translateX(14px);
+    transform: translateX(16px);
+}
+
+.ka-switch:focus-visible {
+    outline: 2px solid var(--ka-accent);
+    outline-offset: 2px;
 }
 
 .ka-size-controls {
@@ -340,16 +426,22 @@ html[data-ka-chatonly] #chatroom-footer div:has(> #quick-emotes-holder) {
 
 .ka-size-button,
 .ka-size-reset {
-    min-width: 28px;
+    min-width: 30px;
     height: 26px;
-    padding: 0 8px;
+    padding: 0 10px;
     border: 0;
-    border-radius: 6px;
-    background: rgba(255, 255, 255, 0.12);
+    border-radius: 13px;
+    background: var(--ka-fill);
+    box-shadow: var(--ka-glass-highlight);
     color: inherit;
     font: inherit;
     font-size: 14px;
     cursor: pointer;
+}
+
+.ka-size-button:hover,
+.ka-size-reset:hover {
+    background: var(--ka-fill-hover);
 }
 
 .ka-size-reset {
@@ -403,11 +495,8 @@ html[data-ka-chatonly] #chatroom-footer div:has(> #quick-emotes-holder) {
 .ka-card,
 .ka-ac {
     z-index: 2147483000;
-    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+    font-family: var(--ka-font);
     color: #fff;
-    background: #1f2227;
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
 }
 
 .ka-card {
@@ -416,8 +505,8 @@ html[data-ka-chatonly] #chatroom-footer div:has(> #quick-emotes-holder) {
     flex-direction: column;
     gap: 10px;
     max-width: min(320px, calc(100vw - 16px));
-    padding: 10px 12px;
-    border-radius: 10px;
+    padding: 12px 14px;
+    border-radius: 16px;
 }
 
 .ka-card-row {
@@ -460,10 +549,11 @@ html[data-ka-chatonly] #chatroom-footer div:has(> #quick-emotes-holder) {
 
 .ka-card-button {
     min-height: 30px;
-    padding: 0 12px;
+    padding: 0 14px;
     border: 0;
-    border-radius: 6px;
-    background: rgba(255, 255, 255, 0.12);
+    border-radius: 15px;
+    background: var(--ka-fill-hover);
+    box-shadow: var(--ka-glass-highlight);
     color: inherit;
     font: inherit;
     font-size: 13px;
@@ -472,6 +562,10 @@ html[data-ka-chatonly] #chatroom-footer div:has(> #quick-emotes-holder) {
 
 .ka-card-button:hover {
     background: rgba(255, 255, 255, 0.2);
+}
+
+.ka-card-button:disabled {
+    cursor: default;
 }
 
 /* Autocomplete: one horizontally scrolling row of chips, placed in the chat
@@ -483,7 +577,7 @@ html[data-ka-chatonly] #chatroom-footer div:has(> #quick-emotes-holder) {
     display: flex;
     gap: 6px;
     padding: 6px;
-    border-radius: 10px;
+    border-radius: 14px;
     overflow-x: auto;
     overscroll-behavior: contain;
     scrollbar-width: none;
@@ -499,10 +593,10 @@ html[data-ka-chatonly] #chatroom-footer div:has(> #quick-emotes-holder) {
     align-items: center;
     gap: 6px;
     height: 40px;
-    padding: 0 10px 0 6px;
+    padding: 0 12px 0 6px;
     border: 0;
-    border-radius: 8px;
-    background: rgba(255, 255, 255, 0.08);
+    border-radius: 10px;
+    background: var(--ka-fill);
     color: inherit;
     font: inherit;
     font-size: 13px;
@@ -510,8 +604,8 @@ html[data-ka-chatonly] #chatroom-footer div:has(> #quick-emotes-holder) {
 }
 
 .ka-ac-chip[aria-selected="true"] {
-    background: rgba(83, 252, 24, 0.25);
-    outline: 1px solid #53fc18;
+    background: var(--ka-accent-soft);
+    box-shadow: var(--ka-accent-ring);
 }
 
 .ka-ac-image {
@@ -539,10 +633,10 @@ html[data-ka-chatonly] #chatroom-footer div:has(> #quick-emotes-holder) {
     height: 36px;
     padding: 0 8px;
     border: 0;
-    border-radius: 6px;
+    border-radius: 10px;
     background: none;
     color: inherit;
-    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+    font-family: var(--ka-font);
     font-size: 12px;
     font-weight: 700;
     letter-spacing: 0.02em;
@@ -606,10 +700,10 @@ html[data-ka-input-hidden] #channel-chatroom :has(> #chatroom-messages) ~ :has([
     height: 30px;
     margin: 0;
     border: 0;
-    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    border-top: 1px solid var(--ka-separator);
     background: none;
     color: rgba(255, 255, 255, 0.7);
-    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+    font-family: var(--ka-font);
     font-size: 12px;
     cursor: pointer;
 }
@@ -628,10 +722,16 @@ html[data-ka-input-hidden] #channel-chatroom :has(> #chatroom-messages) ~ :has([
     font-size: 17px;
 }
 
-.ka-toolbar-button:hover,
+.ka-toolbar-button:hover {
+    opacity: 1;
+    background: var(--ka-fill-hover);
+}
+
 .ka-toolbar-button[aria-pressed="true"] {
     opacity: 1;
-    background: rgba(255, 255, 255, 0.1);
+    background: var(--ka-accent-soft);
+    box-shadow: var(--ka-accent-ring);
+    color: var(--ka-accent);
 }
 
 .ka-picker {
@@ -640,10 +740,8 @@ html[data-ka-input-hidden] #channel-chatroom :has(> #chatroom-messages) ~ :has([
     display: flex;
     flex-direction: column;
     margin: 0 8px 4px;
-    border-radius: 10px;
-    background: #1f2227;
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+    border-radius: 16px;
+    font-family: var(--ka-font);
     color: #fff;
     overflow: hidden;
 }
@@ -651,18 +749,18 @@ html[data-ka-input-hidden] #channel-chatroom :has(> #chatroom-messages) ~ :has([
 .ka-picker-head {
     display: flex;
     gap: 6px;
-    padding: 6px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    padding: 8px;
+    border-bottom: 1px solid var(--ka-separator);
 }
 
 .ka-picker-search {
     flex: 1;
     min-width: 0;
     height: 32px;
-    padding: 0 10px;
-    border: 0;
-    border-radius: 6px;
-    background: rgba(255, 255, 255, 0.08);
+    padding: 0 12px;
+    border: 1px solid transparent;
+    border-radius: 16px;
+    background: var(--ka-fill);
     color: inherit;
     font: inherit;
     font-size: 16px; /* 16px keeps iOS from zooming the page on focus */
@@ -674,8 +772,8 @@ html[data-ka-input-hidden] #channel-chatroom :has(> #chatroom-messages) ~ :has([
     width: 32px;
     height: 32px;
     border: 0;
-    border-radius: 6px;
-    background: rgba(255, 255, 255, 0.08);
+    border-radius: 50%;
+    background: var(--ka-fill);
     color: inherit;
     font-size: 14px;
     cursor: pointer;
@@ -709,7 +807,7 @@ html[data-ka-input-hidden] #channel-chatroom :has(> #chatroom-messages) ~ :has([
     min-width: 44px;
     padding: 4px;
     border: 0;
-    border-radius: 6px;
+    border-radius: 10px;
     background: none;
     cursor: pointer;
 }
@@ -740,10 +838,10 @@ html[data-ka-input-hidden] #channel-chatroom :has(> #chatroom-messages) ~ :has([
 .ka-msg-edit-toggle {
     flex: 0 0 auto;
     height: 32px;
-    padding: 0 10px;
+    padding: 0 12px;
     border: 0;
-    border-radius: 6px;
-    background: rgba(255, 255, 255, 0.08);
+    border-radius: 16px;
+    background: var(--ka-fill);
     color: inherit;
     font: inherit;
     font-size: 13px;
@@ -751,7 +849,9 @@ html[data-ka-input-hidden] #channel-chatroom :has(> #chatroom-messages) ~ :has([
 }
 
 .ka-msg-edit-toggle[aria-pressed="true"] {
-    background: rgba(83, 252, 24, 0.25);
+    background: var(--ka-accent-soft);
+    box-shadow: var(--ka-accent-ring);
+    color: var(--ka-accent);
 }
 
 .ka-msg-body {
@@ -772,10 +872,10 @@ html[data-ka-input-hidden] #channel-chatroom :has(> #chatroom-messages) ~ :has([
 .ka-msg-insert {
     flex: 1;
     min-width: 0;
-    padding: 8px 10px;
+    padding: 8px 12px;
     border: 0;
-    border-radius: 8px;
-    background: rgba(255, 255, 255, 0.06);
+    border-radius: 12px;
+    background: var(--ka-fill);
     color: inherit;
     font: inherit;
     font-size: 13px;
@@ -807,8 +907,8 @@ html[data-ka-input-hidden] #channel-chatroom :has(> #chatroom-messages) ~ :has([
     flex: 0 0 auto;
     width: 40px;
     border: 0;
-    border-radius: 8px;
-    background: rgba(255, 255, 255, 0.06);
+    border-radius: 12px;
+    background: var(--ka-fill);
     color: inherit;
     font-size: 15px;
     cursor: pointer;
@@ -823,7 +923,7 @@ html[data-ka-input-hidden] #channel-chatroom :has(> #chatroom-messages) ~ :has([
     height: 36px;
     margin: 4px 0 6px;
     border: 1px dashed rgba(255, 255, 255, 0.25);
-    border-radius: 8px;
+    border-radius: 12px;
     background: none;
     color: inherit;
     font: inherit;
@@ -836,16 +936,16 @@ html[data-ka-input-hidden] #channel-chatroom :has(> #chatroom-messages) ~ :has([
     align-items: center;
     justify-content: space-between;
     margin: 4px 0 6px;
-    padding: 6px 10px;
-    border-radius: 8px;
-    background: rgba(255, 255, 255, 0.08);
+    padding: 6px 12px;
+    border-radius: 12px;
+    background: var(--ka-fill);
     font-size: 13px;
 }
 
 .ka-msg-undo-button {
     border: 0;
     background: none;
-    color: #53fc18;
+    color: var(--ka-accent);
     font: inherit;
     font-weight: 600;
     cursor: pointer;
@@ -861,10 +961,10 @@ html[data-ka-input-hidden] #channel-chatroom :has(> #chatroom-messages) ~ :has([
 .ka-msg-input {
     width: 100%;
     box-sizing: border-box;
-    padding: 8px 10px;
-    border: 0;
-    border-radius: 8px;
-    background: rgba(255, 255, 255, 0.08);
+    padding: 8px 12px;
+    border: 1px solid transparent;
+    border-radius: 12px;
+    background: var(--ka-fill);
     color: inherit;
     font: inherit;
     font-size: 16px; /* 16px keeps iOS from zooming the page on focus */
@@ -903,8 +1003,8 @@ html[data-ka-input-hidden] #channel-chatroom :has(> #chatroom-messages) ~ :has([
     min-height: 32px;
     padding: 0 8px;
     border: 0;
-    border-radius: 6px;
-    background: rgba(255, 255, 255, 0.06);
+    border-radius: 16px;
+    background: var(--ka-fill);
     color: inherit;
     font: inherit;
     font-size: 12px;
@@ -912,8 +1012,9 @@ html[data-ka-input-hidden] #channel-chatroom :has(> #chatroom-messages) ~ :has([
 }
 
 .ka-msg-scope-option[aria-pressed="true"] {
-    background: rgba(83, 252, 24, 0.25);
-    outline: 1px solid #53fc18;
+    background: var(--ka-accent-soft);
+    box-shadow: var(--ka-accent-ring);
+    color: var(--ka-accent);
 }
 
 .ka-msg-editor-actions {
@@ -922,8 +1023,9 @@ html[data-ka-input-hidden] #channel-chatroom :has(> #chatroom-messages) ~ :has([
     gap: 6px;
 }
 
-.ka-card-button--primary {
-    background: #53fc18;
+.ka-card-button--primary,
+.ka-card-button--primary:hover {
+    background: var(--ka-accent);
     color: #000;
     font-weight: 600;
 }
@@ -967,7 +1069,7 @@ html[data-ka-stripes] [data-index][data-ka-alt] > div > div:first-child {
    (blue), on the row's
    message box. */
 [data-index][data-ka-highlight] > div > div:first-child {
-    border-radius: 6px;
+    border-radius: 8px;
 }
 
 [data-index][data-ka-highlight="mention"] > div > div:first-child {
@@ -998,15 +1100,22 @@ html[data-ka-stripes] [data-index][data-ka-alt] > div > div:first-child {
 .ka-words-input {
     flex: 0 1 55%;
     min-width: 0;
-    height: 28px;
-    padding: 0 8px;
-    border: 0;
-    border-radius: 6px;
-    background: rgba(255, 255, 255, 0.08);
+    height: 30px;
+    padding: 0 12px;
+    border: 1px solid transparent;
+    border-radius: 15px;
+    background: var(--ka-fill);
     color: inherit;
     font: inherit;
     font-size: 16px; /* 16px keeps iOS from zooming the page on focus */
     outline: none;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+/* Our text fields: a green edge and soft glow while typing. */
+:is(.ka-words-input, .ka-picker-search, .ka-msg-input, .ka-user-note-field):focus {
+    border-color: rgba(83, 252, 24, 0.55) !important;
+    box-shadow: var(--ka-focus);
 }
 
 .ka-words-input:disabled {
@@ -1044,7 +1153,7 @@ html[data-ka-stripes] [data-index][data-ka-alt] > div > div:first-child {
     flex-direction: column;
     gap: 6px;
     padding: 8px 0;
-    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    border-top: 1px solid var(--ka-separator);
     font-size: 13px;
     text-align: left;
 }
@@ -1069,9 +1178,9 @@ html[data-ka-stripes] [data-index][data-ka-alt] > div > div:first-child {
 
 .ka-user-message {
     display: block;
-    padding: 4px 6px;
+    padding: 4px 8px;
     border: 0;
-    border-radius: 6px;
+    border-radius: 8px;
     background: none;
     color: inherit;
     font: inherit;
@@ -1091,14 +1200,14 @@ html[data-ka-stripes] [data-index][data-ka-alt] > div > div:first-child {
     flex-direction: column;
     gap: 4px;
     padding-top: 8px;
-    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    border-top: 1px solid var(--ka-separator);
     font-size: 13px;
     text-align: left;
 }
 
 .ka-user-note-text {
-    padding: 6px 8px;
-    border-radius: 6px;
+    padding: 8px 10px;
+    border-radius: 10px;
     background: rgba(255, 214, 102, 0.12);
     line-height: 1.4;
     white-space: pre-wrap;
@@ -1123,9 +1232,9 @@ html[data-ka-stripes] [data-index][data-ka-alt] > div > div:first-child {
 .ka-user-note-field {
     width: 100%;
     box-sizing: border-box;
-    padding: 6px 8px;
+    padding: 8px 10px;
     border: 1px solid rgba(255, 255, 255, 0.15);
-    border-radius: 6px;
+    border-radius: 10px;
     background: rgba(0, 0, 0, 0.3);
     color: inherit;
     font: inherit;
@@ -1171,9 +1280,9 @@ html[data-ka-user-card] #chatroom-messages button[data-ka-noted]::after {
     display: flex;
     flex-direction: column;
     gap: 4px;
-    padding: 6px 8px;
-    border-radius: 6px;
-    background: rgba(255, 255, 255, 0.06);
+    padding: 8px 10px;
+    border-radius: 12px;
+    background: var(--ka-fill);
     font-size: 13px;
 }
 
@@ -1241,9 +1350,7 @@ html[data-ka-user-card] #chatroom-messages button[data-ka-noted]::after {
 .ka-mute-chip {
     height: 26px;
     padding: 0 10px;
-    border: 0;
     border-radius: 13px;
-    background: rgba(255, 255, 255, 0.12);
     color: inherit;
     font: inherit;
     font-size: 12px;
@@ -1296,8 +1403,9 @@ html[data-ka-font="mono"] #channel-chatroom {
 }
 
 .ka-font-option[aria-pressed="true"] {
-    background: #53fc18;
-    color: #000;
+    background: var(--ka-accent-soft);
+    box-shadow: var(--ka-accent-ring);
+    color: var(--ka-accent);
     font-weight: 600;
 }
 
@@ -1325,13 +1433,15 @@ html[data-ka-font="mono"] #channel-chatroom {
     height: 22px;
     margin-right: 8px;
     padding: 0 7px;
-    border: 0;
     border-radius: 11px;
-    background: rgba(255, 255, 255, 0.1);
     color: inherit;
     font: inherit;
     font-weight: 600;
     cursor: pointer;
+}
+
+.ka-strip-button:hover {
+    background: var(--ka-fill-hover);
 }
 
 .ka-strip-button[hidden] {
@@ -1339,7 +1449,9 @@ html[data-ka-font="mono"] #channel-chatroom {
 }
 
 .ka-strip-button[aria-expanded="true"] {
-    background: rgba(255, 255, 255, 0.22);
+    background: var(--ka-accent-soft);
+    border-color: rgba(83, 252, 24, 0.4);
+    color: var(--ka-accent);
 }
 
 .ka-inbox-at {
@@ -1352,6 +1464,7 @@ html[data-ka-font="mono"] #channel-chatroom {
 
 .ka-inbox-button[data-unread] {
     background: #eb0400;
+    border-color: rgba(255, 255, 255, 0.25);
     color: #fff;
 }
 
@@ -1392,8 +1505,8 @@ html[data-ka-font="mono"] #channel-chatroom {
 }
 
 .ka-inbox-item {
-    padding: 5px 8px;
-    border-radius: 6px;
+    padding: 6px 10px;
+    border-radius: 10px;
     background: rgba(255, 255, 255, 0.05);
     box-shadow: inset 3px 0 0 #ffb020;
 }
@@ -1454,7 +1567,8 @@ html[data-ka-font="mono"] #channel-chatroom {
     width: 8px;
     height: 8px;
     border-radius: 50%;
-    background: #53fc18;
+    background: var(--ka-accent);
+    box-shadow: 0 0 6px rgba(83, 252, 24, 0.7);
 }
 
 /* Fingers need more than the 22px the strip buttons show: on touch screens an
@@ -1510,7 +1624,7 @@ html[data-ka-font="mono"] #channel-chatroom {
 }
 
 [data-index][data-ka-jump] > div > div:first-child {
-    border-radius: 6px;
+    border-radius: 8px;
     animation: ka-jump 2.2s ease-out;
 }
 
@@ -1938,13 +2052,25 @@ html[data-ka-ios] .ka-reveal::before {
     flex: 0 0 auto;
     display: flex;
     align-self: center;
-    margin: 4px auto;
-    border-radius: 16px;
-    background: #53fc18;
-    color: #000;
-    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+    margin: 6px auto;
+    border-radius: 18px;
+    border: 1px solid rgba(83, 252, 24, 0.4);
+    background: var(--ka-sheet);
+    -webkit-backdrop-filter: var(--ka-sheet-blur);
+    backdrop-filter: var(--ka-sheet-blur);
+    box-shadow: var(--ka-sheet-shadow);
+    color: var(--ka-accent);
+    font-family: var(--ka-font);
     font-size: 13px;
     font-weight: 600;
+    animation: ka-pop-in 0.45s var(--ka-spring);
+}
+
+@keyframes ka-pop-in {
+    from {
+        opacity: 0;
+        transform: translateY(-6px) scale(0.92);
+    }
 }
 
 .ka-catchup-main,
@@ -1959,7 +2085,7 @@ html[data-ka-ios] .ka-reveal::before {
 
 .ka-catchup-close {
     padding: 6px 12px 6px 8px;
-    border-left: 1px solid rgba(0, 0, 0, 0.2);
+    border-left: 1px solid rgba(83, 252, 24, 0.25);
     font-size: 16px;
     line-height: 1;
 }
@@ -1970,8 +2096,7 @@ html[data-ka-ios] .ka-reveal::before {
     gap: 2px;
     margin: 6px 0 4px;
     padding: 2px;
-    border-radius: 8px;
-    background: rgba(255, 255, 255, 0.08);
+    border-radius: 15px;
 }
 
 .ka-settings-tab {
@@ -1980,7 +2105,7 @@ html[data-ka-ios] .ka-reveal::before {
     height: 26px;
     padding: 0 4px;
     border: 0;
-    border-radius: 6px;
+    border-radius: 13px;
     background: none;
     color: inherit;
     font: inherit;
@@ -1992,8 +2117,14 @@ html[data-ka-ios] .ka-reveal::before {
     cursor: pointer;
 }
 
+.ka-settings-tab:hover {
+    opacity: 1;
+}
+
 .ka-settings-tab[aria-selected="true"] {
-    background: rgba(255, 255, 255, 0.18);
+    background: var(--ka-accent-soft);
+    box-shadow: var(--ka-accent-ring);
+    color: var(--ka-accent);
     font-weight: 600;
     opacity: 1;
 }
@@ -2097,7 +2228,7 @@ html[data-ka-player] #injected-channel-player {
     height: 32px;
     margin: -16px 0 0 -16px;
     border: 3px solid rgba(255, 255, 255, 0.25);
-    border-top-color: #53fc18;
+    border-top-color: var(--ka-accent);
     border-radius: 50%;
     animation: ka-spin 0.8s linear infinite;
     pointer-events: none;
@@ -2111,10 +2242,13 @@ html[data-ka-player] #injected-channel-player {
     position: absolute;
     top: 12px;
     left: 12px;
-    padding: 6px 12px;
-    border: 0;
+    padding: 6px 14px;
+    border: 1px solid var(--ka-glass-edge);
     border-radius: 16px;
-    background: rgba(0, 0, 0, 0.7);
+    background: rgba(0, 0, 0, 0.35);
+    -webkit-backdrop-filter: var(--ka-glass-blur);
+    backdrop-filter: var(--ka-glass-blur);
+    box-shadow: var(--ka-glass-shadow);
     color: #fff;
     font: inherit;
     font-size: 13px;
@@ -2134,8 +2268,8 @@ html[data-ka-player] #injected-channel-player {
     gap: 2px;
     height: 44px;
     padding: 0 6px;
-    background: #111;
-    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    background: linear-gradient(rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0)), #111214;
+    border-top: 1px solid var(--ka-separator);
     overflow: hidden;
 }
 
@@ -2148,14 +2282,14 @@ html[data-ka-player] #injected-channel-player {
     height: 36px;
     padding: 0;
     border: 0;
-    border-radius: 8px;
+    border-radius: 50%;
     background: none;
     color: inherit;
     cursor: pointer;
 }
 
 .ka-player-button:hover {
-    background: rgba(255, 255, 255, 0.1);
+    background: var(--ka-fill-hover);
 }
 
 .ka-player-button[hidden] {
@@ -2168,7 +2302,8 @@ html[data-ka-player] #injected-channel-player {
 }
 
 .ka-player-button[aria-pressed="true"] {
-    color: #53fc18;
+    background: var(--ka-accent-soft);
+    color: var(--ka-accent);
 }
 
 .ka-player-icon {
@@ -2180,7 +2315,7 @@ html[data-ka-player] #injected-channel-player {
     flex: 0 1 80px;
     min-width: 40px;
     margin: 0 6px 0 0;
-    accent-color: #53fc18;
+    accent-color: var(--ka-accent);
     cursor: pointer;
 }
 
@@ -2195,10 +2330,11 @@ html[data-ka-player] #injected-channel-player {
     gap: 5px;
     height: 26px;
     margin-left: 4px;
-    padding: 0 8px;
-    border: 0;
-    border-radius: 6px;
-    background: rgba(255, 255, 255, 0.1);
+    padding: 0 10px;
+    border: 1px solid var(--ka-glass-edge);
+    border-radius: 13px;
+    background: var(--ka-glass);
+    box-shadow: var(--ka-glass-highlight);
     color: inherit;
     font: inherit;
     font-size: 11px;
@@ -2213,10 +2349,12 @@ html[data-ka-player] #injected-channel-player {
     height: 7px;
     border-radius: 50%;
     background: #eb0400;
+    box-shadow: 0 0 6px rgba(235, 4, 0, 0.8);
 }
 
 .ka-player-live[data-behind]::before {
     background: rgba(255, 255, 255, 0.4);
+    box-shadow: none;
 }
 
 .ka-player-live-delay {
@@ -2230,7 +2368,8 @@ html[data-ka-player] #injected-channel-player {
 }
 
 .ka-player-live[data-behind] {
-    background: rgba(83, 252, 24, 0.2);
+    background: var(--ka-accent-soft);
+    border-color: rgba(83, 252, 24, 0.4);
 }
 
 .ka-player-spacer {
@@ -2241,13 +2380,14 @@ html[data-ka-player] #injected-channel-player {
     flex: 0 0 auto;
     height: 28px;
     margin-right: 4px;
-    padding: 0 10px;
-    border: 0;
+    padding: 0 12px;
+    border: 1px solid var(--ka-glass-edge);
     -webkit-appearance: none;
     appearance: none;
     text-align: center;
-    border-radius: 6px;
-    background: rgba(255, 255, 255, 0.1);
+    border-radius: 14px;
+    background: var(--ka-glass);
+    box-shadow: var(--ka-glass-highlight);
     color: inherit;
     font: inherit;
     font-size: 12px;
@@ -2256,7 +2396,7 @@ html[data-ka-player] #injected-channel-player {
 }
 
 .ka-player-quality option {
-    background: #1a1a1a;
+    background: #1c1e21;
     color: #fff;
 }
 
@@ -2300,16 +2440,6 @@ html[data-ka-player] #injected-channel-player {
     height: 26px;
 }
 
-.ka-app-watch {
-    font-size: 12px;
-    font-weight: 600;
-}
-
-.ka-app-watch:disabled {
-    opacity: 0.4;
-    cursor: default;
-}
-
 /* ---- Listen button (popout strip) ---- */
 .ka-listen-button {
     padding: 0 6px;
@@ -2321,13 +2451,16 @@ html[data-ka-player] #injected-channel-player {
 }
 
 .ka-listen-button[data-state="playing"] {
-    background: #53fc18;
-    color: #000;
+    background: var(--ka-accent-soft);
+    border-color: rgba(83, 252, 24, 0.55);
+    color: var(--ka-accent);
 }
 
 .ka-listen-button[data-state="loading"],
 .ka-listen-button[data-state="paused"] {
-    background: rgba(83, 252, 24, 0.35);
+    background: rgba(83, 252, 24, 0.1);
+    border-color: rgba(83, 252, 24, 0.3);
+    color: var(--ka-accent);
 }
 
 .ka-listen-button[data-state="offline"] {
@@ -2456,7 +2589,8 @@ html[data-ka-channel-strip] #channel-content > :has(#channel-username) {
 }
 
 .ka-channel-action[data-kind="sub"] {
-    background: #53fc18;
+    background: var(--ka-accent);
+    border-color: transparent;
     color: #000;
 }
 
@@ -2465,7 +2599,7 @@ html[data-ka-channel-strip] #channel-content > :has(#channel-username) {
 }
 
 .ka-stream-category {
-    color: #53fc18;
+    color: var(--ka-accent);
     text-decoration: none;
 }
 
@@ -2489,7 +2623,7 @@ html[data-ka-channel-strip] #channel-content > :has(#channel-username) {
     min-width: 36px;
     height: 36px;
     padding: 0 6px;
-    border-radius: 8px;
+    border-radius: 18px;
     color: inherit;
     cursor: pointer;
 }
@@ -2499,11 +2633,11 @@ html[data-ka-channel-strip] #channel-content > :has(#channel-username) {
 }
 
 .ka-sleep:hover {
-    background: rgba(255, 255, 255, 0.1);
+    background: var(--ka-fill-hover);
 }
 
 .ka-sleep[data-active] {
-    color: #53fc18;
+    color: var(--ka-accent);
 }
 
 .ka-sleep .ka-player-icon {
@@ -2538,7 +2672,6 @@ html[data-ka-channel-strip] #channel-content > :has(#channel-username) {
     margin-right: 8px;
     padding: 0 6px;
     border-radius: 11px;
-    background: rgba(255, 255, 255, 0.1);
 }
 
 .ka-listen-sleep .ka-player-icon {
@@ -2547,7 +2680,8 @@ html[data-ka-channel-strip] #channel-content > :has(#channel-username) {
 }
 
 .ka-listen-sleep[data-active] {
-    background: rgba(83, 252, 24, 0.2);
+    background: var(--ka-accent-soft);
+    border-color: rgba(83, 252, 24, 0.4);
 }
 
 /* Phones: no room for the minutes in the player bar (green moon = set). */
@@ -2559,5 +2693,109 @@ html[data-ka-channel-strip] #channel-content > :has(#channel-username) {
 
     .ka-player-bar .ka-sleep-left {
         display: none;
+    }
+}
+
+/* ---- View switcher (strip, content.js) ----
+   Stream · Chat · Player in one glass pill at the start of the strip. Closed, only
+   the current view's icon shows; open, all three, with the rest of the strip
+   dimmed behind it. Same height as the strip buttons' row, so the strip doesn't grow. */
+.ka-views {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 0;
+    margin-left: 8px;
+    padding: 1px;
+    border-radius: 999px;
+    box-shadow: var(--ka-glass-shadow);
+    transition: gap 0.35s var(--ka-spring), padding 0.35s var(--ka-spring);
+}
+
+.ka-views[hidden] {
+    display: none;
+}
+
+.ka-views[data-open] {
+    gap: 3px;
+    padding: 1px 2px;
+}
+
+.ka-view {
+    position: relative;
+    display: grid;
+    flex: 0 0 auto;
+    place-items: center;
+    width: 26px;
+    max-width: 40px;
+    height: 20px;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 999px;
+    background: none;
+    color: inherit;
+    cursor: pointer;
+    transition: width 0.4s var(--ka-spring), max-width 0.4s var(--ka-spring), margin 0.4s var(--ka-spring),
+        opacity 0.2s ease, background-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease, transform 0.35s var(--ka-spring);
+}
+
+.ka-view-icon {
+    flex: 0 0 auto;
+    width: 14px;
+    height: 14px;
+}
+
+.ka-views:not([data-open]) .ka-view:not([aria-current]) {
+    width: 0;
+    max-width: 0;
+    margin: 0 -1px;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.ka-views[data-open] .ka-view {
+    width: 36px;
+}
+
+.ka-views[data-open] .ka-view[aria-current] {
+    background: var(--ka-accent-soft);
+    box-shadow: var(--ka-accent-ring);
+    color: var(--ka-accent);
+}
+
+.ka-views[data-open] .ka-view:not([aria-current]):hover {
+    background: var(--ka-fill-hover);
+}
+
+.ka-view:disabled {
+    opacity: 0.35;
+    cursor: default;
+}
+
+.ka-views + .ka-settings-toggle {
+    padding-left: 8px;
+}
+
+/* Open: the rest of the strip steps back. */
+.ka-settings-head > :not(.ka-views) {
+    transition: opacity 0.25s ease, filter 0.25s ease;
+}
+
+.ka-settings[data-views-open] .ka-settings-head > :not(.ka-views) {
+    opacity: 0.25;
+    filter: blur(1px);
+}
+
+@media (pointer: coarse) {
+    .ka-view::after {
+        content: "";
+        position: absolute;
+        inset: -8px -2px;
+    }
+
+    /* A bigger target while closed: the single icon is the whole button. */
+    .ka-views:not([data-open]) .ka-view[aria-current] {
+        width: 30px;
     }
 }
