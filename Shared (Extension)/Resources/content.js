@@ -42,7 +42,7 @@
     liveCatchUp: false,
     backgroundAudio: true,
     popoutAudio: true,
-    appQuality: 'best', // Kickoff app player (Mac): best, 1080…160 (height), auto, audio
+    appQuality: 'best', // Kickoff app player: best, 1080…160 (height), auto, audio
     channelStrip: true,
     blockAds: true
   };
@@ -138,8 +138,6 @@
 
   const root = document.documentElement;
   const popoutSlug = location.pathname.match(POPOUT_PATH)?.[1] || null;
-  // Mac Safari (an iPad also says Macintosh, but has touch).
-  const IS_MAC = /Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints === 0;
 
   function saveSettings(changes) {
     const settings = { ...state.settings, ...changes };
@@ -833,9 +831,8 @@
       return row;
     };
 
-    // Mac only: quality and a button that opens the stream in the Kickoff app.
+    // Quality and a button that opens the stream in the Kickoff app.
     const appPlayerRow = () => {
-      if (!IS_MAC) return [];
       const row = el('div', 'ka-settings-row');
       const label = el('span', 'ka-settings-label', t('app.label'));
       label.append(el('span', 'ka-wake-hint', t('app.hint')));
@@ -1503,8 +1500,8 @@
     renderStatus();
   }
 
-  // Mac: the stream in the Kickoff app's own player, about as close to live as
-  // Kick's (Shared (App)/LiveStream.swift), at the quality chosen in the Player tab.
+  // The stream in the Kickoff app's own player, about as close to live as Kick's
+  // (Shared (App)/LiveStream.swift), at the quality chosen in the Player tab.
   // This page goes quiet so it isn't heard twice; chat stays here.
   function appPlayerSlug() {
     return popoutSlug || channelPageSlug();

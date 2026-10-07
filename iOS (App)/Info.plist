@@ -4,6 +4,21 @@
 <dict>
 	<key>SFSafariWebExtensionConverterVersion</key>
 	<string>27.0</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>net.smigi.Kickoff</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>kickoff</string>
+			</array>
+		</dict>
+	</array>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>audio</string>
+	</array>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

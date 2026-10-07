@@ -74,6 +74,19 @@ enum KickAPI {
     }
 }
 
+/// kickoff://watch/{slug}?quality=best|1080…|auto|audio, from the extension's Watch
+/// button (Player tab).
+enum WatchLink {
+    static func parse(_ url: URL) -> (slug: String, rendition: Rendition?)? {
+        guard url.scheme == "kickoff", url.host == "watch" else { return nil }
+        let slug = url.pathComponents.dropFirst().first?.lowercased() ?? ""
+        guard slug.range(of: "^[a-z0-9_-]{1,64}$", options: .regularExpression) != nil else { return nil }
+        let quality = URLComponents(url: url, resolvingAgainstBaseURL: false)?
+            .queryItems?.first { $0.name == "quality" }?.value
+        return (slug, Rendition(stored: quality))
+    }
+}
+
 /// Which renditions the master playlist keeps: the best video one, the one closest
 /// to a height (1080, 720…), all video ones (AVFoundation switches quality, so no
 /// prefetch: segments arriving as they're made look like a slow connection to it,

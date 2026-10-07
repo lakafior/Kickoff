@@ -18,15 +18,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         return true
     }
 
-    // kickoff://watch/{slug}?quality=best|1080…|auto|audio, from the extension's Watch
-    // button (Player tab).
+    // kickoff://watch/… (WatchLink), from the extension's Watch button.
     func application(_ application: NSApplication, open urls: [URL]) {
-        for url in urls where url.scheme == "kickoff" && url.host == "watch" {
-            let slug = url.pathComponents.dropFirst().first?.lowercased() ?? ""
-            guard slug.range(of: "^[a-z0-9_-]{1,64}$", options: .regularExpression) != nil else { continue }
-            let quality = URLComponents(url: url, resolvingAgainstBaseURL: false)?
-                .queryItems?.first { $0.name == "quality" }?.value
-            PlayerWindowController.show(slug: slug, rendition: Rendition(stored: quality))
+        for case let (slug, rendition)? in urls.map(WatchLink.parse) {
+            PlayerWindowController.show(slug: slug, rendition: rendition)
         }
         // Opened for a stream: the setup window isn't wanted (closed after the player
         // is up, or closing the last window would quit the app).

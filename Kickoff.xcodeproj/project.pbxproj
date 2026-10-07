@@ -50,6 +50,11 @@
 		48297F033074D2D000EC882D /* LiveStream.swift in Sources */ = {isa = PBXBuildFile; fileRef = 48297F013074D2D000EC882D /* LiveStream.swift */; };
 		48297F043074D2D000EC882D /* PlayerWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 48297F023074D2D000EC882D /* PlayerWindowController.swift */; };
 		48297F063074D2D000EC882D /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 48297F053074D2D000EC882D /* Localizable.xcstrings */; };
+		48297F0A3074D2D000EC882D /* LivePlayback.swift in Sources */ = {isa = PBXBuildFile; fileRef = 48297F083074D2D000EC882D /* LivePlayback.swift */; };
+		48297F0B3074D2D000EC882D /* LivePlayback.swift in Sources */ = {isa = PBXBuildFile; fileRef = 48297F083074D2D000EC882D /* LivePlayback.swift */; };
+		48297F0C3074D2D000EC882D /* LiveStream.swift in Sources */ = {isa = PBXBuildFile; fileRef = 48297F013074D2D000EC882D /* LiveStream.swift */; };
+		48297F0D3074D2D000EC882D /* PlayerViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 48297F093074D2D000EC882D /* PlayerViewController.swift */; };
+		48297F0E3074D2D000EC882D /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 48297F053074D2D000EC882D /* Localizable.xcstrings */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -126,6 +131,8 @@
 		48297F023074D2D000EC882D /* PlayerWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerWindowController.swift; sourceTree = "<group>"; };
 		48297F053074D2D000EC882D /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		48297F073074D2D000EC882D /* pl */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = pl; path = pl.lproj/Main.strings; sourceTree = "<group>"; };
+		48297F083074D2D000EC882D /* LivePlayback.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LivePlayback.swift; sourceTree = "<group>"; };
+		48297F093074D2D000EC882D /* PlayerViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerViewController.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -170,6 +177,7 @@
 			children = (
 				48297E4B3074D2D000EC882D /* ViewController.swift */,
 				48297F013074D2D000EC882D /* LiveStream.swift */,
+				48297F083074D2D000EC882D /* LivePlayback.swift */,
 				48297F053074D2D000EC882D /* Localizable.xcstrings */,
 				48297EF03074D2D000EC882D /* AppIcon.icon */,
 				48297E4C3074D2D000EC882D /* Assets.xcassets */,
@@ -214,6 +222,7 @@
 			children = (
 				48297E563074D2D000EC882D /* AppDelegate.swift */,
 				48297E583074D2D000EC882D /* SceneDelegate.swift */,
+				48297F093074D2D000EC882D /* PlayerViewController.swift */,
 				48297E5A3074D2D000EC882D /* LaunchScreen.storyboard */,
 				48297E5D3074D2D000EC882D /* Main.storyboard */,
 				48297E603074D2D000EC882D /* Info.plist */,
@@ -387,6 +396,7 @@
 			isa = PBXResourcesBuildPhase;
 			files = (
 				48297E833074D2D000EC882D /* Icon.png in Resources */,
+				48297F0E3074D2D000EC882D /* Localizable.xcstrings in Resources */,
 				48297E5C3074D2D000EC882D /* LaunchScreen.storyboard in Resources */,
 				48297E813074D2D000EC882D /* Main.html in Resources */,
 				48297E873074D2D000EC882D /* Script.js in Resources */,
@@ -444,6 +454,9 @@
 				48297E893074D2D000EC882D /* ViewController.swift in Sources */,
 				48297E573074D2D000EC882D /* AppDelegate.swift in Sources */,
 				48297E593074D2D000EC882D /* SceneDelegate.swift in Sources */,
+				48297F0C3074D2D000EC882D /* LiveStream.swift in Sources */,
+				48297F0B3074D2D000EC882D /* LivePlayback.swift in Sources */,
+				48297F0D3074D2D000EC882D /* PlayerViewController.swift in Sources */,
 			);
 		};
 		48297E613074D2D000EC882D /* Sources */ = {
@@ -452,6 +465,7 @@
 				48297E8A3074D2D000EC882D /* ViewController.swift in Sources */,
 				48297E683074D2D000EC882D /* AppDelegate.swift in Sources */,
 				48297F033074D2D000EC882D /* LiveStream.swift in Sources */,
+				48297F0A3074D2D000EC882D /* LivePlayback.swift in Sources */,
 				48297F043074D2D000EC882D /* PlayerWindowController.swift in Sources */,
 			);
 		};

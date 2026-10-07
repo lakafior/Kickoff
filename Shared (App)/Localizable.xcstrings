@@ -150,6 +150,27 @@
           }
         }
       }
+    },
+    "Chat": {
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Czat"
+          }
+        }
+      }
+    },
+    "Live": {
+      "comment": "Button: jump to live",
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Na żywo"
+          }
+        }
+      }
     }
   },
   "version": "1.0"
