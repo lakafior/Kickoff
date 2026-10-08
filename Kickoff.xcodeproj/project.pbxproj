@@ -33,20 +33,20 @@
 		48297EA73074D2D000EC882D /* images in Resources */ = {isa = PBXBuildFile; fileRef = 48297EA13074D2D000EC882D /* images */; };
 		48297EA83074D2D000EC882D /* manifest.json in Resources */ = {isa = PBXBuildFile; fileRef = 48297EA23074D2D000EC882D /* manifest.json */; };
 		48297EA93074D2D000EC882D /* page-hook.js in Resources */ = {isa = PBXBuildFile; fileRef = 48297EA33074D2D000EC882D /* page-hook.js */; };
-		48297EF43074D2D000EC882D /* strings.js in Resources */ = {isa = PBXBuildFile; fileRef = 48297EF33074D2D000EC882D /* strings.js */; };
-		48297EF73074D2D000EC882D /* _locales in Resources */ = {isa = PBXBuildFile; fileRef = 48297EF63074D2D000EC882D /* _locales */; };
 		48297EAA3074D2D000EC882D /* content.js in Resources */ = {isa = PBXBuildFile; fileRef = 48297EA43074D2D000EC882D /* content.js */; };
 		48297EAB3074D2D000EC882D /* kickoff.css in Resources */ = {isa = PBXBuildFile; fileRef = 48297EA53074D2D000EC882D /* kickoff.css */; };
 		48297EAC3074D2D000EC882D /* background.js in Resources */ = {isa = PBXBuildFile; fileRef = 48297EA03074D2D000EC882D /* background.js */; };
 		48297EAD3074D2D000EC882D /* images in Resources */ = {isa = PBXBuildFile; fileRef = 48297EA13074D2D000EC882D /* images */; };
 		48297EAE3074D2D000EC882D /* manifest.json in Resources */ = {isa = PBXBuildFile; fileRef = 48297EA23074D2D000EC882D /* manifest.json */; };
 		48297EAF3074D2D000EC882D /* page-hook.js in Resources */ = {isa = PBXBuildFile; fileRef = 48297EA33074D2D000EC882D /* page-hook.js */; };
-		48297EF53074D2D000EC882D /* strings.js in Resources */ = {isa = PBXBuildFile; fileRef = 48297EF33074D2D000EC882D /* strings.js */; };
-		48297EF83074D2D000EC882D /* _locales in Resources */ = {isa = PBXBuildFile; fileRef = 48297EF63074D2D000EC882D /* _locales */; };
 		48297EB03074D2D000EC882D /* content.js in Resources */ = {isa = PBXBuildFile; fileRef = 48297EA43074D2D000EC882D /* content.js */; };
 		48297EB13074D2D000EC882D /* kickoff.css in Resources */ = {isa = PBXBuildFile; fileRef = 48297EA53074D2D000EC882D /* kickoff.css */; };
 		48297EF13074D2D000EC882D /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = 48297EF03074D2D000EC882D /* AppIcon.icon */; };
 		48297EF23074D2D000EC882D /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = 48297EF03074D2D000EC882D /* AppIcon.icon */; };
+		48297EF43074D2D000EC882D /* strings.js in Resources */ = {isa = PBXBuildFile; fileRef = 48297EF33074D2D000EC882D /* strings.js */; };
+		48297EF53074D2D000EC882D /* strings.js in Resources */ = {isa = PBXBuildFile; fileRef = 48297EF33074D2D000EC882D /* strings.js */; };
+		48297EF73074D2D000EC882D /* _locales in Resources */ = {isa = PBXBuildFile; fileRef = 48297EF63074D2D000EC882D /* _locales */; };
+		48297EF83074D2D000EC882D /* _locales in Resources */ = {isa = PBXBuildFile; fileRef = 48297EF63074D2D000EC882D /* _locales */; };
 		48297F033074D2D000EC882D /* LiveStream.swift in Sources */ = {isa = PBXBuildFile; fileRef = 48297F013074D2D000EC882D /* LiveStream.swift */; };
 		48297F043074D2D000EC882D /* PlayerWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 48297F023074D2D000EC882D /* PlayerWindowController.swift */; };
 		48297F063074D2D000EC882D /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 48297F053074D2D000EC882D /* Localizable.xcstrings */; };
@@ -55,6 +55,10 @@
 		48297F0C3074D2D000EC882D /* LiveStream.swift in Sources */ = {isa = PBXBuildFile; fileRef = 48297F013074D2D000EC882D /* LiveStream.swift */; };
 		48297F0D3074D2D000EC882D /* PlayerViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 48297F093074D2D000EC882D /* PlayerViewController.swift */; };
 		48297F0E3074D2D000EC882D /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 48297F053074D2D000EC882D /* Localizable.xcstrings */; };
+		4837CF893077C8CE00ABA2A5 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 4837CF883077C8CE00ABA2A5 /* PrivacyInfo.xcprivacy */; };
+		4837CF8A3077C8CE00ABA2A5 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 4837CF883077C8CE00ABA2A5 /* PrivacyInfo.xcprivacy */; };
+		4837CF8B3077C8CE00ABA2A5 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 4837CF883077C8CE00ABA2A5 /* PrivacyInfo.xcprivacy */; };
+		4837CF8C3077C8CE00ABA2A5 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 4837CF883077C8CE00ABA2A5 /* PrivacyInfo.xcprivacy */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -121,18 +125,19 @@
 		48297EA13074D2D000EC882D /* images */ = {isa = PBXFileReference; lastKnownFileType = folder; name = images; path = Resources/images; sourceTree = "<group>"; };
 		48297EA23074D2D000EC882D /* manifest.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; name = manifest.json; path = Resources/manifest.json; sourceTree = "<group>"; };
 		48297EA33074D2D000EC882D /* page-hook.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; name = "page-hook.js"; path = "Resources/page-hook.js"; sourceTree = "<group>"; };
-		48297EF33074D2D000EC882D /* strings.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; name = strings.js; path = Resources/strings.js; sourceTree = "<group>"; };
-		48297EF63074D2D000EC882D /* _locales */ = {isa = PBXFileReference; lastKnownFileType = folder; name = _locales; path = Resources/_locales; sourceTree = "<group>"; };
-		48297EF93074D2D000EC882D /* pl */ = {isa = PBXFileReference; lastKnownFileType = text.html; name = pl; path = pl.lproj/Main.html; sourceTree = "<group>"; };
 		48297EA43074D2D000EC882D /* content.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; name = content.js; path = Resources/content.js; sourceTree = "<group>"; };
 		48297EA53074D2D000EC882D /* kickoff.css */ = {isa = PBXFileReference; lastKnownFileType = text.css; name = kickoff.css; path = Resources/kickoff.css; sourceTree = "<group>"; };
 		48297EF03074D2D000EC882D /* AppIcon.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; path = AppIcon.icon; sourceTree = "<group>"; };
+		48297EF33074D2D000EC882D /* strings.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; name = strings.js; path = Resources/strings.js; sourceTree = "<group>"; };
+		48297EF63074D2D000EC882D /* _locales */ = {isa = PBXFileReference; lastKnownFileType = folder; name = _locales; path = Resources/_locales; sourceTree = "<group>"; };
+		48297EF93074D2D000EC882D /* pl */ = {isa = PBXFileReference; lastKnownFileType = text.html; name = pl; path = pl.lproj/Main.html; sourceTree = "<group>"; };
 		48297F013074D2D000EC882D /* LiveStream.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveStream.swift; sourceTree = "<group>"; };
 		48297F023074D2D000EC882D /* PlayerWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerWindowController.swift; sourceTree = "<group>"; };
 		48297F053074D2D000EC882D /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		48297F073074D2D000EC882D /* pl */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = pl; path = pl.lproj/Main.strings; sourceTree = "<group>"; };
 		48297F083074D2D000EC882D /* LivePlayback.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LivePlayback.swift; sourceTree = "<group>"; };
 		48297F093074D2D000EC882D /* PlayerViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerViewController.swift; sourceTree = "<group>"; };
+		4837CF883077C8CE00ABA2A5 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -162,6 +167,7 @@
 		48297E3F3074D2CF00EC882D = {
 			isa = PBXGroup;
 			children = (
+				4837CF883077C8CE00ABA2A5 /* PrivacyInfo.xcprivacy */,
 				48297E443074D2D000EC882D /* Shared (App) */,
 				48297E4D3074D2D000EC882D /* Shared (Extension) */,
 				48297E553074D2D000EC882D /* iOS (App) */,
@@ -403,6 +409,7 @@
 				48297E8B3074D2D000EC882D /* Assets.xcassets in Resources */,
 				48297EF13074D2D000EC882D /* AppIcon.icon in Resources */,
 				48297E5F3074D2D000EC882D /* Main.storyboard in Resources */,
+				4837CF893077C8CE00ABA2A5 /* PrivacyInfo.xcprivacy in Resources */,
 				48297E853074D2D000EC882D /* Style.css in Resources */,
 			);
 		};
@@ -412,6 +419,7 @@
 				48297E843074D2D000EC882D /* Icon.png in Resources */,
 				48297F063074D2D000EC882D /* Localizable.xcstrings in Resources */,
 				48297E863074D2D000EC882D /* Style.css in Resources */,
+				4837CF8A3077C8CE00ABA2A5 /* PrivacyInfo.xcprivacy in Resources */,
 				48297E6B3074D2D000EC882D /* Main.storyboard in Resources */,
 				48297E883074D2D000EC882D /* Script.js in Resources */,
 				48297E8C3074D2D000EC882D /* Assets.xcassets in Resources */,
@@ -425,6 +433,7 @@
 				48297EAD3074D2D000EC882D /* images in Resources */,
 				48297EB13074D2D000EC882D /* kickoff.css in Resources */,
 				48297EAE3074D2D000EC882D /* manifest.json in Resources */,
+				4837CF8B3077C8CE00ABA2A5 /* PrivacyInfo.xcprivacy in Resources */,
 				48297EAF3074D2D000EC882D /* page-hook.js in Resources */,
 				48297EF53074D2D000EC882D /* strings.js in Resources */,
 				48297EF83074D2D000EC882D /* _locales in Resources */,
@@ -438,6 +447,7 @@
 				48297EA73074D2D000EC882D /* images in Resources */,
 				48297EAB3074D2D000EC882D /* kickoff.css in Resources */,
 				48297EA83074D2D000EC882D /* manifest.json in Resources */,
+				4837CF8C3077C8CE00ABA2A5 /* PrivacyInfo.xcprivacy in Resources */,
 				48297EA93074D2D000EC882D /* page-hook.js in Resources */,
 				48297EF43074D2D000EC882D /* strings.js in Resources */,
 				48297EF73074D2D000EC882D /* _locales in Resources */,
@@ -730,8 +740,8 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "iOS (App)/Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = Kickoff;
-				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.entertainment";
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.entertainment";
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
 				INFOPLIST_KEY_UIMainStoryboardFile = Main;
@@ -773,8 +783,8 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "iOS (App)/Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = Kickoff;
-				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.entertainment";
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.entertainment";
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
 				INFOPLIST_KEY_UIMainStoryboardFile = Main;
@@ -895,8 +905,8 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "macOS (App)/Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = Kickoff;
-				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.entertainment";
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.entertainment";
 				INFOPLIST_KEY_NSMainStoryboardFile = Main;
 				INFOPLIST_KEY_NSPrincipalClass = NSApplication;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -939,8 +949,8 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "macOS (App)/Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = Kickoff;
-				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.entertainment";
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.entertainment";
 				INFOPLIST_KEY_NSMainStoryboardFile = Main;
 				INFOPLIST_KEY_NSPrincipalClass = NSApplication;
 				LD_RUNPATH_SEARCH_PATHS = (
