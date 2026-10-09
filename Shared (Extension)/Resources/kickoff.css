@@ -49,19 +49,19 @@ html {
 
 /* Pressing any of our buttons gives a little, then springs back. */
 :is(.ka-strip-button, .ka-view, .ka-size-button, .ka-size-reset, .ka-card-button, .ka-toolbar-button,
-    .ka-picker-close, .ka-msg-edit-toggle, .ka-msg-scope-option, .ka-ac-chip, .ka-mute-chip,
+    .ka-picker-close, .ka-msg-edit-toggle, .ka-msg-scope-option, .ka-msg-tab, .ka-ac-chip, .ka-mute-chip,
     .ka-settings-tab, .ka-player-button, .ka-player-live, .ka-catchup-main, .ka-catchup-close) {
     transition: background-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease, transform 0.35s var(--ka-spring);
 }
 
 :is(.ka-strip-button, .ka-view, .ka-size-button, .ka-size-reset, .ka-card-button, .ka-toolbar-button,
-    .ka-picker-close, .ka-msg-edit-toggle, .ka-msg-scope-option, .ka-ac-chip, .ka-mute-chip,
+    .ka-picker-close, .ka-msg-edit-toggle, .ka-msg-scope-option, .ka-msg-tab, .ka-ac-chip, .ka-mute-chip,
     .ka-settings-tab, .ka-player-button, .ka-player-live):active:not(:disabled) {
     transform: scale(0.94);
 }
 
 :is(.ka-strip-button, .ka-view, .ka-size-button, .ka-size-reset, .ka-card-button, .ka-toolbar-button,
-    .ka-picker-close, .ka-msg-edit-toggle, .ka-msg-scope-option, .ka-ac-chip, .ka-mute-chip,
+    .ka-picker-close, .ka-msg-edit-toggle, .ka-msg-scope-option, .ka-msg-tab, .ka-ac-chip, .ka-mute-chip,
     .ka-settings-tab, .ka-player-button, .ka-player-live, .ka-player-quality):focus-visible {
     outline: 2px solid var(--ka-accent);
     outline-offset: 1px;
@@ -883,6 +883,49 @@ html[data-ka-input-hidden] #channel-chatroom :has(> #chatroom-messages) ~ :has([
 
 .ka-msg-body {
     max-height: 260px;
+}
+
+/* Messages | Commands */
+.ka-msg-tabs {
+    display: flex;
+    gap: 4px;
+    padding: 8px 8px 0;
+}
+
+.ka-msg-tabs[hidden] {
+    display: none;
+}
+
+.ka-msg-tab {
+    flex: 1;
+    min-height: 30px;
+    padding: 0 8px;
+    border: 0;
+    border-radius: 15px;
+    background: var(--ka-fill);
+    color: inherit;
+    font: inherit;
+    font-size: 13px;
+    cursor: pointer;
+}
+
+.ka-msg-tab[aria-pressed="true"] {
+    background: var(--ka-accent-soft);
+    box-shadow: var(--ka-accent-ring);
+    color: var(--ka-accent);
+}
+
+.ka-msg-command {
+    font-weight: 600;
+}
+
+.ka-msg-answer {
+    opacity: 0.65;
+}
+
+.ka-msg-hint {
+    font-size: 11px;
+    opacity: 0.6;
 }
 
 .ka-msg-search[hidden] {

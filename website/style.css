@@ -145,6 +145,120 @@ nav a.lang {
   filter: drop-shadow(0 18px 40px rgba(83, 252, 24, .18));
 }
 
+/* ---- showcase: Mac, iPad and iPhone, stepped with the arrows ----
+   No JavaScript: one hidden radio per step. Each device stacks its four
+   screenshots in one grid cell and shows the one whose radio is checked;
+   the arrows and dots are labels for the radios. */
+
+.showcase { padding-bottom: 72px; }
+.showcase .section-head { margin-bottom: 28px; }
+.showcase .wrap { max-width: 1080px; }
+.showcase .section-head { margin-inline: auto; text-align: center; }
+
+.shot-radio {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.stage {
+  position: relative;
+  max-width: 900px;
+  margin-inline: auto;
+  /* the Mac sits at the back; iPad and iPhone stand in front of it */
+  padding: 0 7% 9%;
+}
+.dev { display: grid; }
+.dev img {
+  grid-area: 1 / 1;
+  width: 100%;
+  height: auto;
+  opacity: 0;
+  transition: opacity .35s ease;
+}
+.dev-mac { width: 100%; }
+.dev-ipad, .dev-iphone {
+  position: absolute;
+  bottom: 0;
+  filter: drop-shadow(0 18px 30px rgba(0, 0, 0, .35));
+}
+.dev-ipad { left: 0; width: 27%; }
+.dev-iphone { right: 1%; width: 15.5%; }
+
+.shot-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  margin-top: 26px;
+}
+.arrow {
+  display: none;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: var(--panel);
+  color: var(--ink);
+  font-size: 1.7rem;
+  line-height: 1;
+  cursor: pointer;
+  user-select: none;
+}
+.arrow:hover { border-color: var(--green); }
+.dots { display: flex; gap: 10px; }
+.dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--line);
+  cursor: pointer;
+}
+
+.captions { display: grid; max-width: 56ch; margin: 22px auto 0; text-align: center; }
+.caption {
+  grid-area: 1 / 1;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity .35s ease;
+}
+.caption p { margin: 0; }
+
+#shot-1:checked ~ .stage .s1, #shot-2:checked ~ .stage .s2,
+#shot-3:checked ~ .stage .s3, #shot-4:checked ~ .stage .s4,
+#shot-1:checked ~ .captions .c1, #shot-2:checked ~ .captions .c2,
+#shot-3:checked ~ .captions .c3, #shot-4:checked ~ .captions .c4 {
+  opacity: 1;
+  visibility: visible;
+}
+#shot-1:checked ~ .shot-nav :is(.p1, .n1), #shot-2:checked ~ .shot-nav :is(.p2, .n2),
+#shot-3:checked ~ .shot-nav :is(.p3, .n3), #shot-4:checked ~ .shot-nav :is(.p4, .n4) {
+  display: grid;
+}
+#shot-1:checked ~ .shot-nav .d1, #shot-2:checked ~ .shot-nav .d2,
+#shot-3:checked ~ .shot-nav .d3, #shot-4:checked ~ .shot-nav .d4 {
+  background: var(--green);
+}
+/* Keyboard: the radios take focus; show it on the matching dot. */
+#shot-1:focus-visible ~ .shot-nav .d1, #shot-2:focus-visible ~ .shot-nav .d2,
+#shot-3:focus-visible ~ .shot-nav .d3, #shot-4:focus-visible ~ .shot-nav .d4 {
+  outline: 2px solid var(--green);
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dev img, .caption { transition: none; }
+}
+
+/* Phones: the Mac goes edge to edge, iPad and iPhone grow and overlap it more. */
+@media (max-width: 600px) {
+  .showcase .wrap { padding-inline: 12px; }
+  .stage { padding: 0 0 30%; }
+  .dev-ipad { width: 40%; }
+  .dev-iphone { right: 0; width: 24%; }
+}
+
 /* ---- sections ---- */
 
 section { padding: 64px 0; }

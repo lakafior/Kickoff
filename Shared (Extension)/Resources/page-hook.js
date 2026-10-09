@@ -1609,7 +1609,8 @@
     // phone keyboard stays as it is); its other buttons have their own handlers.
     const savedRow = target.closest?.('.ka-msg-insert');
     if (savedRow && messagesPanel?.contains(savedRow)) {
-      insertSavedMessage(savedRow.dataset.id, savedRow);
+      if (savedRow.dataset.command) insertCommand(savedRow.dataset.command, savedRow);
+      else insertSavedMessage(savedRow.dataset.id, savedRow);
       return true;
     }
     if (messagesPanel?.contains(target)) return false;
@@ -1722,8 +1723,10 @@
   // answer mentions or replies to the asker, or nobody else asked something
   // meanwhile. Learned from every message Kick lists (see harvest), kept per
   // channel (names with their prefix, "!chill") in kick.com's localStorage, and
-  // suggested when a message starts with a prefix. Synced like emote usage: sent to content.js after a change (and once
-  // on load), merged with what comes back from iCloud.
+  // suggested when a message starts with a prefix. They can also be added, edited
+  // and deleted by hand in the saved messages panel (Commands); a deleted one is
+  // kept as deleted, so it isn't learned again. Synced like emote usage: sent to
+  // content.js after a change (and once on load), merged with what comes back from iCloud.
 
   const COMMANDS_KEY = 'kickoff:commands';
   const COMMAND_PREFIXES = '!?$%#&~.+'; // "/" is Kick's own (never sent), "@" a mention
@@ -1737,7 +1740,7 @@
   const COMMANDS_SAVE_MS = 2000;
 
   const commandsEnabled = () => document.documentElement.hasAttribute(COMMANDS_ATTR);
-  let commands = readCommands(); // channel -> { name -> { uses, at, answer } }
+  let commands = readCommands(); // channel -> { name -> { uses, at, answer, manual?, deleted? } }
   let commandsSaveTimer = 0;
   const askedCommands = []; // { channel, name, user, at }, newest last
 
@@ -1752,39 +1755,52 @@
 
   function saveCommandsSoon() {
     clearTimeout(commandsSaveTimer);
-    commandsSaveTimer = setTimeout(() => {
-      commands = mergeCommands(readCommands(), commands); // other tabs learn too
-      writeCommands();
-      sendToExtension('commands:set', { commands }); // on to iCloud
-    }, COMMANDS_SAVE_MS);
+    commandsSaveTimer = setTimeout(saveCommands, COMMANDS_SAVE_MS);
+  }
+
+  function saveCommands() {
+    clearTimeout(commandsSaveTimer);
+    commands = mergeCommands(readCommands(), commands); // other tabs learn too
+    writeCommands();
+    sendToExtension('commands:set', { commands }); // on to iCloud
   }
 
   // Same merge as content.js and background.js (iCloud sync): per channel and
-  // command the higher use count, and the newest answer; then the
-  // COMMANDS_PER_CHANNEL newest per channel, in the COMMAND_CHANNELS newest channels.
+  // command the higher use count, and the newest version (answer, added by hand,
+  // deleted); deleted ones are kept so they don't come back. Then the
+  // COMMANDS_PER_CHANNEL newest per channel (and as many deleted), in the
+  // COMMAND_CHANNELS newest channels.
   function mergeCommands(a, b) {
     const merged = {};
     for (const source of [a, b]) {
       for (const [channel, known] of Object.entries(source && typeof source === 'object' ? source : {})) {
         if (!known || typeof known !== 'object') continue;
         for (const [name, entry] of Object.entries(known)) {
-          const uses = Number(entry?.uses);
+          const uses = Math.max(0, Number(entry?.uses) || 0);
           const at = Number(entry?.at);
-          if (!(uses > 0) || !Number.isFinite(at) || !COMMAND_NAME.test(name)) continue;
-          const answer = String(entry.answer ?? '').slice(0, COMMAND_ANSWER_LENGTH);
+          const deleted = entry?.deleted === true;
+          const manual = entry?.manual === true;
+          if (!(uses > 0 || manual || deleted) || !Number.isFinite(at) || !COMMAND_NAME.test(name)) continue;
+          const answer = deleted ? '' : String(entry.answer ?? '').slice(0, COMMAND_ANSWER_LENGTH);
           const mine = (merged[channel] ||= {})[name];
-          merged[channel][name] = !mine ? { uses, at, answer }
-            : { uses: Math.max(mine.uses, uses), at: Math.max(mine.at, at), answer: at > mine.at ? answer : mine.answer };
+          const latest = !mine || at > mine.at || (at === mine.at && deleted && !mine.deleted)
+            ? { at, answer, manual, deleted } : mine;
+          merged[channel][name] = {
+            uses: Math.max(mine?.uses || 0, uses), at: latest.at, answer: latest.answer,
+            ...(latest.manual && { manual: true }), ...(latest.deleted && { deleted: true })
+          };
         }
       }
     }
     const newest = known => Math.max(0, ...Object.values(known).map(entry => entry.at));
     for (const known of Object.values(merged)) {
-      const names = Object.keys(known);
-      if (names.length <= COMMANDS_PER_CHANNEL) continue;
-      names.sort((x, y) => known[x].at - known[y].at)
-        .slice(0, names.length - COMMANDS_PER_CHANNEL)
-        .forEach(old => delete known[old]);
+      for (const deleted of [false, true]) {
+        const names = Object.keys(known).filter(name => !!known[name].deleted === deleted);
+        if (names.length <= COMMANDS_PER_CHANNEL) continue;
+        names.sort((x, y) => known[x].at - known[y].at)
+          .slice(0, names.length - COMMANDS_PER_CHANNEL)
+          .forEach(old => delete known[old]);
+      }
     }
     const channels = Object.keys(merged);
     if (channels.length > COMMAND_CHANNELS) {
@@ -1834,7 +1850,8 @@
     askedCommands.splice(askedCommands.indexOf(asked), 1);
     const known = (commands[channel] ||= {});
     const before = known[asked.name];
-    known[asked.name] = { uses: (before?.uses || 0) + 1, at, answer: asOneLine(text).slice(0, COMMAND_ANSWER_LENGTH) };
+    if (before?.deleted) return; // deleted by hand: not a command to suggest
+    known[asked.name] = { ...before, uses: (before?.uses || 0) + 1, at, answer: asOneLine(text).slice(0, COMMAND_ANSWER_LENGTH) };
     saveCommandsSoon();
   }
 
@@ -1843,7 +1860,7 @@
     const known = commands[channelSlug()] || {};
     const lower = query.toLowerCase();
     return Object.entries(known)
-      .filter(([name]) => name.startsWith(lower))
+      .filter(([name, info]) => !info.deleted && name.startsWith(lower))
       .sort((a, b) => b[1].uses - a[1].uses || b[1].at - a[1].at)
       .slice(0, AC_MAX_RESULTS)
       .map(([name, info]) => ({ command: true, name, answer: info.answer }));
@@ -2360,8 +2377,10 @@
   let messagesPanel = null;
   let messagesButton = null;
   let messagesEditMode = false;
-  let messageDraft = null;  // { id, text, channel, created } while the editor is open
-  let undoItem = null;      // the last deleted message, while "Undo" is offered
+  let messagesTab = 'messages'; // or 'commands': the channel's !commands
+  let messageDraft = null;  // { id, text, channel, created } while the editor is open,
+                            // or { command: true, channel, original, name, answer }
+  let undo = null;          // { tab, text, restore } for the last delete, while "Undo" is offered
   let undoTimer = null;
 
   function sendToExtension(type, data = {}) {
@@ -2389,8 +2408,10 @@
       usage = mergeUsage(readUsage(), event.data.usage);
       writeUsage();
     } else if (event.data.type === 'commands' && event.data.commands && typeof event.data.commands === 'object') {
-      commands = mergeCommands(readCommands(), event.data.commands);
+      // Ours too: what was learned or edited here may not be saved yet.
+      commands = mergeCommands(mergeCommands(readCommands(), commands), event.data.commands);
       writeCommands();
+      if (messagesPanel?.isConnected && messagesTab === 'commands' && !messageDraft) renderMessages();
     } else if (event.data.type === 'jump' && typeof event.data.id === 'string') {
       guarded('jump', () => jumpTo(event.data.id, event.data.requestId));
     } else if (event.data.type === 'search') {
@@ -2450,17 +2471,26 @@
     row.append(insert);
 
     if (messagesEditMode) {
-      const edit = el('button', 'ka-msg-action', '✎');
-      edit.type = 'button';
-      edit.setAttribute('aria-label', t('messages.editOne'));
-      edit.addEventListener('click', () => openEditor(item));
-      const remove = el('button', 'ka-msg-action ka-msg-delete', '✕');
-      remove.type = 'button';
-      remove.setAttribute('aria-label', t('messages.deleteOne'));
-      remove.addEventListener('click', () => deleteMessage(item));
-      row.append(edit, remove);
+      row.append(...rowActions(t('messages.editOne'), () => openEditor(item), t('messages.deleteOne'), () => deleteMessage(item)));
     }
     return row;
+  }
+
+  function rowActions(editLabel, onEdit, deleteLabel, onDelete) {
+    const edit = el('button', 'ka-msg-action', '✎');
+    edit.type = 'button';
+    edit.setAttribute('aria-label', editLabel);
+    edit.addEventListener('click', onEdit);
+    const remove = el('button', 'ka-msg-action ka-msg-delete', '✕');
+    remove.type = 'button';
+    remove.setAttribute('aria-label', deleteLabel);
+    remove.addEventListener('click', onDelete);
+    return [edit, remove];
+  }
+
+  // The Commands tab: only on a channel page, with !commands on.
+  function commandsTabShown() {
+    return commandsEnabled() && !!channelSlug();
   }
 
   function renderMessages() {
@@ -2468,41 +2498,58 @@
     const body = messagesPanel.querySelector('.ka-msg-body');
     const editToggle = messagesPanel.querySelector('.ka-msg-edit-toggle');
     const search = messagesPanel.querySelector('.ka-msg-search');
+    const tabs = messagesPanel.querySelector('.ka-msg-tabs');
+    if (!commandsTabShown()) messagesTab = 'messages';
+    const onCommands = messagesTab === 'commands';
+    tabs.hidden = !commandsTabShown();
+    tabs.querySelectorAll('.ka-msg-tab').forEach(tab => tab.setAttribute('aria-pressed', String(tab.dataset.tab === messagesTab)));
+    search.placeholder = onCommands ? t('commands.search') : t('messages.search');
     editToggle.textContent = messagesEditMode ? t('messages.done') : t('messages.edit');
     editToggle.setAttribute('aria-pressed', String(messagesEditMode));
 
     if (messageDraft) {
       search.hidden = true;
-      body.replaceChildren(buildEditor());
+      body.replaceChildren(messageDraft.command ? buildCommandEditor() : buildEditor());
       body.querySelector('.ka-msg-input').focus();
       return;
     }
     search.hidden = false;
 
-    const slug = channelSlug();
     const query = search.value.trim().toLowerCase();
-    const visible = savedMessages.filter(item => (!item.channel || item.channel === slug)
-      && (!query || plainText(item.text).toLowerCase().includes(query)));
     const nodes = [];
-
-    if (undoItem) {
-      const undo = el('div', 'ka-msg-undo');
+    const shownUndo = undo?.tab === messagesTab ? undo : null;
+    if (shownUndo) {
+      const bar = el('div', 'ka-msg-undo');
       const button = el('button', 'ka-msg-undo-button', t('messages.undo'));
       button.type = 'button';
       button.addEventListener('click', () => {
-        saveMessage(undoItem);
+        shownUndo.restore();
         clearUndo();
       });
-      undo.append(el('span', null, t('messages.deleted')), button);
-      nodes.push(undo);
+      bar.append(el('span', null, shownUndo.text), button);
+      nodes.push(bar);
     }
     if (messagesEditMode) {
-      const add = el('button', 'ka-msg-new', t('messages.new'));
+      const add = el('button', 'ka-msg-new', onCommands ? t('commands.new') : t('messages.new'));
       add.type = 'button';
-      add.addEventListener('click', () => openEditor(null));
+      add.addEventListener('click', () => (onCommands ? openCommandEditor(null) : openEditor(null)));
       nodes.push(add);
     }
+    const list = onCommands ? commandNodes(query) : messageNodes(query);
+    if (list.length) nodes.push(...list);
+    else if (!shownUndo) {
+      nodes.push(el('div', 'ka-picker-empty', query
+        ? t(onCommands ? 'commands.noMatch' : 'messages.noMatch')
+        : onCommands ? t('commands.empty', { channel: channelSlug() }) : t('messages.empty')));
+    }
+    body.replaceChildren(...nodes);
+  }
 
+  function messageNodes(query) {
+    const slug = channelSlug();
+    const visible = savedMessages.filter(item => (!item.channel || item.channel === slug)
+      && (!query || plainText(item.text).toLowerCase().includes(query)));
+    const nodes = [];
     const sections = [
       [slug ? t('messages.thisChannelNamed', { channel: slug }) : t('messages.thisChannel'), visible.filter(item => item.channel)],
       [t('messages.allChannels'), visible.filter(item => !item.channel)]
@@ -2512,12 +2559,42 @@
       nodes.push(el('div', 'ka-picker-title', `${title} · ${list.length}`));
       nodes.push(...sortMessages(list).map(messageRow));
     }
-    if (!visible.length && !undoItem) {
-      nodes.push(el('div', 'ka-picker-empty', query
-        ? t('messages.noMatch')
-        : t('messages.empty')));
+    return nodes;
+  }
+
+  // The channel's commands, most used first (like the suggestions).
+  function commandNodes(query) {
+    const slug = channelSlug();
+    const list = Object.entries(commands[slug] || {})
+      .filter(([name, info]) => !info.deleted
+        && (!query || name.includes(query) || (info.answer || '').toLowerCase().includes(query)))
+      .sort((a, b) => b[1].uses - a[1].uses || b[1].at - a[1].at);
+    if (!list.length) return [];
+    return [
+      el('div', 'ka-picker-title', `${t('commands.section', { channel: slug })} · ${list.length}`),
+      ...list.map(([name, info]) => commandRow(slug, name, info))
+    ];
+  }
+
+  function commandRow(channel, name, info) {
+    const row = el('div', 'ka-msg-row');
+    const insert = el('button', 'ka-msg-insert');
+    insert.type = 'button';
+    insert.dataset.command = name; // taps are handled in handleTap()
+    const text = el('span', 'ka-msg-text');
+    text.append(el('span', 'ka-msg-command', name));
+    if (info.answer) text.append(' ', el('span', 'ka-msg-answer', info.answer));
+    insert.append(text);
+    row.append(insert);
+
+    if (messagesEditMode) {
+      row.append(...rowActions(t('commands.editOne'), () => openCommandEditor(name), t('commands.deleteOne'), () => deleteCommand(channel, name)));
     }
-    body.replaceChildren(...nodes);
+    return row;
+  }
+
+  function insertCommand(name, node) {
+    if (insertAtEnd(name)) flash(node);
   }
 
   function buildEditor() {
@@ -2557,12 +2634,7 @@
     }
 
     const actions = el('div', 'ka-msg-editor-actions');
-    const cancel = el('button', 'ka-card-button', t('messages.cancel'));
-    cancel.type = 'button';
-    cancel.addEventListener('click', () => {
-      messageDraft = null;
-      renderMessages();
-    });
+    const cancel = editorCancel();
     const save = el('button', 'ka-card-button ka-card-button--primary', t('messages.save'));
     save.type = 'button';
     const status = el('div', 'ka-msg-status');
@@ -2590,6 +2662,67 @@
     return form;
   }
 
+  function editorCancel() {
+    const cancel = el('button', 'ka-card-button', t('messages.cancel'));
+    cancel.type = 'button';
+    cancel.addEventListener('click', () => {
+      messageDraft = null;
+      renderMessages();
+    });
+    return cancel;
+  }
+
+  // A command's name and answer. The answer is only what Kickoff shows with it.
+  function buildCommandEditor() {
+    const draft = messageDraft;
+    const form = el('div', 'ka-msg-editor');
+    const name = el('input', 'ka-msg-input');
+    name.type = 'text';
+    name.value = draft.name;
+    name.placeholder = t('commands.namePlaceholder');
+    name.autocomplete = 'off';
+    name.spellcheck = false;
+    name.setAttribute('autocapitalize', 'none');
+    name.maxLength = 31;
+    const answer = el('textarea', 'ka-msg-input');
+    answer.rows = 2;
+    answer.value = draft.answer;
+    answer.placeholder = t('commands.answerPlaceholder');
+    answer.maxLength = COMMAND_ANSWER_LENGTH;
+    const counter = el('div', 'ka-msg-counter');
+    const status = el('div', 'ka-msg-status');
+    const update = () => {
+      draft.name = name.value;
+      draft.answer = answer.value;
+      counter.textContent = `${asOneLine(answer.value).length}/${COMMAND_ANSWER_LENGTH}`;
+      save.disabled = !name.value.trim();
+      status.textContent = '';
+    };
+    name.addEventListener('input', update);
+    answer.addEventListener('input', update);
+
+    const actions = el('div', 'ka-msg-editor-actions');
+    const save = el('button', 'ka-card-button ka-card-button--primary', t('messages.save'));
+    save.type = 'button';
+    save.addEventListener('click', () => {
+      // "chill" is taken as "!chill"; names are kept in lower case, as learned.
+      let value = name.value.trim().toLowerCase();
+      if (value && !COMMAND_PREFIXES.includes(value[0])) value = `!${value}`;
+      if (!COMMAND_NAME.test(value)) {
+        status.textContent = t('commands.badName');
+        return;
+      }
+      saveCommand(draft, value, asOneLine(answer.value).slice(0, COMMAND_ANSWER_LENGTH));
+      messageDraft = null;
+      renderMessages();
+    });
+    actions.append(editorCancel(), save);
+
+    form.append(name, answer, counter, el('div', 'ka-msg-hint', t('commands.answerHint')), status, actions);
+    update();
+    return form;
+  }
+
   function openEditor(item) {
     messageDraft = item
       ? { ...item }
@@ -2597,18 +2730,52 @@
     renderMessages();
   }
 
+  function openCommandEditor(name) {
+    const channel = channelSlug();
+    messageDraft = { command: true, channel, original: name, name: name || '', answer: (name && commands[channel]?.[name]?.answer) || '' };
+    renderMessages();
+  }
+
+  // Edited or added by hand: newer than what was learned, so it wins the merge.
+  // A renamed command leaves its old name deleted.
+  function saveCommand(draft, name, answer) {
+    const known = (commands[draft.channel] ||= {});
+    const at = Date.now();
+    const before = draft.original ? known[draft.original] : null;
+    const existing = known[name]?.deleted ? null : known[name];
+    if (before && draft.original !== name) known[draft.original] = { uses: 0, at, answer: '', deleted: true };
+    known[name] = { uses: Math.max(before?.uses || 0, existing?.uses || 0), at, answer, manual: true };
+    saveCommands();
+  }
+
+  function deleteCommand(channel, name) {
+    const entry = commands[channel]?.[name];
+    if (!entry) return;
+    commands[channel][name] = { uses: 0, at: Date.now(), answer: '', deleted: true };
+    saveCommands();
+    showUndo(t('commands.deleted'), () => {
+      (commands[channel] ||= {})[name] = { ...entry, at: Date.now() };
+      saveCommands();
+    });
+    renderMessages();
+  }
+
+  function showUndo(text, restore) {
+    clearTimeout(undoTimer);
+    undo = { tab: messagesTab, text, restore };
+    undoTimer = setTimeout(clearUndo, UNDO_MS);
+  }
+
   function clearUndo() {
     clearTimeout(undoTimer);
-    undoItem = null;
+    undo = null;
     undoTimer = null;
     renderMessages();
   }
 
   function deleteMessage(item) {
     sendToExtension('messages:delete', { id: item.id });
-    clearTimeout(undoTimer);
-    undoItem = item;
-    undoTimer = setTimeout(clearUndo, UNDO_MS);
+    showUndo(t('messages.deleted'), () => saveMessage(item));
     savedMessages = savedMessages.filter(message => message.id !== item.id);
     renderMessages();
   }
@@ -2636,7 +2803,21 @@
       close.setAttribute('aria-label', t('messages.close'));
       close.addEventListener('click', closeMessages);
       head.append(search, editToggle, close);
-      messagesPanel.append(head, el('div', 'ka-picker-grid ka-msg-body'));
+      const tabs = el('div', 'ka-msg-tabs');
+      for (const [tab, label] of [['messages', t('messages.tabMessages')], ['commands', t('messages.tabCommands')]]) {
+        const button = el('button', 'ka-msg-tab', label);
+        button.type = 'button';
+        button.dataset.tab = tab;
+        button.addEventListener('click', () => {
+          if (messagesTab === tab) return;
+          messagesTab = tab;
+          messageDraft = null;
+          search.value = '';
+          renderMessages();
+        });
+        tabs.append(button);
+      }
+      messagesPanel.append(tabs, head, el('div', 'ka-picker-grid ka-msg-body'));
     }
     if (!placeAboveInput(messagesPanel)) return;
     renderMessages();

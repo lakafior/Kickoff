@@ -57,6 +57,59 @@
   </div>
 </section>
 
+<section class="showcase" aria-label="Kickoff na Macu, iPadzie i iPhonie">
+  <div class="wrap">
+    <div class="section-head"><h2>Zobacz w Safari</h2><p>Ten sam czat na każdym ekranie. Strzałkami przejdziesz dalej.</p></div>
+    <!-- No JavaScript: one radio per step; the arrows and dots are labels for them. -->
+    <input class="shot-radio" type="radio" name="shot" id="shot-1" checked aria-label="Czat, za którym nadążysz">
+    <input class="shot-radio" type="radio" name="shot" id="shot-2" aria-label="Wszystko w jednym miejscu">
+    <input class="shot-radio" type="radio" name="shot" id="shot-3" aria-label="Wiesz, kto pisze">
+    <input class="shot-radio" type="radio" name="shot" id="shot-4" aria-label="Żadna wzmianka nie ucieknie">
+    <div class="stage">
+      <div class="dev dev-mac">
+        <img class="s1" src="../assets/showcase/pl/mac-1.webp" width="1600" height="966" alt="Kickoff w Safari na Macu: Czat, za którym nadążysz">
+        <img class="s2" src="../assets/showcase/pl/mac-2.webp" width="1600" height="966" alt="Kickoff w Safari na Macu: Wszystko w jednym miejscu" loading="lazy">
+        <img class="s3" src="../assets/showcase/pl/mac-3.webp" width="1600" height="966" alt="Kickoff w Safari na Macu: Wiesz, kto pisze" loading="lazy">
+        <img class="s4" src="../assets/showcase/pl/mac-4.webp" width="1600" height="966" alt="Kickoff w Safari na Macu: Żadna wzmianka nie ucieknie" loading="lazy">
+      </div>
+      <div class="dev dev-ipad">
+        <img class="s1" src="../assets/showcase/pl/ipad-1.webp" width="640" height="886" alt="Kickoff w Safari na iPadzie: Czat, za którym nadążysz">
+        <img class="s2" src="../assets/showcase/pl/ipad-2.webp" width="640" height="886" alt="Kickoff w Safari na iPadzie: Wszystko w jednym miejscu" loading="lazy">
+        <img class="s3" src="../assets/showcase/pl/ipad-3.webp" width="640" height="886" alt="Kickoff w Safari na iPadzie: Wiesz, kto pisze" loading="lazy">
+        <img class="s4" src="../assets/showcase/pl/ipad-4.webp" width="640" height="886" alt="Kickoff w Safari na iPadzie: Żadna wzmianka nie ucieknie" loading="lazy">
+      </div>
+      <div class="dev dev-iphone">
+        <img class="s1" src="../assets/showcase/pl/iphone-1.webp" width="440" height="912" alt="Kickoff w Safari na iPhonie: Czat, za którym nadążysz">
+        <img class="s2" src="../assets/showcase/pl/iphone-2.webp" width="440" height="912" alt="Kickoff w Safari na iPhonie: Wszystko w jednym miejscu" loading="lazy">
+        <img class="s3" src="../assets/showcase/pl/iphone-3.webp" width="440" height="912" alt="Kickoff w Safari na iPhonie: Wiesz, kto pisze" loading="lazy">
+        <img class="s4" src="../assets/showcase/pl/iphone-4.webp" width="440" height="912" alt="Kickoff w Safari na iPhonie: Żadna wzmianka nie ucieknie" loading="lazy">
+      </div>
+    </div>
+    <div class="shot-nav">
+      <label class="arrow prev p1" for="shot-4" aria-label="Poprzedni">‹</label>
+      <label class="arrow prev p2" for="shot-1" aria-label="Poprzedni">‹</label>
+      <label class="arrow prev p3" for="shot-2" aria-label="Poprzedni">‹</label>
+      <label class="arrow prev p4" for="shot-3" aria-label="Poprzedni">‹</label>
+      <div class="dots">
+        <label class="dot d1" for="shot-1" aria-label="Pokaż: Czat, za którym nadążysz"></label>
+        <label class="dot d2" for="shot-2" aria-label="Pokaż: Wszystko w jednym miejscu"></label>
+        <label class="dot d3" for="shot-3" aria-label="Pokaż: Wiesz, kto pisze"></label>
+        <label class="dot d4" for="shot-4" aria-label="Pokaż: Żadna wzmianka nie ucieknie"></label>
+      </div>
+      <label class="arrow next n1" for="shot-2" aria-label="Następny">›</label>
+      <label class="arrow next n2" for="shot-3" aria-label="Następny">›</label>
+      <label class="arrow next n3" for="shot-4" aria-label="Następny">›</label>
+      <label class="arrow next n4" for="shot-1" aria-label="Następny">›</label>
+    </div>
+    <div class="captions" aria-live="polite">
+      <div class="caption c1"><h3>Czat, za którym nadążysz</h3><p>Usunięte wiadomości da się przeczytać, linki pokazują podgląd, widać emotki 7TV, powtarzany spam zwija się do jednej linii, a wzmianki o tobie się wyróżniają.</p></div>
+      <div class="caption c2"><h3>Wszystko w jednym miejscu</h3><p>Rakieta na górze czatu otwiera ustawienia Kickoff: fonty Apple, wielkość tekstu i każdą funkcję jako przełącznik, który możesz wyłączyć.</p></div>
+      <div class="caption c3"><h3>Wiesz, kto pisze</h3><p>Stuknij nick, by zobaczyć ostatnie wiadomości tej osoby, wyróżnić ją, wyciszyć albo zapisać prywatną notatkę, która synchronizuje się przez twój iCloud.</p></div>
+      <div class="caption c4"><h3>Żadna wzmianka nie ucieknie</h3><p>Skrzynka @ zbiera wiadomości, które wspominają ciebie lub wybrane słowa, więc nadrobisz je po gorącej chwili.</p></div>
+    </div>
+  </div>
+</section>
+
 <section id="features" class="alt">
   <div class="wrap">
     <div class="section-head">
@@ -78,7 +131,7 @@
       </div>
       <div class="feature">
         <h3>Emotki 7TV</h3>
-        <p>Emotki 7TV kanału i globalne, z kolorowymi nickami i odznakami, wybierakiem emotek i podpowiedziami. Własne <code>!komendy</code> kanału zapamiętuje, gdy odpowie na nie bot, i podpowiada po wpisaniu <code>!</code> (albo <code>$</code>, <code>?</code>…, jeśli bot kanału używa innego prefiksu).</p>
+        <p>Emotki 7TV kanału i globalne, z kolorowymi nickami i odznakami, wybierakiem emotek i podpowiedziami. Własne <code>!komendy</code> kanału zapamiętuje, gdy odpowie na nie bot, i podpowiada po wpisaniu <code>!</code> (albo <code>$</code>, <code>?</code>…, jeśli bot kanału używa innego prefiksu). Możesz je też sam dodawać, edytować i usuwać w panelu zapisanych wiadomości.</p>
       </div>
       <div class="feature">
         <h3>Wzmianki i szukanie</h3>

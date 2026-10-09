@@ -262,7 +262,7 @@
 
   // ---- Channel !commands: synced copy for background.js --------------------------
   // The same round trip as emote usage. page-hook.js keeps { channel: { name:
-  // { uses, at, answer } } } in Kick's localStorage.
+  // { uses, at, answer, manual?, deleted? } } } in Kick's localStorage.
 
   const COMMANDS_KEY = 'kickoffCommands';
   const COMMANDS_PER_CHANNEL = 50;
@@ -275,31 +275,41 @@
   }
 
   // Same merge as page-hook.js and background.js: per channel and command the
-  // higher use count, and the newest answer; then the COMMANDS_PER_CHANNEL newest
-  // per channel, in the COMMAND_CHANNELS newest channels. Also cleans what came in.
+  // higher use count, and the newest version (answer, added by hand, deleted);
+  // deleted ones are kept so they don't come back. Then the COMMANDS_PER_CHANNEL
+  // newest per channel (and as many deleted), in the COMMAND_CHANNELS newest
+  // channels. Also cleans what came in.
   function mergeCommands(a, b) {
     const merged = {};
     for (const source of [a, b]) {
       for (const [channel, known] of Object.entries(source && typeof source === 'object' ? source : {})) {
         if (!known || typeof known !== 'object') continue;
         for (const [name, entry] of Object.entries(known)) {
-          const uses = Number(entry?.uses);
+          const uses = Math.max(0, Number(entry?.uses) || 0);
           const at = Number(entry?.at);
-          if (!(uses > 0) || !Number.isFinite(at) || !COMMAND_NAME.test(name)) continue;
-          const answer = String(entry.answer ?? '').slice(0, COMMAND_ANSWER_LENGTH);
+          const deleted = entry?.deleted === true;
+          const manual = entry?.manual === true;
+          if (!(uses > 0 || manual || deleted) || !Number.isFinite(at) || !COMMAND_NAME.test(name)) continue;
+          const answer = deleted ? '' : String(entry.answer ?? '').slice(0, COMMAND_ANSWER_LENGTH);
           const mine = (merged[channel] ||= {})[name];
-          merged[channel][name] = !mine ? { uses, at, answer }
-            : { uses: Math.max(mine.uses, uses), at: Math.max(mine.at, at), answer: at > mine.at ? answer : mine.answer };
+          const latest = !mine || at > mine.at || (at === mine.at && deleted && !mine.deleted)
+            ? { at, answer, manual, deleted } : mine;
+          merged[channel][name] = {
+            uses: Math.max(mine?.uses || 0, uses), at: latest.at, answer: latest.answer,
+            ...(latest.manual && { manual: true }), ...(latest.deleted && { deleted: true })
+          };
         }
       }
     }
     const newest = known => Math.max(0, ...Object.values(known).map(entry => entry.at));
     for (const known of Object.values(merged)) {
-      const names = Object.keys(known);
-      if (names.length <= COMMANDS_PER_CHANNEL) continue;
-      names.sort((x, y) => known[x].at - known[y].at)
-        .slice(0, names.length - COMMANDS_PER_CHANNEL)
-        .forEach(old => delete known[old]);
+      for (const deleted of [false, true]) {
+        const names = Object.keys(known).filter(name => !!known[name].deleted === deleted);
+        if (names.length <= COMMANDS_PER_CHANNEL) continue;
+        names.sort((x, y) => known[x].at - known[y].at)
+          .slice(0, names.length - COMMANDS_PER_CHANNEL)
+          .forEach(old => delete known[old]);
+      }
     }
     const channels = Object.keys(merged);
     if (channels.length > COMMAND_CHANNELS) {
