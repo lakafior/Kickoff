@@ -339,7 +339,35 @@ browser.storage.onChanged.addListener((changes, area) => {
   }
 });
 
-browser.runtime.onMessage.addListener(message => {
+browser.runtime.onMessage.addListener((message, sender) => {
   if (message?.type === 'kickoff:sync') requestPull();
+  if (message?.type === 'kickoff:openLink') openLink(message, sender.tab);
 });
+
+// ---- Chat links (content.js, "Open chat links" setting) -----------------------
+// Kick's links open a tab in front. From the popout (a popup window) Safari puts
+// it in the stream's window, over the stream. "background" opens the tab behind,
+// "window" in a window of its own.
+async function openLink({ url, mode }, tab) {
+  if (!/^https?:\/\//.test(url)) return;
+  try {
+    if (mode === 'window' && browser.windows?.create) {
+      await browser.windows.create({ url, focused: true });
+      return;
+    }
+    await browser.tabs.create({ url, active: false, ...(await linkPlace(tab)) });
+  } catch (error) {
+    console.error('Kickoff: could not open link', error);
+    await browser.tabs.create({ url, active: mode !== 'background' }).catch(() => {});
+  }
+}
+
+// Next to the chat's tab; from a popup, in the last normal window instead.
+async function linkPlace(tab) {
+  if (!tab?.windowId || !browser.windows?.get) return {};
+  const window = await browser.windows.get(tab.windowId).catch(() => null);
+  if (window && window.type !== 'popup') return { windowId: tab.windowId, index: tab.index + 1 };
+  const normal = await browser.windows.getLastFocused({ windowTypes: ['normal'] }).catch(() => null);
+  return normal?.id != null ? { windowId: normal.id } : {};
+}
 requestPull();

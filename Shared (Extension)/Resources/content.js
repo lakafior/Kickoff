@@ -19,8 +19,9 @@
     chatOnly: true,
     restoreDeleted: true,
     linkPreviews: true,
+    chatLinks: 'tab', // one of LINK_MODES
     sevenTv: true,
-    streamInfo: true,
+    streamInfo: true, // the strip shows the stream (popout and channel pages alike)
     savedMessages: true,
     highlights: true,
     highlightWords: [],
@@ -46,7 +47,6 @@
     backgroundAudio: true,
     popoutAudio: true,
     appQuality: 'best', // Kickoff app player: best, 1080…160 (height), auto, audio
-    channelStrip: true,
     blockAds: true
   };
 
@@ -75,8 +75,8 @@
   // Settings panel tabs, in order. Each lists its rows: a setting key is a switch,
   // the other names are the rows buildBar makes itself.
   const SETTINGS_TABS = {
-    general: ['wakeLock', 'chatOnly', 'streamInfo', 'channelStrip', 'blockAds'],
-    chat: ['font', 'size', 'readableNames', 'chatStripes', 'sevenTv', 'sevenTvCosmetics', 'linkPreviews', 'restoreDeleted', 'savedMessages', 'chatCommands', 'userCard', 'iosInput'],
+    general: ['wakeLock', 'chatOnly', 'streamInfo', 'blockAds'],
+    chat: ['font', 'size', 'readableNames', 'chatStripes', 'sevenTv', 'sevenTvCosmetics', 'linkPreviews', 'chatLinks', 'restoreDeleted', 'savedMessages', 'chatCommands', 'userCard', 'iosInput'],
     filters: ['highlights', 'highlightWords', 'highlightUsers', 'highlightStreamer', 'hideWords', 'hideEmoteOnly', 'collapseRepeats', 'rewardEvents', 'subEvents', 'hideBots', 'botUsers', 'muteUsers', 'mutedUsers', 'notes'],
     player: ['appPlayer', 'nativePlayer', 'backgroundAudio', 'popoutAudio']
   };
@@ -85,6 +85,7 @@
     backgroundAudio: 'nativePlayer'
   };
   const SETTINGS_TAB_KEY = 'kickoff:settingsTab'; // last open tab, in kick.com localStorage
+  const TOOLS_FOLDED_KEY = 'kickoff:toolsFolded'; // strip's button row folded, same
 
   // Network blocking runs in background.js, which reports here how it went.
   const BLOCK_STATUS_KEY = 'kickoffBlockStatus';
@@ -100,6 +101,9 @@
   // Kick's event cards (point rewards; subs and gifts): as Kick draws them, one
   // line, or hidden. page-hook.js follows these attributes (none = full).
   const EVENT_MODES = [['full', t('events.full')], ['compact', t('events.compact')], ['hide', t('events.hide')]];
+  // Links in chat: in front as Kick opens them, in a tab behind, or in a window of
+  // their own (background.js opens the last two).
+  const LINK_MODES = [['tab', t('links.tab')], ['background', t('links.background')], ['window', t('links.window')]];
   const EVENT_ATTRS = { rewardEvents: 'data-ka-reward-events', subEvents: 'data-ka-sub-events' };
   // Kickoff app player qualities; the app takes the closest rendition the stream has.
   // Auto lets the app switch, which costs it a few seconds of delay.
@@ -107,7 +111,6 @@
     ['best', t('app.best')], ['1080', '1080p'], ['720', '720p'], ['480', '480p'],
     ['360', '360p'], ['160', '160p'], ['auto', t('app.auto')], ['audio', t('player.audioOnly')]
   ];
-  const POPOUT_ATTR = 'data-ka-popout'; // the stream info line is popout-only
   const CHANNEL_STRIP_ATTR = 'data-ka-channel-strip'; // kickoff.css hides Kick's channel info
   const POPOUT_PATH = /^\/popout\/([^/]+)\/chat\/?$/;
   const FONT_SIZE_ATTR = 'data-ka-font-size'; // page-hook.js remeasures rows when it changes
@@ -135,6 +138,7 @@
 
   const state = {
     settings: { ...DEFAULTS },
+    toolsFolded: readToolsFolded(),
     wakeLock: null,
     wakeLockPending: false,
     bar: null,
@@ -777,11 +781,12 @@
     const toggle = el('button', 'ka-settings-toggle');
     toggle.type = 'button';
     toggle.setAttribute('aria-expanded', 'false');
-    const ident = el('span', 'ka-channel');
+    // Channel page: the channel's picture and name, a link to its videos and clips
+    // (while it's live, kick.com/{slug} is the stream itself).
+    const ident = el('a', 'ka-channel');
     ident.append(el('img', 'ka-channel-avatar'), el('span', 'ka-channel-name'));
     toggle.append(
       el('span', 'ka-settings-title', 'Kickoff'),
-      ident,
       el('span', 'ka-stream'),
       el('span', 'ka-settings-status'),
       el('span', 'ka-settings-chevron', '▾')
@@ -928,6 +933,7 @@
       font: () => choiceRow('chatFont', t('font.label'), CHAT_FONTS),
       rewardEvents: () => choiceRow('rewardEvents', t('setting.rewardEvents'), EVENT_MODES),
       subEvents: () => choiceRow('subEvents', t('setting.subEvents'), EVENT_MODES),
+      chatLinks: () => choiceRow('chatLinks', t('setting.chatLinks'), LINK_MODES),
       size: sizeRow,
       highlightWords: () => wordsRow('highlightWords', t('words.highlight'), t('words.highlightExample')),
       hideWords: () => wordsRow('hideWords', t('words.hide'), t('words.hideExample')),
@@ -1000,7 +1006,15 @@
     actions.hidden = true;
     const listenSleep = sleepControl();
     listenSleep.classList.add('ka-listen-sleep');
-    head.append(buildViews(), toggle, actions, listenButton, listenSleep, searchButton, inboxButton, settingsButton);
+    // With stream info the buttons get a row of their own (data-tools-row), which
+    // the "…" button folds away.
+    const tools = el('div', 'ka-strip-tools');
+    tools.append(actions, el('span', 'ka-strip-spacer'), listenButton, listenSleep, searchButton, inboxButton, settingsButton);
+    const toolsToggle = el('button', 'ka-strip-button ka-tools-toggle');
+    toolsToggle.type = 'button';
+    toolsToggle.append(moreIcon());
+    toolsToggle.addEventListener('click', () => setToolsFolded(!state.toolsFolded));
+    head.append(buildViews(), ident, toggle, toolsToggle, tools);
 
     // Chat search: field, a summary line, results.
     const search = el('div', 'ka-search');
@@ -1239,6 +1253,66 @@
 
   function renderSettingsHint() {
     state.bar?.querySelector('.ka-settings-button').toggleAttribute('data-hint', state.settingsSeen === false);
+    renderTools();
+  }
+
+  // The strip's second row (channel buttons, listen, search, inbox, settings),
+  // folded or not; remembered per device in kick.com localStorage.
+  function readToolsFolded() {
+    try {
+      return localStorage.getItem(TOOLS_FOLDED_KEY) === '1';
+    } catch (err) {
+      return false;
+    }
+  }
+
+  function setToolsFolded(folded) {
+    state.toolsFolded = folded;
+    try {
+      if (folded) localStorage.setItem(TOOLS_FOLDED_KEY, '1');
+      else localStorage.removeItem(TOOLS_FOLDED_KEY);
+    } catch (err) {
+      // Private browsing: just for this page.
+    }
+    if (folded) {
+      setInboxOpen(false);
+      setSearchOpen(false);
+    }
+    renderTools();
+  }
+
+  function renderTools() {
+    const bar = state.bar;
+    if (!bar) return;
+    const row = bar.hasAttribute('data-stream') || bar.hasAttribute('data-channel');
+    bar.toggleAttribute('data-tools-row', row);
+    bar.toggleAttribute('data-tools-folded', row && state.toolsFolded);
+    const toggle = bar.querySelector('.ka-tools-toggle');
+    const label = t(state.toolsFolded ? 'strip.showTools' : 'strip.hideTools');
+    toggle.title = label;
+    toggle.setAttribute('aria-label', label);
+    toggle.setAttribute('aria-expanded', String(!state.toolsFolded));
+    // Folded, the dot tells about what the hidden buttons would show.
+    const unread = bar.querySelector('.ka-inbox-button').hasAttribute('data-unread');
+    toggle.toggleAttribute('data-unread', unread);
+    toggle.toggleAttribute('data-hint', !unread && state.settingsSeen === false);
+  }
+
+  function moreIcon() {
+    const ns = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(ns, 'svg');
+    svg.setAttribute('viewBox', '0 0 24 24');
+    svg.setAttribute('aria-hidden', 'true');
+    svg.classList.add('ka-more-icon');
+    for (const cx of [5, 12, 19]) {
+      const dot = document.createElementNS(ns, 'circle');
+      dot.setAttribute('cx', cx);
+      dot.setAttribute('cy', 12);
+      dot.setAttribute('r', 2);
+      dot.setAttribute('fill', 'currentColor');
+      svg.append(dot);
+    }
+    return svg;
   }
 
   // Kickoff's logo, the same rocket as the toolbar and app icon.
@@ -1399,6 +1473,7 @@
     const unread = open ? 0 : entry.items.filter(item => item.at > entry.seen).length;
     button.querySelector('.ka-inbox-count').textContent = unread ? String(unread) : '';
     button.toggleAttribute('data-unread', unread > 0);
+    renderTools();
     button.setAttribute('aria-label', unread ? t('inbox.labelUnread', { count: unread }) : t('inbox.label'));
     if (!open) return;
 
@@ -1442,11 +1517,11 @@
     }));
   }
 
-  // ---- Stream info (popout, and channel pages) -----------------------------------
-  // The popout shows no stream at all, so the strip carries a one-line summary. On a
-  // channel page (compact channel info) the strip also takes over Kick's channel info
-  // block under the video: avatar, name, the summary, and copies of Kick's buttons
-  // (follow, subscribe, and when logged in the bell and gift subs).
+  // ---- Stream info (popout and channel pages) ------------------------------------
+  // The same strip on both: the channel's avatar and name, a one-line summary, and
+  // the buttons. On a channel page it also takes over Kick's channel info block
+  // under the video, so it carries copies of Kick's buttons too (follow, subscribe,
+  // and when logged in the bell and gift subs); the popout has none to copy.
 
   // kick.com/{slug} with its chat on the page.
   function channelPageSlug() {
@@ -1455,14 +1530,15 @@
     return parts.length === 1 && document.querySelector('#channel-content') ? parts[0].toLowerCase() : null;
   }
 
-  // Whose stream the strip shows, if any.
+  // Whose stream the strip shows, if any. The popout's is fetched even with stream
+  // info off, for the listen button.
   function streamSlug() {
     if (popoutSlug) return popoutSlug;
-    return state.settings.channelStrip ? channelPageSlug() : null;
+    return state.settings.streamInfo ? channelPageSlug() : null;
   }
 
   function showsStream() {
-    return popoutSlug ? state.settings.streamInfo : Boolean(streamSlug());
+    return state.settings.streamInfo && Boolean(streamSlug());
   }
 
   function formatCount(count) {
@@ -1528,15 +1604,19 @@
     const line = state.bar.querySelector('.ka-stream');
     const details = state.bar.querySelector('.ka-stream-details');
 
-    // Channel page: avatar and name instead of "Kickoff".
-    const channel = !popoutSlug && streamSlug() ? stream?.channel || { name: streamSlug(), avatar: '' } : null;
+    // Avatar and name instead of "Kickoff".
+    const channel = showsStream() ? stream?.channel || { name: streamSlug(), avatar: '' } : null;
     state.bar.toggleAttribute('data-channel', Boolean(channel));
+    renderTools();
     const ident = state.bar.querySelector('.ka-channel');
     if (channel) {
       const avatar = ident.querySelector('.ka-channel-avatar');
       if (channel.avatar && avatar.getAttribute('src') !== channel.avatar) avatar.src = channel.avatar;
       avatar.hidden = !channel.avatar;
       ident.querySelector('.ka-channel-name').textContent = channel.name;
+      ident.href = `/${encodeURIComponent(streamSlug())}/videos`;
+      newTabInPopout(ident);
+      ident.title = t('strip.channelPage', { name: channel.name });
     }
 
     if (!stream) {
@@ -1558,9 +1638,10 @@
         ? ''
         : t('stream.liveSince', { time: new Date(stream.startedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) });
       const meta = el('div', 'ka-stream-details-meta');
-      if (stream.category && stream.categorySlug && !popoutSlug) {
+      if (stream.category && stream.categorySlug) {
         const link = el('a', 'ka-stream-category', stream.category);
         link.href = `/category/${encodeURIComponent(stream.categorySlug)}`;
+        newTabInPopout(link);
         meta.append(link, ' · ');
       } else if (stream.category) {
         meta.append(`${stream.category} · `);
@@ -1570,6 +1651,13 @@
       details.hidden = false;
     }
     renderStatus();
+  }
+
+  // The popout is a small window for the chat: its links open kick.com pages in a tab.
+  function newTabInPopout(link) {
+    if (!popoutSlug) return;
+    link.target = '_blank';
+    link.rel = 'noopener';
   }
 
   // The stream in the Kickoff app's own player, about as close to live as Kick's
@@ -1705,6 +1793,22 @@
       if (event.target.closest?.('#chatroom-messages')) setViewsOpen(false);
     }, { capture: true, passive: true });
   }
+
+  // ---- Chat links ------------------------------------------------------------------
+  // Kick opens them in a tab in front (from the popout, in the stream's window, over
+  // the stream). Unless that's the setting, background.js opens them instead; a
+  // click with a modifier key still does what Safari does with it.
+  window.addEventListener('click', event => {
+    const mode = state.settings.chatLinks;
+    if (mode === 'tab' || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    const link = event.target.closest?.('#chatroom-messages a[href]');
+    if (!link || link.matches(USER_NAME_LINK) || !/^https?:$/.test(link.protocol)) return;
+    event.preventDefault();
+    event.stopPropagation();
+    browser.runtime.sendMessage({ type: 'kickoff:openLink', url: link.href, mode }).catch(() => {
+      window.open(link.href, '_blank', 'noopener');
+    });
+  }, true);
 
   // Kick's channel buttons, wherever they are (its info block stays mounted, hidden).
   function kickChannelButtons() {
@@ -2694,7 +2798,6 @@
     for (const [key, attr] of Object.entries(FEATURE_ATTRS)) setAttr(attr, Boolean(state.settings[key]));
     setAttr(CHAT_FONT_ATTR, state.settings.chatFont !== 'kick', state.settings.chatFont);
     for (const [key, attr] of Object.entries(EVENT_ATTRS)) setAttr(attr, state.settings[key] !== 'full', state.settings[key]);
-    setAttr(POPOUT_ATTR, Boolean(popoutSlug));
     setAttr(CHANNEL_STRIP_ATTR, Boolean(streamSlug() && !popoutSlug));
     const size = state.settings.fontSize;
     setAttr(FONT_SIZE_ATTR, size != null, String(size));

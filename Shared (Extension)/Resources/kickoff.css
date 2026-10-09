@@ -226,7 +226,7 @@ html[data-ka-chatonly] #chatroom-footer div:has(> #quick-emotes-holder) {
     opacity: 0.8;
 }
 
-/* Stream info (popout): replaces the title; the wake status shrinks to an icon. */
+/* Stream info: replaces the title; the wake status shrinks to an icon. */
 .ka-settings[data-stream] .ka-settings-title {
     display: none;
 }
@@ -1455,7 +1455,80 @@ html[data-ka-font="mono"] #channel-chatroom {
    something new), list opening below the strip. */
 .ka-settings-head {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
+}
+
+/* The buttons (channel's, listen, search, inbox, settings): at the end of the one
+   row, or with stream info (data-tools-row) on a row of their own under it, which
+   the "…" button folds away (data-tools-folded). */
+.ka-strip-tools {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+}
+
+.ka-strip-spacer,
+.ka-tools-toggle {
+    display: none;
+}
+
+.ka-settings[data-tools-row] .ka-strip-tools {
+    flex: 1 0 100%;
+    padding: 1px 0 5px 8px;
+}
+
+.ka-settings[data-tools-row] .ka-strip-spacer {
+    display: block;
+    flex: 1;
+}
+
+.ka-settings[data-tools-row] .ka-tools-toggle {
+    position: relative;
+    display: flex;
+    padding: 0 6px;
+}
+
+.ka-settings[data-tools-folded] .ka-strip-tools {
+    display: none;
+}
+
+/* Not a pressed button when open, just quieter. */
+.ka-strip-button.ka-tools-toggle[aria-expanded] {
+    background: none;
+    border-color: transparent;
+    color: inherit;
+}
+
+.ka-strip-button.ka-tools-toggle[aria-expanded]:hover {
+    background: var(--ka-fill-hover);
+}
+
+.ka-tools-toggle[aria-expanded="true"] {
+    opacity: 0.6;
+}
+
+.ka-more-icon {
+    width: 14px;
+    height: 14px;
+}
+
+/* Folded: a red dot for unread mentions, the green one for unseen settings. */
+.ka-settings[data-tools-folded] .ka-tools-toggle:is([data-unread], [data-hint])::before {
+    content: "";
+    position: absolute;
+    top: -2px;
+    right: -2px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--ka-accent);
+    box-shadow: 0 0 6px rgba(83, 252, 24, 0.7);
+}
+
+.ka-settings[data-tools-folded] .ka-tools-toggle[data-unread]::before {
+    background: #eb0400;
+    box-shadow: none;
 }
 
 .ka-settings-head .ka-settings-toggle {
@@ -2546,7 +2619,7 @@ html[data-ka-player]:not([data-ka-player-idle]) #channel-content > div[style*="h
     height: auto !important;
 }
 
-/* ---- Compact channel info (channel pages, content.js) ----
+/* ---- Kick's channel info, taken over by the strip (channel pages, content.js) ----
    Kick's channel block under the video (avatar, name, title, buttons, viewers) is
    hidden but stays mounted: the strip above the chat shows the channel and copies of
    its buttons, which press Kick's. It's invisible rather than display:none: Kick's
@@ -2564,16 +2637,35 @@ html[data-ka-channel-strip] #channel-content > :has(#channel-username) {
     pointer-events: none !important;
 }
 
+/* The channel's picture and name: a link to its videos and clips. */
 .ka-channel {
     display: none;
     flex: 0 1 auto;
     align-items: center;
     gap: 6px;
     min-width: 0;
+    max-width: 45%;
+    margin-left: 12px;
+    color: inherit;
+    text-decoration: none;
+}
+
+.ka-views + .ka-channel {
+    margin-left: 8px;
 }
 
 .ka-settings[data-channel] .ka-channel {
     display: flex;
+}
+
+.ka-channel:hover .ka-channel-name {
+    text-decoration: underline;
+}
+
+.ka-channel:focus-visible {
+    outline: 2px solid var(--ka-accent);
+    outline-offset: 1px;
+    border-radius: 4px;
 }
 
 .ka-settings[data-channel] .ka-settings-title {
@@ -2639,13 +2731,6 @@ html[data-ka-channel-strip] #channel-content > :has(#channel-username) {
 .ka-stream-category {
     color: var(--ka-accent);
     text-decoration: none;
-}
-
-/* Channel page on a phone: the stream title gives way to the buttons. */
-@media (max-width: 480px) {
-    .ka-settings[data-channel] .ka-stream-title {
-        display: none;
-    }
 }
 
 /* ---- Sleep timer (player bar and popout strip, content.js) ----
@@ -2811,7 +2896,7 @@ html[data-ka-channel-strip] #channel-content > :has(#channel-username) {
     cursor: default;
 }
 
-.ka-views + .ka-settings-toggle {
+.ka-views ~ .ka-settings-toggle {
     padding-left: 8px;
 }
 
