@@ -1462,6 +1462,14 @@ html[data-ka-font="mono"] #channel-chatroom {
     font-family: ui-monospace, "SF Mono", Menlo, monospace !important;
 }
 
+/* The message list scrolls up and down only. Kick's one-line "Replying to …"
+   overflows its truncating button, and on iOS that still widens the list, so it
+   pans sideways (most with the wide mono font). */
+#chatroom-messages {
+    overflow-x: hidden !important;
+    overscroll-behavior-x: none;
+}
+
 .ka-choice-option[aria-pressed="true"] {
     background: var(--ka-accent-soft);
     box-shadow: var(--ka-accent-ring);
@@ -1822,11 +1830,11 @@ html[data-ka-ios] {
     --ka-icon-send: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 19V5M5.5 11.5 12 5l6.5 6.5' stroke-width='2.4'/%3E%3C/svg%3E");
 }
 
+/* No backdrop-filter: nothing scrolls behind the footer, and on iOS its masked
+   icons and the message box could paint as black squares until a reload. */
 html[data-ka-ios] #chatroom-footer {
     border-top: 0.5px solid rgba(255, 255, 255, 0.12);
     background: rgba(28, 28, 30, 0.72);
-    -webkit-backdrop-filter: saturate(180%) blur(20px);
-    backdrop-filter: saturate(180%) blur(20px);
 }
 
 html[data-ka-ios] #chat-input-wrapper {
