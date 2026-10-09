@@ -29,7 +29,11 @@
     muteUsers: true,
     mutedUsers: [], // usernames as shown in chat; matched in any case
     highlightUsers: [], // same, their messages are highlighted
+    botUsers: [], // same, chat bots: added to the known ones (collapsing, learning !commands)
     collapseRepeats: true,
+    rewardEvents: 'full', // Kick's point rewards: one of EVENT_MODES
+    subEvents: 'full',    // subs, gifted subs, Kicks gifts: same
+    chatCommands: true,
     sevenTvCosmetics: true,
     hideEmoteOnly: false,
     hideBots: true,
@@ -57,6 +61,7 @@
     highlightStreamer: 'data-ka-streamer',
     muteUsers: 'data-ka-mute',
     collapseRepeats: 'data-ka-repeats',
+    chatCommands: 'data-ka-commands',
     sevenTvCosmetics: 'data-ka-7tv-cosmetics',
     hideEmoteOnly: 'data-ka-emote-only',
     hideBots: 'data-ka-bots',
@@ -71,8 +76,8 @@
   // the other names are the rows buildBar makes itself.
   const SETTINGS_TABS = {
     general: ['wakeLock', 'chatOnly', 'streamInfo', 'channelStrip', 'blockAds'],
-    chat: ['font', 'size', 'readableNames', 'chatStripes', 'sevenTv', 'sevenTvCosmetics', 'linkPreviews', 'restoreDeleted', 'savedMessages', 'userCard', 'iosInput'],
-    filters: ['highlights', 'highlightWords', 'highlightUsers', 'highlightStreamer', 'hideWords', 'hideEmoteOnly', 'collapseRepeats', 'hideBots', 'muteUsers', 'mutedUsers', 'notes'],
+    chat: ['font', 'size', 'readableNames', 'chatStripes', 'sevenTv', 'sevenTvCosmetics', 'linkPreviews', 'restoreDeleted', 'savedMessages', 'chatCommands', 'userCard', 'iosInput'],
+    filters: ['highlights', 'highlightWords', 'highlightUsers', 'highlightStreamer', 'hideWords', 'hideEmoteOnly', 'collapseRepeats', 'rewardEvents', 'subEvents', 'hideBots', 'botUsers', 'muteUsers', 'mutedUsers', 'notes'],
     player: ['appPlayer', 'nativePlayer', 'backgroundAudio', 'popoutAudio']
   };
   // Switches that only do something while another one is on; dimmed otherwise.
@@ -92,6 +97,10 @@
   // Chat font: Kick's own, or Apple's San Francisco, New York (serif) or SF Mono.
   const CHAT_FONT_ATTR = 'data-ka-font';
   const CHAT_FONTS = [['kick', 'Kick'], ['sf', 'SF'], ['serif', t('font.serif')], ['mono', t('font.mono')]];
+  // Kick's event cards (point rewards; subs and gifts): as Kick draws them, one
+  // line, or hidden. page-hook.js follows these attributes (none = full).
+  const EVENT_MODES = [['full', t('events.full')], ['compact', t('events.compact')], ['hide', t('events.hide')]];
+  const EVENT_ATTRS = { rewardEvents: 'data-ka-reward-events', subEvents: 'data-ka-sub-events' };
   // Kickoff app player qualities; the app takes the closest rendition the stream has.
   // Auto lets the app switch, which costs it a few seconds of delay.
   const APP_QUALITIES = [
@@ -106,10 +115,12 @@
   const HIDE_WORDS_ATTR = 'data-ka-hide-words'; // JSON list, read by page-hook.js
   const MUTED_USERS_ATTR = 'data-ka-muted-users'; // JSON list, read by page-hook.js
   const HIGHLIGHT_USERS_ATTR = 'data-ka-highlight-users'; // JSON list, read by page-hook.js
+  const BOT_USERS_ATTR = 'data-ka-bot-users'; // JSON list, read by page-hook.js
   // Username lists edited in the panel (chips + a field) and from Kick's user card.
   const USER_LISTS = {
     mutedUsers: { label: 'mute.label', empty: 'mute.empty', remove: 'mute.unmute' },
-    highlightUsers: { label: 'users.highlight', empty: 'users.highlightEmpty', remove: 'users.unhighlight' }
+    highlightUsers: { label: 'users.highlight', empty: 'users.highlightEmpty', remove: 'users.unhighlight' },
+    botUsers: { label: 'bots.label', empty: 'bots.empty', remove: 'bots.remove' }
   };
   const USERNAME = /^[\w.-]{1,40}$/;
   const ROCKET_PATHS = [
@@ -231,6 +242,63 @@
     postUsage(merged); // the page may be missing what other devices added
   }
 
+  // ---- Channel !commands: synced copy for background.js --------------------------
+  // The same round trip as emote usage. page-hook.js keeps { channel: { name:
+  // { uses, at, answer } } } in Kick's localStorage.
+
+  const COMMANDS_KEY = 'kickoffCommands';
+  const COMMANDS_PER_CHANNEL = 50;
+  const COMMAND_CHANNELS = 20;
+  const COMMAND_ANSWER_LENGTH = 100;
+  const COMMAND_NAME = /^[!?$%#&~.+][\p{L}\p{N}_-]{1,30}$/u; // with its prefix: "!chill"
+
+  function postCommands(commands) {
+    window.postMessage({ source: EXT_SOURCE, type: 'commands', commands }, location.origin);
+  }
+
+  // Same merge as page-hook.js and background.js: per channel and command the
+  // higher use count, and the newest answer; then the COMMANDS_PER_CHANNEL newest
+  // per channel, in the COMMAND_CHANNELS newest channels. Also cleans what came in.
+  function mergeCommands(a, b) {
+    const merged = {};
+    for (const source of [a, b]) {
+      for (const [channel, known] of Object.entries(source && typeof source === 'object' ? source : {})) {
+        if (!known || typeof known !== 'object') continue;
+        for (const [name, entry] of Object.entries(known)) {
+          const uses = Number(entry?.uses);
+          const at = Number(entry?.at);
+          if (!(uses > 0) || !Number.isFinite(at) || !COMMAND_NAME.test(name)) continue;
+          const answer = String(entry.answer ?? '').slice(0, COMMAND_ANSWER_LENGTH);
+          const mine = (merged[channel] ||= {})[name];
+          merged[channel][name] = !mine ? { uses, at, answer }
+            : { uses: Math.max(mine.uses, uses), at: Math.max(mine.at, at), answer: at > mine.at ? answer : mine.answer };
+        }
+      }
+    }
+    const newest = known => Math.max(0, ...Object.values(known).map(entry => entry.at));
+    for (const known of Object.values(merged)) {
+      const names = Object.keys(known);
+      if (names.length <= COMMANDS_PER_CHANNEL) continue;
+      names.sort((x, y) => known[x].at - known[y].at)
+        .slice(0, names.length - COMMANDS_PER_CHANNEL)
+        .forEach(old => delete known[old]);
+    }
+    const channels = Object.keys(merged);
+    if (channels.length > COMMAND_CHANNELS) {
+      channels.sort((x, y) => newest(merged[x]) - newest(merged[y]))
+        .slice(0, channels.length - COMMAND_CHANNELS)
+        .forEach(old => delete merged[old]);
+    }
+    return merged;
+  }
+
+  async function storeCommands(incoming) {
+    const stored = mergeCommands((await browser.storage.local.get(COMMANDS_KEY))[COMMANDS_KEY], {});
+    const merged = mergeCommands(stored, incoming);
+    if (JSON.stringify(merged) !== JSON.stringify(stored)) await browser.storage.local.set({ [COMMANDS_KEY]: merged });
+    postCommands(merged); // the page may be missing what other devices learned
+  }
+
   function cleanMessage(item) {
     const valid = item && typeof item.id === 'string' && typeof item.text === 'string'
       && item.text.trim() && item.text.length <= MESSAGE_MAX_LENGTH
@@ -245,13 +313,17 @@
     };
   }
 
-  async function handlePageRequest({ type, item, id, username, usage }) {
+  async function handlePageRequest({ type, item, id, username, usage, commands }) {
     if (type === 'usage:set') {
       await storeUsage(usage);
       return;
     }
+    if (type === 'commands:set') {
+      await storeCommands(commands);
+      return;
+    }
     // From Kick's user card (page-hook.js): mute / highlight, and undo.
-    const userList = { mute: 'mutedUsers', highlight: 'highlightUsers' }[String(type).split(':')[0]];
+    const userList = { mute: 'mutedUsers', highlight: 'highlightUsers', bot: 'botUsers' }[String(type).split(':')[0]];
     if (userList && type.endsWith(':add')) {
       addUsers(userList, [username]);
       return;
@@ -798,17 +870,19 @@
       return [head, search, el('div', 'ka-notes-list')];
     }
 
-    const fontRow = () => {
+    // A label and a few buttons, one of them pressed (the setting's value).
+    const choiceRow = (key, label, choices) => {
       const row = el('div', 'ka-settings-row');
-      const fonts = el('span', 'ka-size-controls ka-font-choice');
-      for (const [value, label] of CHAT_FONTS) {
-        const option = el('button', 'ka-size-button ka-font-option', label);
+      const options = el('span', 'ka-size-controls ka-choice');
+      for (const [value, text] of choices) {
+        const option = el('button', 'ka-size-button ka-choice-option', text);
         option.type = 'button';
-        option.dataset.font = value;
-        option.addEventListener('click', () => saveSettings({ chatFont: value }));
-        fonts.append(option);
+        option.dataset.setting = key;
+        option.dataset.value = value;
+        option.addEventListener('click', () => saveSettings({ [key]: value }));
+        options.append(option);
       }
-      row.append(el('span', 'ka-settings-label', t('font.label')), fonts);
+      row.append(el('span', 'ka-settings-label', label), options);
       return row;
     };
 
@@ -851,12 +925,15 @@
 
     const ROWS = {
       appPlayer: appPlayerRow,
-      font: fontRow,
+      font: () => choiceRow('chatFont', t('font.label'), CHAT_FONTS),
+      rewardEvents: () => choiceRow('rewardEvents', t('setting.rewardEvents'), EVENT_MODES),
+      subEvents: () => choiceRow('subEvents', t('setting.subEvents'), EVENT_MODES),
       size: sizeRow,
       highlightWords: () => wordsRow('highlightWords', t('words.highlight'), t('words.highlightExample')),
       hideWords: () => wordsRow('hideWords', t('words.hide'), t('words.hideExample')),
       mutedUsers: () => userRows('mutedUsers'),
       highlightUsers: () => userRows('highlightUsers'),
+      botUsers: () => userRows('botUsers'),
       notes: notesRows
     };
 
@@ -1097,8 +1174,8 @@
     state.bar.querySelector('input[data-users="highlightUsers"]').disabled = !state.settings.highlights;
     for (const key of Object.keys(USER_LISTS)) renderUserList(key);
     renderNotesList();
-    for (const option of state.bar.querySelectorAll('.ka-font-option')) {
-      option.setAttribute('aria-pressed', String(option.dataset.font === state.settings.chatFont));
+    for (const option of state.bar.querySelectorAll('.ka-choice-option')) {
+      option.setAttribute('aria-pressed', String(option.dataset.value === state.settings[option.dataset.setting]));
     }
     state.bar.querySelector('.ka-size-reset').hidden = state.settings.fontSize == null;
     const appQuality = state.bar.querySelector('.ka-app-quality');
@@ -2616,6 +2693,7 @@
   function applyAttributes() {
     for (const [key, attr] of Object.entries(FEATURE_ATTRS)) setAttr(attr, Boolean(state.settings[key]));
     setAttr(CHAT_FONT_ATTR, state.settings.chatFont !== 'kick', state.settings.chatFont);
+    for (const [key, attr] of Object.entries(EVENT_ATTRS)) setAttr(attr, state.settings[key] !== 'full', state.settings[key]);
     setAttr(POPOUT_ATTR, Boolean(popoutSlug));
     setAttr(CHANNEL_STRIP_ATTR, Boolean(streamSlug() && !popoutSlug));
     const size = state.settings.fontSize;
@@ -2628,6 +2706,8 @@
     setAttr(MUTED_USERS_ATTR, muted.length > 0, JSON.stringify(muted));
     const highlighted = state.settings.highlightUsers;
     setAttr(HIGHLIGHT_USERS_ATTR, highlighted.length > 0, JSON.stringify(highlighted));
+    const bots = state.settings.botUsers;
+    setAttr(BOT_USERS_ATTR, bots.length > 0, JSON.stringify(bots));
     const noted = notedNames();
     setAttr(NOTED_USERS_ATTR, noted.length > 0, JSON.stringify(noted));
     if (state.fontStyle && !state.fontStyle.isConnected) (document.head || root).append(state.fontStyle);
@@ -2643,6 +2723,9 @@
     // Before the font choice there was only the SF switch (sfFont).
     if (!CHAT_FONTS.some(([value]) => value === settings.chatFont)) {
       state.settings.chatFont = settings.sfFont === false ? 'kick' : 'sf';
+    }
+    for (const key of Object.keys(EVENT_ATTRS)) {
+      if (!EVENT_MODES.some(([value]) => value === state.settings[key])) state.settings[key] = 'full';
     }
 
     applyFontSize(state.settings.fontSize);
@@ -2665,6 +2748,7 @@
     if (SETTINGS_KEY in changes) applySettings(changes[SETTINGS_KEY].newValue || {});
     if (MESSAGES_KEY in changes) postMessages(changes[MESSAGES_KEY].newValue || []);
     if (USAGE_KEY in changes) postUsage(cleanUsage(changes[USAGE_KEY].newValue));
+    if (COMMANDS_KEY in changes) postCommands(mergeCommands(changes[COMMANDS_KEY].newValue, {}));
     if (INBOX_KEY in changes) applyInbox(changes[INBOX_KEY].newValue || {});
     if (NOTES_KEY in changes) applyNotes(changes[NOTES_KEY].newValue);
     if (BLOCK_STATUS_KEY in changes) {

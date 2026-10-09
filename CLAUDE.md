@@ -30,12 +30,14 @@ Safari's "describe extension" feature; now a regular Xcode project.
   `Shared (App)/Localizable.xcstrings`, the storyboard menus in `macOS (App)/pl.lproj/Main.strings`.
   The "Page script" troubleshooting text in the panel stays English on purpose.
 - iCloud sync: background.js syncs settings (minus `fontSize`), saved messages,
-  7TV emote usage and notes about users through `SafariWebExtensionHandler.swift`
-  (NSUbiquitousKeyValueStore, keys `settings`/`messages`/`emoteUsage`/`notes`, each
+  7TV emote usage, notes about users and learned channel `!commands` through
+  `SafariWebExtensionHandler.swift` (NSUbiquitousKeyValueStore, keys
+  `settings`/`messages`/`emoteUsage`/`notes`/`commands`, each
   `{ updatedAt, value }`; a new key must be added to `syncedKeys` there too). Settings
   and messages: newest wins. Notes: merged per user, newest wins, deletes kept as
   empty text. Usage is a union (page-hook → content.js
-  `kickoffEmoteUsage` → iCloud and back; `mergeUsage` is copied in all three files). Both extension
+  `kickoffEmoteUsage` → iCloud and back; `mergeUsage` is copied in all three files).
+  Commands go the same way (`kickoffCommands`, `mergeCommands` copied in all three). Both extension
   targets' entitlements share KVS id `$(TeamIdentifierPrefix)net.smigi.Kickoff.Extension`.
   Safari's own `storage.sync` does not sync — don't switch to it.
 - Versioning: bump `MARKETING_VERSION` / `CURRENT_PROJECT_VERSION` in Xcode for

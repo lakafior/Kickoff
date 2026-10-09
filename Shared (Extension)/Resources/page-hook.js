@@ -17,6 +17,8 @@
 //   - replies: tapping "Replying to…" jumps to the original (or shows it if gone)
 //   - optionally hide messages that are only emotes (Kick and 7TV)
 //   - repeated messages: a run of identical messages shows once, with ×N
+//   - Kick's channel point rewards, subs and gifts: as Kick shows them, one line, or hidden
+//   - channel "!commands": learned when a bot answers them, suggested as you type
 //
 // Each feature follows an html attribute set by content.js from the user's settings.
 (() => {
@@ -45,7 +47,11 @@
   const BOT_NAMES = new Set(['botrix', 'kickbot', 'streamelements', 'fossabot']); // lower case
   const HIGHLIGHT_USERS_ATTR = 'data-ka-highlight-users';
   const NOTED_USERS_ATTR = 'data-ka-noted-users'; // names you wrote a note about (content.js has the notes)
+  const BOT_USERS_ATTR = 'data-ka-bot-users'; // the user's own list of chat bots, added to BOT_NAMES
   const REPEATS_ATTR = 'data-ka-repeats';
+  const REWARD_EVENTS_ATTR = 'data-ka-reward-events'; // 'compact' or 'hide'; none = Kick's own
+  const SUB_EVENTS_ATTR = 'data-ka-sub-events';       // same, for subs and gifts
+  const COMMANDS_ATTR = 'data-ka-commands';
   const LIST_SELECTOR = '#chatroom-messages';
   const ROW_SELECTOR = '[data-index]';
   const DELETED_TEXT = 'Deleted by a moderator'; // fallback only, see findDeletedLabel
@@ -157,8 +163,56 @@
     return key ? row[key] : null;
   }
 
-  // The row element's React fiber has the chat entry a level or two below it.
+  // Kick's chat entries live in its store, which the list component reads through
+  // useSyncExternalStore; that hook keeps getSnapshot, which always returns the
+  // newest entries. A row's own fiber can be React's stale copy: Kick swaps your
+  // sent message's optimistic copy for the confirmed one (and marks deletions)
+  // under the same row key, and the stale copy then keeps the old message for good.
+  let entriesReader = null; // { list, read }
+
+  const isEntryList = value => Array.isArray(value) && value.length > 0
+    && typeof value[0]?.id === 'string' && typeof value[0]?.type === 'string';
+
+  function findEntriesReader() {
+    let fiber = list && rowFiber(list);
+    for (let depth = 0; fiber && depth < 15; depth++, fiber = fiber.return) {
+      for (let hook = fiber.memoizedState, n = 0; hook && typeof hook === 'object' && n < 60; hook = hook.next, n++) {
+        const read = hook.queue?.getSnapshot;
+        if (typeof read !== 'function') continue;
+        try {
+          if (isEntryList(read())) return read;
+        } catch (err) { /* not ours */ }
+      }
+    }
+    return null;
+  }
+
+  function storeEntries() {
+    if (!list) return null;
+    // Looked up again while not found (Kick's list starts empty).
+    if (entriesReader?.list !== list || !entriesReader.read) entriesReader = { list, read: findEntriesReader() };
+    try {
+      const entries = entriesReader.read?.();
+      return Array.isArray(entries) ? entries : null;
+    } catch (err) {
+      entriesReader = null;
+      return null;
+    }
+  }
+
+  // The store entry drawn in a row (its index in the list), checked against the
+  // row's React key so a list that changed meanwhile can't give the wrong one.
+  function readEntry(row) {
+    const key = rowFiber(row)?.key;
+    const entry = key != null ? storeEntries()?.[Number(row.dataset.index)] : null;
+    return entry?.id === key ? entry : null;
+  }
+
+  // Falls back to the row element's React fiber, which has the chat entry a level
+  // or two below it (also for rows outside the main list).
   function readMessage(row) {
+    const entry = readEntry(row);
+    if (entry) return entry.type === 'message' && entry.data?.id && 'content' in entry.data ? entry.data : null;
     let fiber = rowFiber(row);
     for (let depth = 0; fiber && depth < 6; depth++, fiber = fiber.child) {
       const props = fiber.memoizedProps;
@@ -177,12 +231,15 @@
     }
   }
 
-  // Kick's whole message list (last 300, oldest first) is a prop of the component
-  // around #chatroom-messages; only ~30 of them are drawn as rows. React keeps two
-  // copies of each fiber (current and alternate), so take the newer list.
+  // Kick's whole message list (last 300, oldest first): read from its store, else
+  // from the prop of the component around #chatroom-messages; only ~30 of them are
+  // drawn as rows. React keeps two copies of each fiber (current and alternate),
+  // so then take the newer list.
   let harvested = null;
 
   function kickMessages() {
+    const entries = storeEntries();
+    if (entries) return entries;
     const owner = list && rowFiber(list)?.return;
     const newest = messages => (Array.isArray(messages) && messages.length
       ? Date.parse(messages[messages.length - 1]?.data?.created_at) || 0
@@ -198,7 +255,11 @@
     const previous = harvested;
     harvested = messages;
     for (const entry of messages) {
-      if (entry?.data?.id && typeof entry.data.content === 'string') remember(entry.data);
+      const data = entry?.data;
+      if (!data?.id || typeof data.content !== 'string') continue;
+      const seenBefore = history.has(data.id);
+      remember(data);
+      if (!seenBefore) guarded('commands', () => learnCommands(data));
     }
     noteSeen(messages);
     if (previous && restoreEnabled()) guarded('removed', () => findRemoved(previous, messages));
@@ -1459,7 +1520,7 @@
       return true;
     }
 
-    const mutedLine = target.closest?.('.ka-muted-line');
+    const mutedLine = target.closest?.('.ka-muted-line, .ka-event-line');
     if (mutedLine) {
       toggleRevealed(mutedLine.dataset.id);
       return true;
@@ -1593,6 +1654,141 @@
   }, { capture: true, passive: true });
   document.addEventListener('wheel', closeCard, { capture: true, passive: true });
 
+  // ---- Channel commands -------------------------------------------------------------
+  // Channels have their own commands answered by a bot ("!chill" → "chill level
+  // 7/10"). "!" is the usual prefix, but some bots let the streamer pick another
+  // (StreamElements) or use their own ("$"), so any of COMMAND_PREFIXES counts. A
+  // "!word" counts as a command once a bot answers it within a few seconds: the
+  // answer mentions or replies to the asker, or nobody else asked something
+  // meanwhile. Learned from every message Kick lists (see harvest), kept per
+  // channel (names with their prefix, "!chill") in kick.com's localStorage, and
+  // suggested when a message starts with a prefix. Synced like emote usage: sent to content.js after a change (and once
+  // on load), merged with what comes back from iCloud.
+
+  const COMMANDS_KEY = 'kickoff:commands';
+  const COMMAND_PREFIXES = '!?$%#&~.+'; // "/" is Kick's own (never sent), "@" a mention
+  const COMMAND = /^([!?$%#&~.+][\p{L}\p{N}_-]{1,30})(?=\s|$)/u;
+  const COMMAND_NAME = /^[!?$%#&~.+][\p{L}\p{N}_-]{1,30}$/u; // stored names (mergeCommands)
+  const COMMAND_ANSWER_MS = 10 * 1000;     // a bot's answer naming the asker
+  const COMMAND_UNADDRESSED_MS = 5 * 1000; // an answer naming nobody
+  const COMMANDS_PER_CHANNEL = 50;
+  const COMMAND_CHANNELS = 20;      // channels kept (most recently answered)
+  const COMMAND_ANSWER_LENGTH = 100;
+  const COMMANDS_SAVE_MS = 2000;
+
+  const commandsEnabled = () => document.documentElement.hasAttribute(COMMANDS_ATTR);
+  let commands = readCommands(); // channel -> { name -> { uses, at, answer } }
+  let commandsSaveTimer = 0;
+  const askedCommands = []; // { channel, name, user, at }, newest last
+
+  function readCommands() {
+    try {
+      const value = JSON.parse(localStorage.getItem(COMMANDS_KEY));
+      return value && typeof value === 'object' ? value : {};
+    } catch (err) {
+      return {};
+    }
+  }
+
+  function saveCommandsSoon() {
+    clearTimeout(commandsSaveTimer);
+    commandsSaveTimer = setTimeout(() => {
+      commands = mergeCommands(readCommands(), commands); // other tabs learn too
+      writeCommands();
+      sendToExtension('commands:set', { commands }); // on to iCloud
+    }, COMMANDS_SAVE_MS);
+  }
+
+  // Same merge as content.js and background.js (iCloud sync): per channel and
+  // command the higher use count, and the newest answer; then the
+  // COMMANDS_PER_CHANNEL newest per channel, in the COMMAND_CHANNELS newest channels.
+  function mergeCommands(a, b) {
+    const merged = {};
+    for (const source of [a, b]) {
+      for (const [channel, known] of Object.entries(source && typeof source === 'object' ? source : {})) {
+        if (!known || typeof known !== 'object') continue;
+        for (const [name, entry] of Object.entries(known)) {
+          const uses = Number(entry?.uses);
+          const at = Number(entry?.at);
+          if (!(uses > 0) || !Number.isFinite(at) || !COMMAND_NAME.test(name)) continue;
+          const answer = String(entry.answer ?? '').slice(0, COMMAND_ANSWER_LENGTH);
+          const mine = (merged[channel] ||= {})[name];
+          merged[channel][name] = !mine ? { uses, at, answer }
+            : { uses: Math.max(mine.uses, uses), at: Math.max(mine.at, at), answer: at > mine.at ? answer : mine.answer };
+        }
+      }
+    }
+    const newest = known => Math.max(0, ...Object.values(known).map(entry => entry.at));
+    for (const known of Object.values(merged)) {
+      const names = Object.keys(known);
+      if (names.length <= COMMANDS_PER_CHANNEL) continue;
+      names.sort((x, y) => known[x].at - known[y].at)
+        .slice(0, names.length - COMMANDS_PER_CHANNEL)
+        .forEach(old => delete known[old]);
+    }
+    const channels = Object.keys(merged);
+    if (channels.length > COMMAND_CHANNELS) {
+      channels.sort((x, y) => newest(merged[x]) - newest(merged[y]))
+        .slice(0, channels.length - COMMAND_CHANNELS)
+        .forEach(old => delete merged[old]);
+    }
+    return merged;
+  }
+
+  function writeCommands() {
+    try {
+      localStorage.setItem(COMMANDS_KEY, JSON.stringify(commands));
+    } catch (err) { /* storage full: they just aren't kept */ }
+  }
+
+  // Kick's bot badge, a name on your bot list or BOT_NAMES, or a name ending in "bot".
+  function isBotMessage(message) {
+    const username = message.sender?.username || '';
+    const badges = [...(message.sender?.identity?.badges || []), ...(message.sender?.identity?.badges_v2 || [])];
+    return isBot(username) || /bot$/i.test(username) || badges.some(badge => /bot/i.test(`${badge?.type || ''} ${badge?.name || ''}`));
+  }
+
+  function learnCommands(message) {
+    if (!commandsEnabled()) return;
+    const channel = channelSlug();
+    const at = Date.parse(message.created_at) || Date.now();
+    while (askedCommands.length && (at - askedCommands[0].at > COMMAND_ANSWER_MS || askedCommands[0].channel !== channel)) askedCommands.shift();
+    const text = plainText(message.content).replace(INVISIBLE_CHARS, '').trim();
+    const user = (message.sender?.username || '').toLowerCase();
+    if (!channel || !text) return;
+    if (!isBotMessage(message)) {
+      const match = text.match(COMMAND);
+      if (match) askedCommands.push({ channel, name: match[1].toLowerCase(), user, at });
+      return;
+    }
+    if (!askedCommands.length) return;
+    const words = new Set(text.toLowerCase().split(/\s+/).map(word => word.replace(/^@/, '').replace(/[^\p{L}\p{N}_]+$/u, '')));
+    const repliedTo = message.metadata?.original_sender?.username?.toLowerCase();
+    const asker = [...askedCommands].reverse().find(asked => asked.user && (asked.user === repliedTo || words.has(asked.user)));
+    // Not addressed to anyone: only right after a single command (bots also post
+    // timed messages, like a Discord link, which mustn't make "!discord" a command).
+    const names = new Set(askedCommands.map(asked => asked.name));
+    const last = askedCommands[askedCommands.length - 1];
+    const asked = asker || (names.size === 1 && at - last.at <= COMMAND_UNADDRESSED_MS ? last : null);
+    if (!asked) return;
+    askedCommands.splice(askedCommands.indexOf(asked), 1);
+    const known = (commands[channel] ||= {});
+    const before = known[asked.name];
+    known[asked.name] = { uses: (before?.uses || 0) + 1, at, answer: asOneLine(text).slice(0, COMMAND_ANSWER_LENGTH) };
+    saveCommandsSoon();
+  }
+
+  // The channel's commands starting with query (prefix included), most used first.
+  function searchCommands(query) {
+    const known = commands[channelSlug()] || {};
+    const lower = query.toLowerCase();
+    return Object.entries(known)
+      .filter(([name]) => name.startsWith(lower))
+      .sort((a, b) => b[1].uses - a[1].uses || b[1].at - a[1].at)
+      .slice(0, AC_MAX_RESULTS)
+      .map(([name, info]) => ({ command: true, name, answer: info.answer }));
+  }
+
   // ---- Autocomplete ------------------------------------------------------------
 
   const AC_MIN_CHARS = 2;
@@ -1663,7 +1859,7 @@
     selection.removeAllRanges();
     selection.addRange(range);
     document.execCommand('insertText', false, `${emote.name} `);
-    recordUsage(emote.name);
+    if (!emote.command) recordUsage(emote.name);
     hideSuggestions();
   }
 
@@ -1683,11 +1879,17 @@
       chip.tabIndex = -1;
       chip.setAttribute('role', 'option');
       chip.setAttribute('aria-selected', String(index === acSelected));
-      const img = el('img', 'ka-ac-image');
-      img.src = emote.src;
-      img.alt = '';
-      img.style.aspectRatio = String(emote.ratio);
-      chip.append(img, el('span', 'ka-ac-name', emote.name));
+      if (emote.command) {
+        chip.classList.add('ka-ac-command');
+        chip.title = emote.answer || '';
+        chip.append(el('span', 'ka-ac-name', emote.name));
+      } else {
+        const img = el('img', 'ka-ac-image');
+        img.src = emote.src;
+        img.alt = '';
+        img.style.aspectRatio = String(emote.ratio);
+        chip.append(img, el('span', 'ka-ac-name', emote.name));
+      }
       chip.dataset.index = String(index); // taps are handled in handleTap()
       return chip;
     }));
@@ -1718,9 +1920,25 @@
     return placeAboveInput(acBar);
   }
 
+  // A "!word" (or another prefix) at the start of the message: the channel's
+  // learned commands with that prefix, from the prefix alone.
+  function commandSuggestions(word) {
+    if (!commandsEnabled() || !COMMAND_PREFIXES.includes(word.word[0])) return null;
+    if (!(acInput.textContent || '').trimStart().startsWith(word.word)) return null;
+    const matches = searchCommands(word.word);
+    return matches.length ? matches : null;
+  }
+
   function updateSuggestions() {
-    const word = sevenTvEnabled() && emoteIndex.length && !picker && !messagesPanel ? currentWord() : null;
-    const query = word?.word.replace(/^:/, '');
+    const word = !picker && !messagesPanel ? currentWord() : null;
+    const commandMatches = word && commandSuggestions(word);
+    if (commandMatches) {
+      acMatches = commandMatches;
+      acSelected = -1;
+      renderSuggestions();
+      return;
+    }
+    const query = sevenTvEnabled() && emoteIndex.length ? word?.word.replace(/^:/, '') : null;
     if (!query || query.length < AC_MIN_CHARS) return hideSuggestions();
     acMatches = searchEmotes(query);
     acSelected = -1;
@@ -2110,6 +2328,9 @@
     } else if (event.data.type === 'usage' && event.data.usage && typeof event.data.usage === 'object') {
       usage = mergeUsage(readUsage(), event.data.usage);
       writeUsage();
+    } else if (event.data.type === 'commands' && event.data.commands && typeof event.data.commands === 'object') {
+      commands = mergeCommands(readCommands(), event.data.commands);
+      writeCommands();
     } else if (event.data.type === 'jump' && typeof event.data.id === 'string') {
       guarded('jump', () => jumpTo(event.data.id, event.data.requestId));
     } else if (event.data.type === 'search') {
@@ -2130,6 +2351,7 @@
   }
   sendToExtension('messages:get');
   sendToExtension('usage:set', { usage: readUsage() }); // content.js answers with the merged list
+  sendToExtension('commands:set', { commands: readCommands() }); // same
 
   function newId() {
     return crypto.randomUUID?.() || `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
@@ -2557,7 +2779,7 @@
   const isMuted = username => inNameList(MUTED_USERS_ATTR, username);
   const isHighlightedUser = username => inNameList(HIGHLIGHT_USERS_ATTR, username);
 
-  const isBot = username => Boolean(username) && BOT_NAMES.has(username.toLowerCase());
+  const isBot = username => Boolean(username) && (BOT_NAMES.has(username.toLowerCase()) || inNameList(BOT_USERS_ATTR, username));
 
   // 'muted', 'bot' or null: why this user's messages are collapsed.
   function collapsedUser(username) {
@@ -2754,11 +2976,22 @@
       return { row, index: Number(row.dataset.index), key: message?.content ? messageRepeatKey(message) : '' };
     }).sort((a, b) => a.index - b.index);
 
-    const sameAsNext = (entry, next) => Boolean(entry.key) && next?.key === entry.key && next.index === entry.index + 1;
-    let count = 0;
+    // Rows hidden by Kickoff (emote-only, words to hide, Kick events) don't split a
+    // run; a row that isn't drawn does (segment: a stretch of consecutive indexes).
+    const shown = [];
+    let segment = 0;
     entries.forEach((entry, i) => {
-      count = i > 0 && sameAsNext(entries[i - 1], entry) ? count + 1 : 1;
-      const hidden = sameAsNext(entry, entries[i + 1]);
+      if (i > 0 && entry.index !== entries[i - 1].index + 1) segment++;
+      entry.segment = segment;
+      if (entry.row.hasAttribute('data-ka-hidden-row')) guarded('repeats', () => setRepeat(entry.row, false, 1));
+      else shown.push(entry);
+    });
+
+    const sameAsNext = (entry, next) => Boolean(entry.key) && next?.key === entry.key && next.segment === entry.segment;
+    let count = 0;
+    shown.forEach((entry, i) => {
+      count = i > 0 && sameAsNext(shown[i - 1], entry) ? count + 1 : 1;
+      const hidden = sameAsNext(entry, shown[i + 1]);
       guarded('repeats', () => setRepeat(entry.row, hidden, hidden ? 1 : count));
     });
   }
@@ -2770,14 +3003,15 @@
     const senders = new Map();
     let message = null;
     for (let node = row, index = Number(row.dataset.index); node; ) {
-      const data = readMessage(node);
+      const data = node.hasAttribute('data-ka-hidden-row') ? null : readMessage(node);
       if (data) {
         message ||= data;
         const name = data.sender?.username || '?';
         senders.set(name, (senders.get(name) || 0) + 1);
       }
       index--;
-      node = list?.querySelector(`${ROW_SELECTOR}[data-index="${index}"][data-ka-dup]`);
+      node = list?.querySelector(`${ROW_SELECTOR}[data-index="${index}"]`);
+      if (node && !node.hasAttribute('data-ka-dup') && !node.hasAttribute('data-ka-hidden-row')) node = null;
     }
     const total = [...senders.values()].reduce((sum, n) => sum + n, 0);
     const preview = el('div', 'ka-card-message');
@@ -2788,6 +3022,105 @@
       preview,
       el('div', 'ka-card-meta ka-repeat-senders', t('repeat.by', { who }))
     ]);
+  }
+
+  // ---- Kick events (point rewards, subs, gifts) ---------------------------------------
+  // Kick draws these as big cards. With the setting on 'compact' they become one
+  // line the height of a message (tap it to see Kick's card); on 'hide' the row
+  // is hidden like an emote-only message. Read from the store entry: types
+  // "rewards", "subscriptions" (subscribed / gifted), "kicks_gift", and messages of
+  // type "celebration" (a resub with its message).
+
+  function eventKind(entry) {
+    if (entry.type === 'rewards') return 'reward';
+    if (entry.type === 'subscriptions' || entry.type === 'kicks_gift') return 'sub';
+    if (entry.type === 'message' && entry.data?.type === 'celebration') return 'sub';
+    return null;
+  }
+
+  function eventMode(kind) {
+    return document.documentElement.getAttribute(kind === 'reward' ? REWARD_EVENTS_ATTR : SUB_EVENTS_ATTR) || 'full';
+  }
+
+  // What the compact line says, and its colour (the reward's own, else the user's).
+  function eventSummary(entry) {
+    const data = entry.data || {};
+    const withText = (text, extra) => (extra && extra.trim() ? `${text}: ${asOneLine(plainText(extra))}` : text);
+    if (entry.type === 'rewards') {
+      return {
+        text: withText(t('event.reward', { name: data.username || '?', reward: data.reward_title || '' }), data.user_input),
+        color: data.reward_background_color
+      };
+    }
+    if (entry.type === 'kicks_gift') {
+      return {
+        text: withText(t('event.kicks', { name: data.sender?.username || '?', gift: data.gift?.name || '', count: Number(data.gift?.amount) || 0 }), data.message),
+        color: data.sender?.identity?.color
+      };
+    }
+    if (entry.type === 'message') {
+      const months = Number(data.metadata?.celebration?.total_months) || 0;
+      return {
+        text: withText(t(months > 1 ? 'event.resub' : 'event.sub', { name: data.sender?.username || '?', count: months }), data.content),
+        color: data.sender?.identity?.color
+      };
+    }
+    if (data.action === 'gifted') {
+      const count = Number(data.gifted_total) || data.gifted_usernames?.length || 0;
+      return { text: t('event.gifted', { name: data.username || '?', count }), color: null };
+    }
+    const months = Number(data.months) || 0;
+    return { text: withText(t(months > 1 ? 'event.resub' : 'event.sub', { name: data.username || '?', count: months }), data.custom_message), color: null };
+  }
+
+  // data-ka-event is 'compact' or 'hide' (then the row also has data-ka-hidden-row,
+  // which applyHidden may set for other reasons, so it's only removed if ours).
+  function clearEvent(row) {
+    row.querySelectorAll(':scope > .ka-event-line').forEach(node => node.remove());
+    if (row.getAttribute('data-ka-event') === 'hide') row.removeAttribute('data-ka-hidden-row');
+    row.removeAttribute('data-ka-event');
+    row.removeAttribute('data-ka-event-open');
+  }
+
+  // Returns true while Kick's card is out of sight (compact and closed, or hidden).
+  function applyEvent(row, entry, kind) {
+    const mode = eventMode(kind);
+    if (mode !== 'compact' && mode !== 'hide') {
+      if (row.hasAttribute('data-ka-event')) {
+        clearEvent(row);
+        remeasure(row);
+      }
+      return false;
+    }
+    const compact = mode === 'compact';
+    const open = compact && revealed.has(entry.id);
+    let changed = row.getAttribute('data-ka-event') !== mode
+      || row.hasAttribute('data-ka-hidden-row') === compact
+      || row.hasAttribute('data-ka-event-open') !== open;
+    let line = row.querySelector(':scope > .ka-event-line');
+    if (compact) {
+      if (!line) {
+        line = el('span', 'ka-event-line');
+        line.setAttribute('role', 'button');
+        line.append(el('span', 'ka-event-icon', kind === 'reward' ? '★' : '✦'), el('span', 'ka-event-text'));
+        row.prepend(line);
+        changed = true;
+      }
+      line.dataset.id = entry.id;
+      const { text, color } = eventSummary(entry);
+      const label = line.querySelector('.ka-event-text');
+      if (label.textContent !== text) label.textContent = text;
+      line.title = text;
+      if (color) line.style.setProperty('--ka-event-color', color);
+      else line.style.removeProperty('--ka-event-color');
+    } else if (line) {
+      line.remove();
+    }
+    row.setAttribute('data-ka-event', mode);
+    row.toggleAttribute('data-ka-hidden-row', !compact);
+    row.toggleAttribute('data-ka-event-open', open);
+    if (changed) remeasure(row);
+    return !open;
   }
 
   // ---- Readable name colours ---------------------------------------------------
@@ -2977,6 +3310,13 @@
           sendToExtension(on ? 'mute:remove' : 'mute:add', { username });
         }, on ? 'ka-card-button--on' : 'ka-card-button--mute'));
       }
+      // Your list of chat bots: their answers teach !commands, and they collapse with the bots.
+      if (commandsEnabled() || botsEnabled()) {
+        const on = inNameList(BOT_USERS_ATTR, username);
+        actions.append(userCardButton(t(on ? 'user.unbot' : 'user.bot'), () => {
+          sendToExtension(on ? 'bot:remove' : 'bot:add', { username });
+        }, on ? 'ka-card-button--on' : ''));
+      }
     }
 
     const messages = userHistory(username);
@@ -3040,6 +3380,7 @@
     clearRepeat(row);
     clearCosmetics(row);
     clearGhosts(row);
+    clearEvent(row);
     row.removeAttribute('data-ka-hidden-row');
   }
 
@@ -3048,14 +3389,20 @@
   let rowsWaiting = false; // a pass was skipped while the page was hidden
 
   function processRow(row) {
+    const entry = readEntry(row);
+    const kind = entry && eventKind(entry);
     const message = readMessage(row);
-    if (!message) return;
+    const id = message?.id || (kind ? entry.id : null);
+    if (!id) return;
 
     // Rows are recycled while scrolling: drop anything added for a previous message.
-    if (row.dataset.kaId !== message.id) {
+    if (row.dataset.kaId !== id) {
       clearRow(row);
-      row.dataset.kaId = message.id;
+      row.dataset.kaId = id;
     }
+    // A resub with a message is a message too, but nothing else applies while
+    // it's a line or hidden.
+    if (kind && (applyEvent(row, entry, kind) || !message)) return;
 
     remember(message);
     const deleted = Boolean(findDeletedLabel(row, message));
@@ -3103,7 +3450,7 @@
 
   // Our own nodes inside rows. Changes to them (ours, or a link preview arriving)
   // don't need another pass.
-  const OWN_NODE = '[data-ka-restored], [data-ka-previews], [data-ka-7tv], .ka-ghosts, .ka-muted-line, .ka-repeat, .ka-7tv-badge';
+  const OWN_NODE = '[data-ka-restored], [data-ka-previews], [data-ka-7tv], .ka-ghosts, .ka-muted-line, .ka-event-line, .ka-repeat, .ka-7tv-badge';
 
   // Only inside the list: settings put the same attributes on <html> (data-ka-7tv).
   function isOwnNode(node) {
@@ -3112,11 +3459,18 @@
     return Boolean(own && list?.contains(own) && own !== list);
   }
 
-  // A pass only when Kick changed something.
+  const isRow = node => node.nodeType === Node.ELEMENT_NODE && node.matches(ROW_SELECTOR);
+
+  // A pass only when Kick changed something. New rows get it right away: observer
+  // callbacks run before the browser paints, so a new copy of a repeat (or a
+  // hidden row) never shows for a frame. Waiting for the batch made emote spam
+  // jump: each new copy drew in full, then the one before it disappeared.
   function onListMutations(records) {
     const kick = records.some(record => !isOwnNode(record.target)
       && !(record.type === 'childList' && [...record.addedNodes, ...record.removedNodes].every(isOwnNode)));
-    if (kick) schedule();
+    if (!kick) return;
+    if (!document.hidden && records.some(record => [...record.addedNodes].some(isRow))) processAll();
+    else schedule();
   }
 
   // Settings changed: drop what was switched off and re-measure every row, since
@@ -3156,7 +3510,7 @@
 
   new MutationObserver(onSettingsChange).observe(document.documentElement, {
     attributes: true,
-    attributeFilter: [RESTORE_ATTR, PREVIEWS_ATTR, SEVENTV_ATTR, MESSAGES_ATTR, HIGHLIGHT_ATTR, HIGHLIGHT_WORDS_ATTR, STREAMER_ATTR, HIDE_WORDS_ATTR, MUTE_ATTR, MUTED_USERS_ATTR, HIGHLIGHT_USERS_ATTR, NOTED_USERS_ATTR, USER_CARD_ATTR, BOTS_ATTR, READABLE_NAMES_ATTR, STRIPES_ATTR, REPEATS_ATTR, FONT_SIZE_ATTR, CHAT_FONT_ATTR, COSMETICS_ATTR, EMOTE_ONLY_ATTR]
+    attributeFilter: [RESTORE_ATTR, PREVIEWS_ATTR, SEVENTV_ATTR, MESSAGES_ATTR, HIGHLIGHT_ATTR, HIGHLIGHT_WORDS_ATTR, STREAMER_ATTR, HIDE_WORDS_ATTR, MUTE_ATTR, MUTED_USERS_ATTR, HIGHLIGHT_USERS_ATTR, NOTED_USERS_ATTR, BOT_USERS_ATTR, USER_CARD_ATTR, BOTS_ATTR, READABLE_NAMES_ATTR, STRIPES_ATTR, REPEATS_ATTR, FONT_SIZE_ATTR, CHAT_FONT_ATTR, COSMETICS_ATTR, EMOTE_ONLY_ATTR, REWARD_EVENTS_ATTR, SUB_EVENTS_ATTR, COMMANDS_ATTR]
   });
 
   // ---- Catching up after the page slept ----------------------------------------

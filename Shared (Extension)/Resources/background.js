@@ -115,13 +115,19 @@ syncBlocking().catch(error => console.error('Kickoff: blocking', error));
 // right away; the other devices pull when a Kick tab opens or comes back to the
 // front (content.js asks), since Safari doesn't keep this script running.
 // Text size stays on each device: a size that suits a Mac rarely suits a phone.
-// 7TV emote usage and notes about users are merged instead (`union`): every
-// device's uses are kept, and per user the newest note wins.
+// 7TV emote usage, notes about users and channel !commands are merged instead
+// (`union`): every device's uses are kept, per user the newest note wins, and
+// per command the newest answer.
 const MESSAGES_KEY = 'kickoffMessages';
 const USAGE_KEY = 'kickoffEmoteUsage'; // written by content.js from page-hook.js
 const USAGE_LIMIT = 200;
 const NOTES_KEY = 'kickoffNotes'; // { lower-case name: { name, text, updatedAt } }, '' text = deleted
 const NOTE_TOMBSTONE_MS = 180 * 24 * 60 * 60 * 1000; // deleted notes are forgotten after this
+const COMMANDS_KEY = 'kickoffCommands'; // written by content.js from page-hook.js
+const COMMANDS_PER_CHANNEL = 50;
+const COMMAND_CHANNELS = 20;
+const COMMAND_ANSWER_LENGTH = 100;
+const COMMAND_NAME = /^[!?$%#&~.+][\p{L}\p{N}_-]{1,30}$/u; // with its prefix: "!chill"
 const SYNC_META_KEY = 'kickoffSync'; // { settings|messages: { updatedAt, json } } of the last synced version
 const SYNC_PULL_MS = 15 * 1000; // at most one pull per this long
 const LOCAL_ONLY_SETTINGS = ['fontSize'];
@@ -171,8 +177,54 @@ const SYNCED = {
       }
       return SYNCED.notes.pick(merged);
     }
+  },
+  commands: {
+    storageKey: COMMANDS_KEY,
+    union: true,
+    // Sorted, so the same commands always give the same JSON.
+    pick: value => Object.fromEntries(Object.entries(mergeCommands(value, {}))
+      .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+      .map(([channel, known]) => [channel, Object.fromEntries(Object.entries(known)
+        .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)))])),
+    merge: (remote, local) => SYNCED.commands.pick(mergeCommands(remote, local))
   }
 };
+
+// Same merge as content.js and page-hook.js: per channel and command the higher
+// use count, and the newest answer; then the COMMANDS_PER_CHANNEL newest per
+// channel, in the COMMAND_CHANNELS newest channels. Also cleans what came in.
+function mergeCommands(a, b) {
+  const merged = {};
+  for (const source of [a, b]) {
+    for (const [channel, known] of Object.entries(source && typeof source === 'object' ? source : {})) {
+      if (!known || typeof known !== 'object') continue;
+      for (const [name, entry] of Object.entries(known)) {
+        const uses = Number(entry?.uses);
+        const at = Number(entry?.at);
+        if (!(uses > 0) || !Number.isFinite(at) || !COMMAND_NAME.test(name)) continue;
+        const answer = String(entry.answer ?? '').slice(0, COMMAND_ANSWER_LENGTH);
+        const mine = (merged[channel] ||= {})[name];
+        merged[channel][name] = !mine ? { uses, at, answer }
+          : { uses: Math.max(mine.uses, uses), at: Math.max(mine.at, at), answer: at > mine.at ? answer : mine.answer };
+      }
+    }
+  }
+  const newest = known => Math.max(0, ...Object.values(known).map(entry => entry.at));
+  for (const known of Object.values(merged)) {
+    const names = Object.keys(known);
+    if (names.length <= COMMANDS_PER_CHANNEL) continue;
+    names.sort((x, y) => known[x].at - known[y].at)
+      .slice(0, names.length - COMMANDS_PER_CHANNEL)
+      .forEach(old => delete known[old]);
+  }
+  const channels = Object.keys(merged);
+  if (channels.length > COMMAND_CHANNELS) {
+    channels.sort((x, y) => newest(merged[x]) - newest(merged[y]))
+      .slice(0, channels.length - COMMAND_CHANNELS)
+      .forEach(old => delete merged[old]);
+  }
+  return merged;
+}
 
 // Same merge as content.js and page-hook.js: per emote the higher count and the
 // latest use, then the USAGE_LIMIT most recent.

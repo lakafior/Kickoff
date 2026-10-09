@@ -14,11 +14,11 @@ import os.log
 // a JSON string { updatedAt, value } written by background.js; this side only
 // stores and returns them, the merging happens in JavaScript.
 //
-//   { type: "sync:pull" }                      -> { settings, messages, emoteUsage, notes: String? }
+//   { type: "sync:pull" }                      -> { settings, messages, emoteUsage, notes, commands: String? }
 //   { type: "sync:push", key, value: String }  -> { ok: true }
 class SafariWebExtensionHandler: NSObject, NSExtensionRequestHandling {
 
-    private static let syncedKeys = ["settings", "messages", "emoteUsage", "notes"]
+    private static let syncedKeys = ["settings", "messages", "emoteUsage", "notes", "commands"]
 
     func beginRequest(with context: NSExtensionContext) {
         let request = context.inputItems.first as? NSExtensionItem
