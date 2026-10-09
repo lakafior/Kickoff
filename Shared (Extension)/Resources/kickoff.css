@@ -2706,6 +2706,43 @@ html[data-ka-channel-strip] #channel-content > :has(#channel-username) {
     display: none;
 }
 
+/* Videos, clips, donate: after Kick's buttons (or first, in the popout). */
+.ka-channel-links {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 4px;
+    margin-right: 8px;
+}
+
+.ka-channel-links[hidden],
+.ka-donate-row[hidden] {
+    display: none;
+}
+
+.ka-channel-links .ka-channel-link {
+    justify-content: center;
+    min-width: 26px;
+    margin-right: 0;
+    padding: 0 6px;
+    text-decoration: none;
+}
+
+.ka-channel-link .ka-player-icon {
+    width: 14px;
+    height: 14px;
+}
+
+.ka-channel-link[data-link="donate"] {
+    color: var(--ka-accent);
+}
+
+/* No link yet: quieter, a tap asks for one. */
+.ka-channel-link[data-empty] {
+    color: inherit;
+    opacity: 0.45;
+}
+
 .ka-channel-actions .ka-channel-action {
     justify-content: center;
     min-width: 26px;

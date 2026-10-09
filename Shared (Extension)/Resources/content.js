@@ -22,6 +22,7 @@
     chatLinks: 'tab', // one of LINK_MODES
     sevenTv: true,
     streamInfo: true, // the strip shows the stream (popout and channel pages alike)
+    donateLinks: {}, // channel slug -> donate URL set by hand; else one found among the channel's links
     savedMessages: true,
     highlights: true,
     highlightWords: [],
@@ -75,7 +76,7 @@
   // Settings panel tabs, in order. Each lists its rows: a setting key is a switch,
   // the other names are the rows buildBar makes itself.
   const SETTINGS_TABS = {
-    general: ['wakeLock', 'chatOnly', 'streamInfo', 'blockAds'],
+    general: ['wakeLock', 'chatOnly', 'streamInfo', 'donate', 'blockAds'],
     chat: ['font', 'size', 'readableNames', 'chatStripes', 'sevenTv', 'sevenTvCosmetics', 'linkPreviews', 'chatLinks', 'restoreDeleted', 'savedMessages', 'chatCommands', 'userCard', 'iosInput'],
     filters: ['highlights', 'highlightWords', 'highlightUsers', 'highlightStreamer', 'hideWords', 'hideEmoteOnly', 'collapseRepeats', 'rewardEvents', 'subEvents', 'hideBots', 'botUsers', 'muteUsers', 'mutedUsers', 'notes'],
     player: ['appPlayer', 'nativePlayer', 'backgroundAudio', 'popoutAudio']
@@ -139,6 +140,7 @@
   const state = {
     settings: { ...DEFAULTS },
     toolsFolded: readToolsFolded(),
+    donateFound: {}, // channel slug -> donate URL among its links, or null; once per page
     wakeLock: null,
     wakeLockPending: false,
     bar: null,
@@ -928,8 +930,28 @@
       return row;
     };
 
+    // The current channel's donate link (the strip's donate button), by hand or,
+    // left empty, the one found among the channel's links (the placeholder).
+    const donateRow = () => {
+      const row = el('label', 'ka-settings-row ka-words-row ka-donate-row');
+      const label = el('span', 'ka-settings-label', t('donate.label'));
+      label.append(el('span', 'ka-wake-hint ka-donate-hint'));
+      const input = el('input', 'ka-words-input ka-donate-input');
+      input.type = 'url';
+      input.autocomplete = 'off';
+      input.autocapitalize = 'off';
+      input.spellcheck = false;
+      input.addEventListener('change', () => setDonateLink(input.value));
+      input.addEventListener('keydown', event => {
+        if (event.key === 'Enter') input.blur();
+      });
+      row.append(label, input);
+      return row;
+    };
+
     const ROWS = {
       appPlayer: appPlayerRow,
+      donate: donateRow,
       font: () => choiceRow('chatFont', t('font.label'), CHAT_FONTS),
       rewardEvents: () => choiceRow('rewardEvents', t('setting.rewardEvents'), EVENT_MODES),
       subEvents: () => choiceRow('subEvents', t('setting.subEvents'), EVENT_MODES),
@@ -1009,7 +1031,21 @@
     // With stream info the buttons get a row of their own (data-tools-row), which
     // the "…" button folds away.
     const tools = el('div', 'ka-strip-tools');
-    tools.append(actions, el('span', 'ka-strip-spacer'), listenButton, listenSleep, searchButton, inboxButton, settingsButton);
+    const links = el('div', 'ka-channel-links');
+    for (const [kind, icon] of [['videos', 'videos'], ['clips', 'clip'], ['donate', 'donate']]) {
+      const link = el('a', 'ka-strip-button ka-channel-link');
+      link.dataset.link = kind;
+      link.append(playerIcon(icon));
+      links.append(link);
+    }
+    // No donate link yet: the button opens the field for one.
+    links.querySelector('[data-link="donate"]').addEventListener('click', event => {
+      if (event.currentTarget.hasAttribute('data-empty')) {
+        event.preventDefault();
+        openDonateField();
+      }
+    });
+    tools.append(actions, links, el('span', 'ka-strip-spacer'), listenButton, listenSleep, searchButton, inboxButton, settingsButton);
     const toolsToggle = el('button', 'ka-strip-button ka-tools-toggle');
     toolsToggle.type = 'button';
     toolsToggle.append(moreIcon());
@@ -1564,7 +1600,8 @@
       if (popoutSlug && popoutAudio) await updateListen(data);
       if (!showsStream() || streamSlug() !== slug) return;
       const { livestream } = data;
-      const channel = { name: data.user?.username || slug, avatar: data.user?.profile_pic || '' };
+      const channel = { name: data.user?.username || slug, avatar: data.user?.profile_pic || '', vods: data.vod_enabled !== false };
+      loadDonateLink(slug);
       const category = livestream?.categories?.[0];
       state.stream = livestream?.is_live
         ? {
@@ -1614,8 +1651,8 @@
       if (channel.avatar && avatar.getAttribute('src') !== channel.avatar) avatar.src = channel.avatar;
       avatar.hidden = !channel.avatar;
       ident.querySelector('.ka-channel-name').textContent = channel.name;
-      ident.href = `/${encodeURIComponent(streamSlug())}/videos`;
-      newTabInPopout(ident);
+      ident.href = `/${encodeURIComponent(streamSlug())}/about`;
+      openInNewTab(ident);
       ident.title = t('strip.channelPage', { name: channel.name });
     }
 
@@ -1641,7 +1678,7 @@
       if (stream.category && stream.categorySlug) {
         const link = el('a', 'ka-stream-category', stream.category);
         link.href = `/category/${encodeURIComponent(stream.categorySlug)}`;
-        newTabInPopout(link);
+        openInNewTab(link);
         meta.append(link, ' · ');
       } else if (stream.category) {
         meta.append(`${stream.category} · `);
@@ -1650,12 +1687,99 @@
       details.replaceChildren(el('div', 'ka-stream-details-title', stream.title), meta);
       details.hidden = false;
     }
+    renderChannelLinks(channel);
     renderStatus();
   }
 
-  // The popout is a small window for the chat: its links open kick.com pages in a tab.
-  function newTabInPopout(link) {
-    if (!popoutSlug) return;
+  // ---- Channel links: videos, clips, donate (the strip's button row) ---------------
+  // Donate: the link set by hand for the channel (settings.donateLinks, synced with
+  // the other settings), else a tip/donation page among the channel's own links.
+  const DONATE_SITES = /streamelements\.com\/[^/]+\/tip|streamlabs\.com\/[^/]+\/tip|tipply\.pl|tipeeestream\.com|ko-fi\.com|buymeacoffee\.com|paypal\.(me|com\/donate)|patronite\.pl|zrzutka\.pl|suppi\.pl|donationalerts\.com|throne\.com/i;
+  const DONATE_WORDS = /donat|\btip|napiwek|wesprzyj|wsparcie/i;
+
+  async function loadDonateLink(slug) {
+    if (slug in state.donateFound) return;
+    state.donateFound[slug] = null;
+    try {
+      const response = await fetch(`/api/v2/channels/${encodeURIComponent(slug)}/links`, { credentials: 'omit' });
+      const list = response.ok ? await response.json() : [];
+      const links = Array.isArray(list) ? list.filter(item => /^https?:\/\//i.test(item?.link || '')) : [];
+      const found = links.find(item => DONATE_SITES.test(item.link))
+        || links.find(item => DONATE_WORDS.test(`${item.title || ''} ${item.description || ''}`));
+      state.donateFound[slug] = found?.link || null;
+    } catch (err) {
+      // No links: the button asks for one.
+    }
+    renderStream();
+  }
+
+  function donateLink(slug) {
+    return state.settings.donateLinks[slug] || state.donateFound[slug] || null;
+  }
+
+  // Typed in the panel: kept for the current channel; empty goes back to the found one.
+  function setDonateLink(value) {
+    const slug = showsStream() ? streamSlug() : null;
+    if (!slug) return;
+    let url = value.trim();
+    if (url && !/^[a-z][a-z\d+.-]*:/i.test(url)) url = `https://${url}`;
+    // Not a web link: ignored, the field shows the saved one again.
+    if (url && !/^https?:\/\/[^/\s]+\.[^/\s]+/i.test(url)) return renderStream();
+    const donateLinks = { ...state.settings.donateLinks };
+    if (url) donateLinks[slug] = url;
+    else delete donateLinks[slug];
+    saveSettings({ donateLinks });
+  }
+
+  function openDonateField() {
+    setPanelOpen(true);
+    showSettingsTab('general');
+    const input = state.bar.querySelector('.ka-donate-input');
+    input.scrollIntoView({ block: 'nearest' });
+    input.focus();
+  }
+
+  function renderChannelLinks(channel) {
+    const links = state.bar.querySelector('.ka-channel-links');
+    const row = state.bar.querySelector('.ka-donate-row');
+    const slug = channel ? streamSlug() : null;
+    links.hidden = !slug;
+    row.hidden = !slug;
+    if (!slug) return;
+    const path = `/${encodeURIComponent(slug)}`;
+    const videos = links.querySelector('[data-link="videos"]');
+    videos.href = `${path}/videos`;
+    videos.hidden = channel.vods === false;
+    const clips = links.querySelector('[data-link="clips"]');
+    clips.href = `${path}/clips`;
+    for (const [link, key] of [[videos, 'links.videos'], [clips, 'links.clips']]) {
+      link.title = t(key);
+      link.setAttribute('aria-label', t(key));
+      openInNewTab(link);
+    }
+    const url = donateLink(slug);
+    const donate = links.querySelector('[data-link="donate"]');
+    donate.toggleAttribute('data-empty', !url);
+    if (url) {
+      donate.href = url;
+      donate.target = '_blank';
+      donate.rel = 'noopener noreferrer';
+    } else {
+      donate.href = '#';
+      donate.removeAttribute('target');
+    }
+    const label = url ? t('links.donate', { name: channel.name }) : t('donate.set');
+    donate.title = label;
+    donate.setAttribute('aria-label', label);
+    const input = row.querySelector('.ka-donate-input');
+    if (document.activeElement !== input) input.value = state.settings.donateLinks[slug] || '';
+    input.placeholder = state.donateFound[slug] || 'https://…';
+    row.querySelector('.ka-donate-hint').textContent = t('donate.hint', { name: channel.name });
+  }
+
+  // The strip's links (channel, category, videos, clips) open in a new tab, so the
+  // stream and chat stay where they are.
+  function openInNewTab(link) {
     link.target = '_blank';
     link.rel = 'noopener';
   }
@@ -1944,6 +2068,8 @@
     fullscreen: 'M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z',
     exitFullscreen: 'M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z',
     sleep: 'M12.34 2.02C6.59 1.82 2 6.42 2 12c0 5.52 4.48 10 10 10 3.71 0 6.93-2.02 8.66-5.02-7.51-.25-12.09-8.43-8.32-14.96z',
+    videos: 'M4 6H2v14a2 2 0 0 0 2 2h14v-2H4V6zm16-4H8a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2zm-8 12.5v-9l6 4.5-6 4.5z',
+    donate: 'M11.8 10.9c-2.27-.59-3-1.2-3-2.15 0-1.09 1.01-1.85 2.7-1.85 1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-1.94.42-3.5 1.68-3.5 3.61 0 2.31 1.91 3.46 4.7 4.13 2.5.6 3 1.48 3 2.41 0 .69-.49 1.79-2.7 1.79-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c1.95-.37 3.5-1.5 3.5-3.55 0-2.84-2.43-3.81-4.7-4.4z',
     headphones: 'M12 3a9 9 0 0 0-9 9v7a2 2 0 0 0 2 2h3v-8H5v-1a7 7 0 0 1 14 0v1h-3v8h3a2 2 0 0 0 2-2v-7a9 9 0 0 0-9-9z'
   };
 
@@ -2826,6 +2952,9 @@
     // Before the font choice there was only the SF switch (sfFont).
     if (!CHAT_FONTS.some(([value]) => value === settings.chatFont)) {
       state.settings.chatFont = settings.sfFont === false ? 'kick' : 'sf';
+    }
+    if (!state.settings.donateLinks || typeof state.settings.donateLinks !== 'object' || Array.isArray(state.settings.donateLinks)) {
+      state.settings.donateLinks = {};
     }
     for (const key of Object.keys(EVENT_ATTRS)) {
       if (!EVENT_MODES.some(([value]) => value === state.settings[key])) state.settings[key] = 'full';
