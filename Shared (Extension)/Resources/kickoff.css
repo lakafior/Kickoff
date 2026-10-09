@@ -2262,6 +2262,46 @@ html[data-ka-ios] .ka-reveal::before {
     opacity: 1;
 }
 
+/* About: an icon at the end, so the named tabs keep their width. */
+.ka-settings-tab-icon {
+    flex: 0 0 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.ka-settings-tab-icon .ka-player-icon {
+    width: 16px;
+    height: 16px;
+}
+
+.ka-about-row {
+    cursor: default;
+}
+
+.ka-about-value {
+    opacity: 0.7;
+    color: inherit;
+    font-variant-numeric: tabular-nums;
+}
+
+a.ka-about-value {
+    color: var(--ka-accent);
+    opacity: 1;
+    text-decoration: none;
+}
+
+a.ka-about-value:hover {
+    text-decoration: underline;
+}
+
+.ka-about-note {
+    margin: 8px 0 0;
+    font-size: 11px;
+    line-height: 1.4;
+    opacity: 0.6;
+}
+
 .ka-settings-tab[aria-selected="true"] {
     background: var(--ka-accent-soft);
     box-shadow: var(--ka-accent-ring);

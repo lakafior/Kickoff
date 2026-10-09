@@ -83,7 +83,15 @@
     general: ['wakeLock', 'chatOnly', 'streamInfo', 'donate', 'blockAds'],
     chat: ['font', 'size', 'readableNames', 'chatMentions', 'chatStripes', 'sevenTv', 'sevenTvCosmetics', 'linkPreviews', 'chatLinks', 'restoreDeleted', 'savedMessages', 'chatCommands', 'userCard', 'iosInput'],
     filters: ['highlights', 'highlightWords', 'highlightUsers', 'highlightStreamer', 'hideWords', 'hideEmoteOnly', 'collapseRepeats', 'rewardEvents', 'subEvents', 'hideBots', 'botUsers', 'muteUsers', 'mutedUsers', 'notes'],
-    player: ['theatreMode', 'startUnmuted', 'appPlayer', 'nativePlayer', 'backgroundAudio', 'popoutAudio']
+    player: ['theatreMode', 'startUnmuted', 'appPlayer', 'nativePlayer', 'backgroundAudio', 'popoutAudio'],
+    about: ['about']
+  };
+  // The About tab's links; the version comes from manifest.json.
+  const ABOUT_LINKS = {
+    licence: ['MPL 2.0', 'https://mozilla.org/MPL/2.0/'],
+    author: ['Smigi', 'https://smigi.net/'],
+    source: ['GitHub', 'https://github.com/lakafior/Kickoff'],
+    website: ['kickoff.smigi.net', 'https://kickoff.smigi.net/']
   };
   // Switches that only do something while another one is on; dimmed otherwise.
   const SETTING_NEEDS = {
@@ -953,7 +961,30 @@
       return row;
     };
 
+    // Version, licence, author and links, each a label with its value on the right.
+    const aboutRows = () => {
+      const infoRow = (key, value) => {
+        const row = el('div', 'ka-settings-row ka-about-row');
+        row.append(el('span', 'ka-settings-label', t(`about.${key}`)), value);
+        return row;
+      };
+      let version = '';
+      try {
+        version = browser.runtime.getManifest().version;
+      } catch (err) { /* not available here */ }
+      const rows = version ? [infoRow('version', el('span', 'ka-about-value', version))] : [];
+      for (const [key, [text, href]] of Object.entries(ABOUT_LINKS)) {
+        const link = el('a', 'ka-about-value', text);
+        link.href = href;
+        openInNewTab(link);
+        rows.push(infoRow(key, link));
+      }
+      rows.push(el('p', 'ka-about-note', t('about.notAffiliated')));
+      return rows;
+    };
+
     const ROWS = {
+      about: aboutRows,
       appPlayer: appPlayerRow,
       donate: donateRow,
       font: () => choiceRow('chatFont', t('font.label'), CHAT_FONTS),
@@ -974,7 +1005,14 @@
     tabs.setAttribute('role', 'tablist');
     panel.append(details, tabs);
     for (const [name, rows] of Object.entries(SETTINGS_TABS)) {
-      const tab = el('button', 'ka-settings-tab', t(`tab.${name}`));
+      // About is an icon, so the four named tabs keep their width.
+      const tab = el('button', 'ka-settings-tab', name === 'about' ? '' : t(`tab.${name}`));
+      if (name === 'about') {
+        tab.classList.add('ka-settings-tab-icon');
+        tab.title = t('tab.about');
+        tab.setAttribute('aria-label', t('tab.about'));
+        tab.append(playerIcon('info'));
+      }
       tab.type = 'button';
       tab.id = `ka-tab-${name}`;
       tab.dataset.tab = name;
@@ -2061,6 +2099,7 @@
   const AUDIO_ONLY = 'audio';
 
   const ICONS = {
+    info: 'M11 7h2v2h-2zm0 4h2v6h-2zm1-9C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z',
     play: 'M8 5v14l11-7z',
     pause: 'M6 5h4v14H6zM14 5h4v14h-4z',
     volume: 'M3 9v6h4l5 5V4L7 9H3zm13.5 3A4.5 4.5 0 0 0 14 7.97v8.05A4.47 4.47 0 0 0 16.5 12zM14 3.23v2.06a7 7 0 0 1 0 13.42v2.06A9 9 0 0 0 14 3.23z',
