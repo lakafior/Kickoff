@@ -45,6 +45,8 @@
     chatStripes: false,
     iosInput: true,
     fontSize: null, // null = Kick's own size
+    theatreMode: true, // Kick's theatre mode switched on when a channel opens
+    startUnmuted: true, // Kick's player unmuted when a channel opens
     nativePlayer: false, // off: HLS in Safari sits ~30 s behind live vs ~5 s in Kick's player
     backgroundAudio: true,
     popoutAudio: true,
@@ -81,7 +83,7 @@
     general: ['wakeLock', 'chatOnly', 'streamInfo', 'donate', 'blockAds'],
     chat: ['font', 'size', 'readableNames', 'chatMentions', 'chatStripes', 'sevenTv', 'sevenTvCosmetics', 'linkPreviews', 'chatLinks', 'restoreDeleted', 'savedMessages', 'chatCommands', 'userCard', 'iosInput'],
     filters: ['highlights', 'highlightWords', 'highlightUsers', 'highlightStreamer', 'hideWords', 'hideEmoteOnly', 'collapseRepeats', 'rewardEvents', 'subEvents', 'hideBots', 'botUsers', 'muteUsers', 'mutedUsers', 'notes'],
-    player: ['appPlayer', 'nativePlayer', 'backgroundAudio', 'popoutAudio']
+    player: ['theatreMode', 'startUnmuted', 'appPlayer', 'nativePlayer', 'backgroundAudio', 'popoutAudio']
   };
   // Switches that only do something while another one is on; dimmed otherwise.
   const SETTING_NEEDS = {
@@ -2270,6 +2272,111 @@
     return kickPlayer()?.querySelector(`[data-testid="video-player-${name}"]`) || null;
   }
 
+  // ---- Theatre mode on opening a channel -------------------------------------
+  // Kick's theatre button exists only while its controls show (mouse over the
+  // player): a pointer move on the video brings them up, and the next poll presses
+  // it. Once per channel visit, so turning it off again lasts until the next channel.
+  // Phones have no theatre button: given up after a few polls.
+  const THEATRE_TRIES = 8;
+  const theatre = { slug: null, done: false, tries: 0 };
+
+  function hoverVideo(video, enter) {
+    const box = video.getBoundingClientRect();
+    const at = { bubbles: true, clientX: box.x + box.width / 2, clientY: box.y + box.height / 2, pointerType: 'mouse' };
+    const types = enter
+      ? ['pointerover', 'pointerenter', 'mouseover', 'mouseenter', 'pointermove', 'mousemove']
+      : ['pointerout', 'pointerleave', 'mouseout', 'mouseleave'];
+    for (const type of types) {
+      video.dispatchEvent(type.startsWith('pointer') ? new PointerEvent(type, at) : new MouseEvent(type, at));
+    }
+  }
+
+  // kick.com/{slug} (not the popout chat), or null.
+  function channelPageSlug() {
+    const parts = location.pathname.split('/').filter(Boolean);
+    return !popoutSlug && parts.length === 1 ? parts[0].toLowerCase() : null;
+  }
+
+  function syncTheatre() {
+    const slug = channelPageSlug();
+    if (slug !== theatre.slug) Object.assign(theatre, { slug, done: false, tries: 0 });
+    if (!slug || theatre.done || !state.settings.theatreMode) return;
+    const page = document.querySelector('[data-theatre]');
+    const video = kickPlayer()?.querySelector('video');
+    if (!page || !video) return; // still loading (or offline: no player)
+    if (page.dataset.theatre === 'true' || ++theatre.tries > THEATRE_TRIES) {
+      theatre.done = true;
+      return;
+    }
+    const button = kickButton('theatre-mode');
+    if (!button) {
+      hoverVideo(video, true);
+      return;
+    }
+    button.click();
+    hoverVideo(video, false); // let Kick's controls fade as usual
+    theatre.done = true;
+  }
+
+  // ---- Sound on when a stream opens -------------------------------------------
+  // Kick starts its player muted (browsers autoplay only muted video). Its own sound
+  // button is pressed, so its icon and volume stay right (Kick puts back a volume
+  // set on the video directly); like theatre mode, its controls are brought up
+  // first. Safari may refuse sound without a tap and stop the stream: then it's
+  // muted and played again, and the sound comes on with your first tap or key on
+  // the page. WebKit counts a short timer started in a tap as part of that tap.
+  const SOUND_TRIES = 4; // presses that changed nothing (no controls, e.g. phones)
+  const sound = { slug: null, step: 'wait', tries: 0 }; // wait → pressed → done, or → tap → done
+
+  const isSilent = video => video.muted || video.volume === 0;
+
+  function kickControl(icon) {
+    return kickPlayer()?.querySelector(`button svg[data-ds-icon="${icon}"]`)?.closest('button') || null;
+  }
+
+  // Kick's sound button (icon SoundOff while muted); also its play button when the
+  // stream was stopped.
+  function pressKickSound(video, play = false) {
+    hoverVideo(video, true);
+    setTimeout(() => {
+      kickPlayer()?.querySelector('button svg[data-ds-icon^="Sound"]')?.closest('button')?.click();
+      if (play && video.paused) kickControl('Play')?.click();
+      hoverVideo(video, false);
+    }, 150);
+  }
+
+  function syncSound() {
+    const slug = channelPageSlug();
+    if (slug !== sound.slug) Object.assign(sound, { slug, step: 'wait', tries: 0 });
+    if (!slug || !state.settings.startUnmuted) return;
+    const video = kickPlayer()?.querySelector('video');
+    if (!video) return;
+    if (sound.step === 'wait') {
+      if (video.paused || video.readyState < 2) return; // not playing yet
+      if (!isSilent(video)) {
+        sound.step = 'done';
+        return;
+      }
+      pressKickSound(video);
+      sound.step = 'pressed';
+    } else if (sound.step === 'pressed') { // a poll later: heard, refused, or nothing happened?
+      if (!video.paused && !isSilent(video)) sound.step = 'done';
+      else if (video.paused && !isSilent(video)) { // Safari stopped it
+        pressKickSound(video, true);
+        sound.step = 'tap';
+      } else sound.step = ++sound.tries < SOUND_TRIES ? 'wait' : 'tap';
+    }
+  }
+
+  function onFirstTap(event) {
+    if (sound.step !== 'tap' || sound.slug !== channelPageSlug() || !state.settings.startUnmuted) return;
+    sound.step = 'done';
+    if (event.target.closest?.('#injected-channel-player button')) return; // Kick's own controls
+    const video = kickPlayer()?.querySelector('video');
+    if (video && isSilent(video)) pressKickSound(video);
+  }
+  for (const type of ['click', 'touchend', 'keydown']) document.addEventListener(type, onFirstTap, true);
+
   // Live channel page (kick.com/{slug}) with Kick's player on it, setting on.
   function playerTarget() {
     if (popoutSlug || !state.settings.nativePlayer) return null;
@@ -3012,6 +3119,8 @@
     }
     placeBar();
     syncPlayer();
+    syncTheatre();
+    syncSound();
     syncStreamSlug();
     renderChannelActions();
     renderSleep();
