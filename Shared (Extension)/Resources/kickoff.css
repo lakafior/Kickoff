@@ -492,6 +492,28 @@ html[data-ka-chatonly] #chatroom-footer div:has(> #quick-emotes-holder) {
     cursor: pointer;
 }
 
+/* @mentions in messages (the same copy): bold, in the user's name colour once
+   they've written; a tap opens Kick's user card. */
+.ka-mention {
+    display: inline;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: none;
+    font: inherit;
+    font-weight: 700;
+    color: inherit;
+    cursor: pointer;
+    -webkit-appearance: none;
+    appearance: none;
+}
+
+@media (hover: hover) {
+    .ka-mention:hover {
+        text-decoration: underline;
+    }
+}
+
 .ka-card,
 .ka-ac {
     z-index: 2147483000;

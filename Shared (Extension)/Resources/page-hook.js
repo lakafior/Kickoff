@@ -43,6 +43,7 @@
   const MUTED_USERS_ATTR = 'data-ka-muted-users';
   const BOTS_ATTR = 'data-ka-bots';
   const READABLE_NAMES_ATTR = 'data-ka-readable-names';
+  const MENTIONS_ATTR = 'data-ka-mentions'; // @names in messages open that user's card
   const STRIPES_ATTR = 'data-ka-stripes';
   const BOT_NAMES = new Set(['botrix', 'kickbot', 'streamelements', 'fossabot']); // lower case
   const HIGHLIGHT_USERS_ATTR = 'data-ka-highlight-users';
@@ -65,6 +66,8 @@
   const TAG_CHARS = /[\u{E0000}-\u{E007F}]/gu; // invisible chars other clients append
 
   const history = new Map(); // message id -> { id, content, username, at, channel }, oldest first
+  const userColors = new Map(); // lowercased username -> Kick's name colour, last seen last
+  const USER_COLOR_LIMIT = 3000;
 
   // ---- Ads in Kick's own player ----------------------------------------------------
   // Kick's player asks web.kick.com/api/v1/stream/{id}/playback (POST) for its stream
@@ -141,11 +144,13 @@
   const muteEnabled = () => document.documentElement.hasAttribute(MUTE_ATTR);
   const botsEnabled = () => document.documentElement.hasAttribute(BOTS_ATTR);
   const readableNamesEnabled = () => document.documentElement.hasAttribute(READABLE_NAMES_ATTR);
+  const mentionsEnabled = () => document.documentElement.hasAttribute(MENTIONS_ATTR);
   const stripesEnabled = () => document.documentElement.hasAttribute(STRIPES_ATTR);
   const repeatsEnabled = () => document.documentElement.hasAttribute(REPEATS_ATTR);
 
   function remember(message) {
     if (history.has(message.id)) return;
+    rememberColor(message.sender);
     history.set(message.id, {
       id: message.id,
       content: message.content,
@@ -220,6 +225,16 @@
       if (message?.id && 'content' in message) return message;
     }
     return null;
+  }
+
+  // Name colours of everyone who wrote, for their @mentions.
+  function rememberColor(sender) {
+    const name = sender?.username?.toLowerCase();
+    const color = sender?.identity?.color;
+    if (!name || typeof color !== 'string' || !/^#[0-9a-f]{6}$/i.test(color)) return;
+    userColors.delete(name);
+    userColors.set(name, color);
+    if (userColors.size > USER_COLOR_LIMIT) userColors.delete(userColors.keys().next().value);
   }
 
   // Rows are absolutely positioned at measured offsets. After we change a row's
@@ -983,24 +998,60 @@
     stack.append(img);
   }
 
+  // "@name", also with punctuation around it ("(@name)", "@name,"). Kick names are
+  // 3-25 letters, digits and underscores.
+  const MENTION_WORD = /^([^\w@]*)@(\w{3,25})([^\w@]*)$/;
+
+  const emotesShown = () => sevenTvEnabled() && emotes.size > 0;
+
+  // The mentioned user's name colour, once they've written in this visit.
+  function mentionColor(username) {
+    const hex = userColors.get(username.toLowerCase());
+    if (!hex) return '';
+    const rgb = `rgb(${[1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16)).join(', ')})`;
+    return (readableNamesEnabled() && readableColor(rgb)) || rgb;
+  }
+
+  function mentionButton(username) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'ka-mention';
+    button.dataset.user = username; // taps are handled in handleTap()
+    button.textContent = `@${username}`;
+    const color = mentionColor(username);
+    if (color) button.style.color = color;
+    return button;
+  }
+
   // Appends text to parent with 7TV emote names (exact, case-sensitive words)
-  // swapped for images. `before` is the node preceding parent's insertion point.
-  function appendEmoteText(parent, text, before = null) {
+  // swapped for images and, with `mentions`, @names for buttons that open the
+  // user's card. `before` is the node preceding parent's insertion point.
+  function appendEmoteText(parent, text, before = null, mentions = false) {
+    const withEmotes = emotesShown();
     for (const part of text.replace(TAG_CHARS, '').split(/(\s+)/)) {
       if (!part) continue;
-      const emote = emotes.get(part);
-      if (!emote) {
-        parent.append(part);
+      const emote = withEmotes && emotes.get(part);
+      if (emote) {
+        const base = emote.zeroWidth && previousEmote(parent, before);
+        if (base) stackOnto(base, emoteImage(emote));
+        else parent.append(emoteImage(emote));
         continue;
       }
-      const base = emote.zeroWidth && previousEmote(parent, before);
-      if (base) stackOnto(base, emoteImage(emote));
-      else parent.append(emoteImage(emote));
+      const mention = mentions && part.match(MENTION_WORD);
+      if (mention) {
+        parent.append(mention[1], mentionButton(mention[2]), mention[3]);
+        continue;
+      }
+      parent.append(part);
     }
   }
 
-  function hasEmoteWord(text) {
-    return text.replace(TAG_CHARS, '').split(/\s+/).some(word => emotes.has(word));
+  // A word our copy of the message would draw differently: a 7TV emote or an @name.
+  function hasRichWord(text, mentions = mentionsEnabled()) {
+    const withEmotes = emotesShown();
+    if (!withEmotes && !mentions) return false;
+    return text.replace(TAG_CHARS, '').split(/\s+/)
+      .some(word => (withEmotes && emotes.has(word)) || (mentions && MENTION_WORD.test(word)));
   }
 
   function clear7tv(row) {
@@ -1009,11 +1060,12 @@
   }
 
   // Never edit React's nodes: render a copy of the message text with emotes and
-  // hide the original (removed again if the message changes, e.g. gets deleted).
+  // @mentions, and hide the original (removed again if the message changes, e.g.
+  // gets deleted). Named for 7TV, which it was first made for.
   function apply7tv(row) {
     const content = row.querySelector('span[aria-hidden="true"] + span');
     if (!content || content.hasAttribute('data-ka-7tv-hidden')) return;
-    if (!hasEmoteWord(content.textContent)) return;
+    if (!hasRichWord(content.textContent)) return;
 
     const copy = content.cloneNode(true);
     copy.setAttribute('data-ka-7tv', '');
@@ -1021,9 +1073,10 @@
     const textNodes = [];
     while (walker.nextNode()) textNodes.push(walker.currentNode);
     for (const textNode of textNodes) {
-      if (!hasEmoteWord(textNode.textContent)) continue;
+      const mentions = mentionsEnabled() && !textNode.parentElement?.closest('a'); // no button inside a link
+      if (!hasRichWord(textNode.textContent, mentions)) continue;
       const fragment = document.createDocumentFragment();
-      appendEmoteText(fragment, textNode.textContent, textNode.previousSibling);
+      appendEmoteText(fragment, textNode.textContent, textNode.previousSibling, mentions);
       textNode.replaceWith(fragment);
     }
 
@@ -1584,6 +1637,13 @@
     const emote = sevenTvEnabled() && target.closest?.(`${LIST_SELECTOR} .ka-7tv-stack, ${LIST_SELECTOR} .ka-7tv-emote`);
     if (emote) {
       openCard(emote.closest('.ka-7tv-stack') || emote);
+      return true;
+    }
+
+    const mention = mentionsEnabled() && target.closest?.(`${LIST_SELECTOR} .ka-mention`);
+    if (mention) {
+      closeCard();
+      openUserCardFor(mention.dataset.user, mention.closest(ROW_SELECTOR));
       return true;
     }
 
@@ -3255,6 +3315,31 @@
     return card.querySelector(USER_NAME_LINK)?.title || null;
   }
 
+  // Kick opens its card from a name's click handler, which takes the name from the
+  // message's sender when clicked. For an @mentioned name: call the handler of the
+  // mention's own row (so the popup sits by it) with the sender's name swapped for
+  // that moment, put back before anything else runs. Any other row will do too.
+  function openUserCardFor(username, row) {
+    for (const candidate of [row, ...(list?.querySelectorAll(ROW_SELECTOR) || [])]) {
+      const button = candidate && nameButton(candidate);
+      const propsKey = button && Object.keys(button).find(key => key.startsWith('__reactProps'));
+      const onClick = propsKey && button[propsKey]?.onClick;
+      let fiber = button && rowFiber(button);
+      for (let depth = 0; fiber && !fiber.memoizedProps?.sender && depth < 6; depth++) fiber = fiber.return;
+      const sender = fiber?.memoizedProps?.sender;
+      if (typeof onClick !== 'function' || typeof sender?.username !== 'string') continue;
+      const own = sender.username;
+      sender.username = username;
+      try {
+        onClick({ stopPropagation() {}, preventDefault() {}, ctrlKey: false, shiftKey: false, metaKey: false, altKey: false });
+      } finally {
+        sender.username = own;
+      }
+      return true;
+    }
+    return false;
+  }
+
   // The popup has a close button; the bottom sheet closes on Escape.
   function closeUserCard() {
     const close = findUserCard()?.querySelector('svg[data-ds-icon="Cross"]')?.closest('button');
@@ -3408,7 +3493,7 @@
     const deleted = Boolean(findDeletedLabel(row, message));
     if (deleted) clear7tv(row); // the 7TV copy would hide the deletion
     const content = restoreEnabled() ? restoreDeleted(row, message) : message.content;
-    if (sevenTvEnabled() && emotes.size && !deleted) apply7tv(row);
+    if (!deleted) apply7tv(row); // 7TV emotes and @mentions
     const collapsed = applyMute(row, message);
     if (previewsEnabled() && !collapsed) addPreviews(row, message.id, content);
     applyHighlight(row, message);
@@ -3473,13 +3558,19 @@
     else schedule();
   }
 
+  let lastCopyMode = '';
+
   // Settings changed: drop what was switched off and re-measure every row, since
   // heights change (also when the text size changes).
   function onSettingsChange() {
+    // Our copies of message text are redrawn when what they show changes.
+    const copyMode = [sevenTvEnabled(), mentionsEnabled(), readableNamesEnabled()].join();
+    const redrawCopies = copyMode !== lastCopyMode;
+    lastCopyMode = copyMode;
     document.querySelectorAll('[data-ka-id]').forEach(row => {
       if (!restoreEnabled()) clearRestore(row);
       if (!previewsEnabled()) clearPreviews(row);
-      if (!sevenTvEnabled()) clear7tv(row);
+      if (redrawCopies) clear7tv(row);
       if (!highlightsEnabled() && !streamerEnabled()) delete row.dataset.kaHighlight;
       if (!muteEnabled() && !botsEnabled()) clearMute(row);
       remeasure(row);
@@ -3510,7 +3601,7 @@
 
   new MutationObserver(onSettingsChange).observe(document.documentElement, {
     attributes: true,
-    attributeFilter: [RESTORE_ATTR, PREVIEWS_ATTR, SEVENTV_ATTR, MESSAGES_ATTR, HIGHLIGHT_ATTR, HIGHLIGHT_WORDS_ATTR, STREAMER_ATTR, HIDE_WORDS_ATTR, MUTE_ATTR, MUTED_USERS_ATTR, HIGHLIGHT_USERS_ATTR, NOTED_USERS_ATTR, BOT_USERS_ATTR, USER_CARD_ATTR, BOTS_ATTR, READABLE_NAMES_ATTR, STRIPES_ATTR, REPEATS_ATTR, FONT_SIZE_ATTR, CHAT_FONT_ATTR, COSMETICS_ATTR, EMOTE_ONLY_ATTR, REWARD_EVENTS_ATTR, SUB_EVENTS_ATTR, COMMANDS_ATTR]
+    attributeFilter: [RESTORE_ATTR, PREVIEWS_ATTR, SEVENTV_ATTR, MESSAGES_ATTR, HIGHLIGHT_ATTR, HIGHLIGHT_WORDS_ATTR, STREAMER_ATTR, HIDE_WORDS_ATTR, MUTE_ATTR, MUTED_USERS_ATTR, HIGHLIGHT_USERS_ATTR, NOTED_USERS_ATTR, BOT_USERS_ATTR, USER_CARD_ATTR, BOTS_ATTR, READABLE_NAMES_ATTR, MENTIONS_ATTR, STRIPES_ATTR, REPEATS_ATTR, FONT_SIZE_ATTR, CHAT_FONT_ATTR, COSMETICS_ATTR, EMOTE_ONLY_ATTR, REWARD_EVENTS_ATTR, SUB_EVENTS_ATTR, COMMANDS_ATTR]
   });
 
   // ---- Catching up after the page slept ----------------------------------------

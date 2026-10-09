@@ -40,6 +40,7 @@
     hideEmoteOnly: false,
     hideBots: true,
     readableNames: true,
+    chatMentions: true,
     userCard: true,
     chatStripes: false,
     iosInput: true,
@@ -67,6 +68,7 @@
     hideEmoteOnly: 'data-ka-emote-only',
     hideBots: 'data-ka-bots',
     readableNames: 'data-ka-readable-names',
+    chatMentions: 'data-ka-mentions',
     userCard: 'data-ka-user-card',
     chatStripes: 'data-ka-stripes',
     iosInput: 'data-ka-ios',
@@ -77,7 +79,7 @@
   // the other names are the rows buildBar makes itself.
   const SETTINGS_TABS = {
     general: ['wakeLock', 'chatOnly', 'streamInfo', 'donate', 'blockAds'],
-    chat: ['font', 'size', 'readableNames', 'chatStripes', 'sevenTv', 'sevenTvCosmetics', 'linkPreviews', 'chatLinks', 'restoreDeleted', 'savedMessages', 'chatCommands', 'userCard', 'iosInput'],
+    chat: ['font', 'size', 'readableNames', 'chatMentions', 'chatStripes', 'sevenTv', 'sevenTvCosmetics', 'linkPreviews', 'chatLinks', 'restoreDeleted', 'savedMessages', 'chatCommands', 'userCard', 'iosInput'],
     filters: ['highlights', 'highlightWords', 'highlightUsers', 'highlightStreamer', 'hideWords', 'hideEmoteOnly', 'collapseRepeats', 'rewardEvents', 'subEvents', 'hideBots', 'botUsers', 'muteUsers', 'mutedUsers', 'notes'],
     player: ['appPlayer', 'nativePlayer', 'backgroundAudio', 'popoutAudio']
   };
