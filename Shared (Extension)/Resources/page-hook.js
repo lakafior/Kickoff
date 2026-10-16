@@ -55,6 +55,9 @@
   const COMMANDS_ATTR = 'data-ka-commands';
   const LIST_SELECTOR = '#chatroom-messages';
   const ROW_SELECTOR = '[data-index]';
+  // A row's message text: the span after the ": " separator, which Kick now wraps
+  // with the name in a div (October 2026); before that it was a sibling.
+  const TEXT_SELECTOR = 'span[aria-hidden="true"] + span, :has(> span[aria-hidden="true"]) + span';
   const DELETED_TEXT = 'Deleted by a moderator'; // fallback only, see findDeletedLabel
   const HISTORY_LIMIT = 1000; // messages kept in memory (search, deleted-message restore); Kick keeps 300
   const PREVIEW_CACHE_LIMIT = 200;
@@ -414,7 +417,7 @@
   // the English text is only a fallback in case Kick drops ui_metadata.
   function findDeletedLabel(row, message) {
     if (message?.ui_metadata?.deleted === 'user_deleted') {
-      const text = row.querySelector('span[aria-hidden="true"] + span');
+      const text = row.querySelector(TEXT_SELECTOR);
       const label = text && [...text.querySelectorAll('span'), text]
         .find(span => !span.firstElementChild && !span.closest('[data-ka-restored]') && span.textContent.trim());
       if (label) return label;
@@ -1063,7 +1066,7 @@
   // @mentions, and hide the original (removed again if the message changes, e.g.
   // gets deleted). Named for 7TV, which it was first made for.
   function apply7tv(row) {
-    const content = row.querySelector('span[aria-hidden="true"] + span');
+    const content = row.querySelector(TEXT_SELECTOR);
     if (!content || content.hasAttribute('data-ka-7tv-hidden')) return;
     if (!hasRichWord(content.textContent)) return;
 
@@ -2844,7 +2847,7 @@
     if (!target.closest?.(LIST_SELECTOR)) return null;
     if (getSelection()?.toString()) return null; // selecting text (desktop), not tapping
     if (target.closest('a, button, img, [data-emote-id], .ka-previews, .ka-deleted-tag, .ka-repeat')) return null;
-    const textArea = target.closest('span[data-ka-7tv], [data-ka-restored], span[aria-hidden="true"] + span');
+    const textArea = target.closest(`span[data-ka-7tv], [data-ka-restored], ${TEXT_SELECTOR}`);
     const row = textArea?.closest(ROW_SELECTOR);
     const message = row && readMessage(row);
     return message?.content ? { row, message } : null;
@@ -2899,7 +2902,7 @@
     }
 
     const head = el('div', 'ka-card-meta', username ? t('card.messageFrom', { name: username }) : t('card.messageFromChat'));
-    showCard(row.querySelector('span[aria-hidden="true"] + span, [data-ka-7tv], [data-ka-restored]') || row, t('card.saveMessage'), [head, preview, actions]);
+    showCard(row.querySelector(`${TEXT_SELECTOR}, [data-ka-7tv], [data-ka-restored]`) || row, t('card.saveMessage'), [head, preview, actions]);
   }
 
 
@@ -3179,7 +3182,7 @@
     let badge = row.querySelector('.ka-repeat');
     if (count > 1) {
       if (!badge) {
-        const anchor = row.querySelector('[data-ka-restored], [data-ka-7tv]') || row.querySelector('span[aria-hidden="true"] + span');
+        const anchor = row.querySelector('[data-ka-restored], [data-ka-7tv]') || row.querySelector(TEXT_SELECTOR);
         if (!anchor) {
           if (changed) remeasure(row);
           return;
