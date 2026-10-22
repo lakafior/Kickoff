@@ -50,7 +50,7 @@
     nativePlayer: false, // off: HLS in Safari sits ~30 s behind live vs ~5 s in Kick's player
     backgroundAudio: true,
     popoutAudio: true,
-    appQuality: 'best', // Kickoff app player: best, 1080…160 (height), auto, audio
+    appQuality: 'best', // Kickon app player: best, 1080…160 (height), auto, audio
     blockAds: true
   };
 
@@ -91,7 +91,7 @@
     licence: ['MPL 2.0', 'https://mozilla.org/MPL/2.0/'],
     author: ['Smigi', 'https://smigi.net/'],
     source: ['GitHub', 'https://github.com/lakafior/Kickoff'],
-    website: ['kickoff.smigi.net', 'https://kickoff.smigi.net/']
+    website: ['kickon.smigi.net', 'https://kickon.smigi.net/']
   };
   // Switches that only do something while another one is on; dimmed otherwise.
   const SETTING_NEEDS = {
@@ -118,7 +118,7 @@
   // their own (background.js opens the last two).
   const LINK_MODES = [['tab', t('links.tab')], ['background', t('links.background')], ['window', t('links.window')]];
   const EVENT_ATTRS = { rewardEvents: 'data-ka-reward-events', subEvents: 'data-ka-sub-events' };
-  // Kickoff app player qualities; the app takes the closest rendition the stream has.
+  // Kickon app player qualities; the app takes the closest rendition the stream has.
   // Auto lets the app switch, which costs it a few seconds of delay.
   const APP_QUALITIES = [
     ['best', t('app.best')], ['1080', '1080p'], ['720', '720p'], ['480', '480p'],
@@ -455,7 +455,7 @@
 
   // Same one-at-a-time queue as the page's requests (defined below).
   const inboxTask = task => {
-    messageQueue = messageQueue.then(task).catch(err => console.error('Kickoff: inbox error', err));
+    messageQueue = messageQueue.then(task).catch(err => console.error('Kickon: inbox error', err));
   };
 
   // ---- Mute list -----------------------------------------------------------------
@@ -498,7 +498,7 @@
       return;
     }
     messageQueue = messageQueue.then(() => handlePageRequest(request)).catch(err => {
-      console.error('Kickoff: saved messages error', err);
+      console.error('Kickon: saved messages error', err);
     });
   });
 
@@ -739,7 +739,7 @@
     } catch (err) {
       // Safari refuses requests that don't come from a tap (page load, unlock);
       // the next tap anywhere on the page retries.
-      if (err.name !== 'NotAllowedError') console.error('Kickoff: wake lock error', err);
+      if (err.name !== 'NotAllowedError') console.error('Kickon: wake lock error', err);
     } finally {
       state.wakeLockPending = false;
       renderStatus();
@@ -810,7 +810,7 @@
     const ident = el('a', 'ka-channel');
     ident.append(el('img', 'ka-channel-avatar'), el('span', 'ka-channel-name'));
     toggle.append(
-      el('span', 'ka-settings-title', 'Kickoff'),
+      el('span', 'ka-settings-title', 'Kickon'),
       el('span', 'ka-stream'),
       el('span', 'ka-settings-status'),
       el('span', 'ka-settings-chevron', '▾')
@@ -933,7 +933,7 @@
       return row;
     };
 
-    // Quality for the Kickoff app's player (opened from the view switcher).
+    // Quality for the Kickon app's player (opened from the view switcher).
     const appPlayerRow = () => {
       const row = el('div', 'ka-settings-row');
       const label = el('span', 'ka-settings-label', t('app.label'));
@@ -1403,7 +1403,7 @@
     return svg;
   }
 
-  // Kickoff's logo, the same rocket as the toolbar and app icon.
+  // Kickon's logo, the same rocket as the toolbar and app icon.
   function rocketIcon() {
     const ns = 'http://www.w3.org/2000/svg';
     const svg = document.createElementNS(ns, 'svg');
@@ -1693,7 +1693,7 @@
     const line = state.bar.querySelector('.ka-stream');
     const details = state.bar.querySelector('.ka-stream-details');
 
-    // Avatar and name instead of "Kickoff".
+    // Avatar and name instead of "Kickon".
     const channel = showsStream() ? stream?.channel || { name: streamSlug(), avatar: '' } : null;
     state.bar.toggleAttribute('data-channel', Boolean(channel));
     renderTools();
@@ -1836,7 +1836,7 @@
     link.rel = 'noopener';
   }
 
-  // The stream in the Kickoff app's own player, about as close to live as Kick's
+  // The stream in the Kickon app's own player, about as close to live as Kick's
   // (Shared (App)/LiveStream.swift), at the quality chosen in the Player tab.
   // This page goes quiet so it isn't heard twice; chat stays here.
   function appPlayerSlug() {
@@ -1855,7 +1855,7 @@
   // ---- View switcher (Stream · Chat · Player) ------------------------------------
   // A glass pill at the start of the strip, the same in the popout and on channel
   // pages. Closed it shows the current view's icon; tapped it opens to all three.
-  // Stream and Chat are kick.com pages (same tab), Player is the Kickoff app. It
+  // Stream and Chat are kick.com pages (same tab), Player is the Kickon app. It
   // folds back after a few seconds, on a tap elsewhere, or when the chat is scrolled.
   const VIEWS = ['stream', 'chat', 'player'];
   const VIEW_ICONS = {
@@ -2463,7 +2463,7 @@
       mountPlayer(now, info, variants);
     } catch (err) {
       player.offline = { slug: target.slug, at: Date.now() };
-      console.error('Kickoff: player', err);
+      console.error('Kickon: player', err);
     } finally {
       player.checking = false;
     }
@@ -2578,7 +2578,7 @@
         player.info = info;
         player.refreshedAt = Date.now();
       } catch (err) {
-        console.error('Kickoff: player links', err);
+        console.error('Kickon: player links', err);
       }
       if (load !== player.load) return;
     }
@@ -2612,7 +2612,7 @@
   function retryPlayer() {
     clearTimeout(player.retryTimer);
     if (++player.retries > PLAYER_RETRIES) {
-      console.error('Kickoff: native player failed, using Kick\'s player', player.video?.error);
+      console.error('Kickon: native player failed, using Kick\'s player', player.video?.error);
       const slug = player.slug;
       unmountPlayer();
       player.failed = slug;
@@ -3025,7 +3025,7 @@
     listen.retried = false;
     audio.src = listen.url;
     audio.play().catch(err => {
-      console.error('Kickoff: listen', err);
+      console.error('Kickon: listen', err);
       stopListen();
     });
     renderListen();

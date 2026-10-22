@@ -11,7 +11,7 @@ browser.action.onClicked.addListener(async (tab) => {
     await ensureContentScript(tab.id);
     await browser.tabs.sendMessage(tab.id, { type: 'kickoff:togglePanel' });
   } catch (error) {
-    console.error('Kickoff: could not open settings', error);
+    console.error('Kickon: could not open settings', error);
   }
 });
 
@@ -101,11 +101,11 @@ browser.storage.onChanged.addListener((changes, area) => {
   if (area !== 'local' || !(SETTINGS_KEY in changes)) return;
   const was = changes[SETTINGS_KEY].oldValue?.blockAds !== false;
   const now = changes[SETTINGS_KEY].newValue?.blockAds !== false;
-  if (was !== now) syncBlocking().catch(error => console.error('Kickoff: blocking', error));
+  if (was !== now) syncBlocking().catch(error => console.error('Kickon: blocking', error));
 });
 browser.runtime.onStartup?.addListener(() => syncBlocking().catch(() => {}));
 browser.runtime.onInstalled?.addListener(() => syncBlocking().catch(() => {}));
-syncBlocking().catch(error => console.error('Kickoff: blocking', error));
+syncBlocking().catch(error => console.error('Kickon: blocking', error));
 
 // ---- iCloud sync ---------------------------------------------------------------
 // Safari's storage.sync doesn't sync between devices, so settings and saved
@@ -260,7 +260,7 @@ let lastPull = 0;
 
 // One sync step at a time, so a pull and a push can't interleave.
 function queueSync(task) {
-  syncQueue = syncQueue.then(task).catch(error => console.error('Kickoff: iCloud sync', error));
+  syncQueue = syncQueue.then(task).catch(error => console.error('Kickon: iCloud sync', error));
   return syncQueue;
 }
 
@@ -367,7 +367,7 @@ async function openLink({ url, mode }, tab) {
     }
     await browser.tabs.create({ url, active: false, ...(await linkPlace(tab)) });
   } catch (error) {
-    console.error('Kickoff: could not open link', error);
+    console.error('Kickon: could not open link', error);
     await browser.tabs.create({ url, active: mode !== 'background' }).catch(() => {});
   }
 }

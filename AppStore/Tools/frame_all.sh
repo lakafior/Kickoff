@@ -1,5 +1,5 @@
 #!/bin/bash
-# Frames the App Store screenshots: bezel + Kickoff gradient + caption.
+# Frames the App Store screenshots: bezel + Kickon gradient + caption.
 # Reads AppStore/screenshots/<device>/<lang>/, writes AppStore/framed/<device>/<lang>/.
 # Needs Pillow for pad.py (PYTHON=… to point at a venv that has it).
 #

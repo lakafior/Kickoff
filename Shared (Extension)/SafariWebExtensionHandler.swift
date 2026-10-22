@@ -60,7 +60,7 @@ class SafariWebExtensionHandler: NSObject, NSExtensionRequestHandling {
             store.synchronize()
             return ["ok": true]
         default:
-            os_log(.error, "Kickoff: unknown native message %@", String(describing: message))
+            os_log(.error, "Kickon: unknown native message %@", String(describing: message))
             return ["error": "unknown message"]
         }
     }

@@ -1,4 +1,4 @@
-// Kickoff's on-screen text, in every language it speaks. Loaded before content.js
+// Kickon's on-screen text, in every language it speaks. Loaded before content.js
 // (as a content script) and before page-hook.js (injected into the page), so both
 // read the same table: `const t = kickoffStrings(language)`, then `t('key')` or
 // `t('key', { name: 'value' })`. {name} in a text is replaced by that value
@@ -45,7 +45,7 @@
       'setting.hideEmoteOnly': 'Hide emote-only messages',
       'setting.iosInput': 'iOS-style message box',
       'setting.nativePlayer': 'Native player (channel page)',
-      'setting.nativePlayerHint': 'Safari\'s own player, about 30 s behind live. The Kickoff app player above is as close as Kick\'s.',
+      'setting.nativePlayerHint': 'Safari\'s own player, about 30 s behind live. The Kickon app player above is as close as Kick\'s.',
       'setting.backgroundAudio': 'Keep playing when locked (audio only)',
       'setting.popoutAudio': 'Listen button (popout)',
       'setting.blockAds': 'Block ads & trackers',
@@ -61,10 +61,10 @@
       'about.author': 'Author',
       'about.source': 'Source code',
       'about.website': 'Website',
-      'about.notAffiliated': 'Kickoff is an independent project, not affiliated with Kick.',
-      'app.label': 'Kickoff app player',
+      'about.notAffiliated': 'Kickon is an independent project, not affiliated with Kick.',
+      'app.label': 'Kickon app player',
       'app.hint': 'About as close to live as Kick\'s player, with picture in picture. Open it with Player in the switcher at the start of the strip; chat stays here.',
-      'app.quality': 'Quality in the Kickoff app',
+      'app.quality': 'Quality in the Kickon app',
       'app.best': 'Best',
       'app.auto': 'Auto (more delay)',
       'words.highlight': 'Words to highlight',
@@ -103,7 +103,7 @@
       // Strip buttons
       'strip.search': 'Search chat',
       'strip.listen': 'Listen',
-      'strip.settings': 'Kickoff settings',
+      'strip.settings': 'Kickon settings',
       'strip.showTools': 'Show buttons',
       'strip.hideTools': 'Hide buttons',
       'strip.channelPage': '{name}: about',
@@ -117,7 +117,7 @@
       'views.label': 'View',
       'views.stream': 'Stream',
       'views.chat': 'Chat',
-      'views.player': 'Player (Kickoff app)',
+      'views.player': 'Player (Kickon app)',
       'strip.channelButton': 'Channel button',
 
       // Search ("from:" is what people type; "od:" works too)
@@ -265,7 +265,7 @@
       'commands.empty': "No commands for {channel} yet. They're learned when a bot answers one in chat, or add one with Edit → + New command.",
       'commands.namePlaceholder': '!command',
       'commands.answerPlaceholder': 'What it answers (optional)',
-      'commands.answerHint': "Only shown in Kickoff, next to the command. It doesn't change what the bot replies.",
+      'commands.answerHint': "Only shown in Kickon, next to the command. It doesn't change what the bot replies.",
       'commands.badName': 'A command is ! (or ? $ % # & ~ . +) and then up to 30 letters, digits, _ or -.',
 
       // Muted users, replies, repeats, catching up
@@ -348,7 +348,7 @@
       'setting.hideEmoteOnly': 'Ukrywaj wiadomości z samych emotek',
       'setting.iosInput': 'Pole wiadomości w stylu iOS',
       'setting.nativePlayer': 'Natywny odtwarzacz (strona kanału)',
-      'setting.nativePlayerHint': 'Odtwarzacz Safari, ok. 30 s za transmisją. Odtwarzacz w aplikacji Kickoff wyżej ma opóźnienie jak Kick.',
+      'setting.nativePlayerHint': 'Odtwarzacz Safari, ok. 30 s za transmisją. Odtwarzacz w aplikacji Kickon wyżej ma opóźnienie jak Kick.',
       'setting.backgroundAudio': 'Graj po zablokowaniu (tylko dźwięk)',
       'setting.popoutAudio': 'Przycisk słuchania (popout)',
       'setting.blockAds': 'Blokuj reklamy i trackery',
@@ -357,16 +357,16 @@
       'tab.chat': 'Czat',
       'tab.filters': 'Filtry',
       'tab.player': 'Odtwarzacz',
-      'tab.about': 'O Kickoff',
+      'tab.about': 'O Kickon',
       'about.version': 'Wersja',
       'about.licence': 'Licencja',
       'about.author': 'Autor',
       'about.source': 'Kod źródłowy',
       'about.website': 'Strona',
-      'about.notAffiliated': 'Kickoff to niezależny projekt, niezwiązany z Kick.',
-      'app.label': 'Odtwarzacz w aplikacji Kickoff',
+      'about.notAffiliated': 'Kickon to niezależny projekt, niezwiązany z Kick.',
+      'app.label': 'Odtwarzacz w aplikacji Kickon',
       'app.hint': 'Opóźnienie jak w odtwarzaczu Kicka, z obrazem w obrazie. Otwierasz go przyciskiem Odtwarzacz w przełączniku na początku paska; czat zostaje tutaj.',
-      'app.quality': 'Jakość w aplikacji Kickoff',
+      'app.quality': 'Jakość w aplikacji Kickon',
       'app.best': 'Najlepsza',
       'app.auto': 'Auto (większe opóźnienie)',
       'words.highlight': 'Słowa do wyróżnienia',
@@ -403,7 +403,7 @@
 
       'strip.search': 'Szukaj w czacie',
       'strip.listen': 'Słuchaj',
-      'strip.settings': 'Ustawienia Kickoff',
+      'strip.settings': 'Ustawienia Kickon',
       'strip.showTools': 'Pokaż przyciski',
       'strip.hideTools': 'Ukryj przyciski',
       'strip.channelPage': '{name}: o kanale',
@@ -417,7 +417,7 @@
       'views.label': 'Widok',
       'views.stream': 'Stream',
       'views.chat': 'Czat',
-      'views.player': 'Odtwarzacz (aplikacja Kickoff)',
+      'views.player': 'Odtwarzacz (aplikacja Kickon)',
       'strip.channelButton': 'Przycisk kanału',
 
       'search.placeholder': 'Szukaj w czacie · od:nick',
@@ -549,10 +549,10 @@
       'commands.deleteOne': 'Usuń komendę',
       'commands.deleted': 'Komenda usunięta',
       'commands.noMatch': 'Brak pasujących komend',
-      'commands.empty': 'Nie ma jeszcze komend dla {channel}. Kickoff uczy się ich, gdy bot odpowie na komendę w czacie, albo dodaj ją przez Edytuj → + Nowa komenda.',
+      'commands.empty': 'Nie ma jeszcze komend dla {channel}. Kickon uczy się ich, gdy bot odpowie na komendę w czacie, albo dodaj ją przez Edytuj → + Nowa komenda.',
       'commands.namePlaceholder': '!komenda',
       'commands.answerPlaceholder': 'Co odpowiada (opcjonalnie)',
-      'commands.answerHint': 'Widoczne tylko w Kickoff, obok komendy. Nie zmienia tego, co odpowiada bot.',
+      'commands.answerHint': 'Widoczne tylko w Kickon, obok komendy. Nie zmienia tego, co odpowiada bot.',
       'commands.badName': 'Komenda to ! (albo ? $ % # & ~ . +), a po nim do 30 liter, cyfr, _ lub -.',
 
       'muted.line': '{name} (wyciszony) · stuknij, by pokazać',

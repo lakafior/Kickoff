@@ -753,7 +753,7 @@
   function getPreview({ url, load }) {
     if (!previewCache.has(url.href)) {
       previewCache.set(url.href, load().catch(err => {
-        console.debug('Kickoff: no preview for', url.href, err);
+        console.debug('Kickon: no preview for', url.href, err);
         return null;
       }));
       if (previewCache.size > PREVIEW_CACHE_LIMIT) {
@@ -2675,7 +2675,7 @@
     return cancel;
   }
 
-  // A command's name and answer. The answer is only what Kickoff shows with it.
+  // A command's name and answer. The answer is only what Kickon shows with it.
   function buildCommandEditor() {
     const draft = messageDraft;
     const form = el('div', 'ka-msg-editor');
@@ -3220,7 +3220,7 @@
       return { row, index: Number(row.dataset.index), key: message?.content ? messageRepeatKey(message) : '' };
     }).sort((a, b) => a.index - b.index);
 
-    // Rows hidden by Kickoff (emote-only, words to hide, Kick events) don't split a
+    // Rows hidden by Kickon (emote-only, words to hide, Kick events) don't split a
     // run; a row that isn't drawn does (segment: a stretch of consecutive indexes).
     const shown = [];
     let segment = 0;
@@ -3444,7 +3444,7 @@
   // ---- Alternating backgrounds ---------------------------------------------------
   // Each shown row gets the other shade from the shown row above it. Shades are kept
   // per message, so they don't all flip when Kick drops the oldest rows; rows hidden
-  // by Kickoff (repeats, hidden words, emote-only) are skipped.
+  // by Kickon (repeats, hidden words, emote-only) are skipped.
 
   const shades = new Map(); // message id -> 0 | 1
 
@@ -4159,7 +4159,7 @@
       crashSeen = true;
       crashes++;
       crashMessage = String(chatBoundary.state.error?.message || chatBoundary.state.error || 'unknown').slice(0, 200);
-      console.error('Kickoff: Kick\'s chat crashed:', chatBoundary.state.error);
+      console.error('Kickon: Kick\'s chat crashed:', chatBoundary.state.error);
       crashFrom = seen ? { ...seen } : null;
       if (now - lastResetAt > CRASH_CALM_MS) crashResetDelay = CRASH_RESET_MS;
       crashResetAt = now + crashResetDelay;
@@ -4188,7 +4188,7 @@
       step();
     } catch (err) {
       lastError = `${name}: ${err?.message || err}`;
-      console.error('Kickoff:', lastError, err);
+      console.error('Kickon:', lastError, err);
     }
   }
 

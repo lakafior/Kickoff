@@ -1,8 +1,8 @@
-# Kickoff
+# Kickon
 
 **A better Kick.com chat in Safari** on Mac, iPhone and iPad.
 
-Kickoff is a Safari extension that makes chat on [kick.com](https://kick.com) better: it
+Kickon is a Safari extension that makes chat on [kick.com](https://kick.com) better: it
 keeps your screen awake while you watch, shows messages moderators deleted, previews
 links, adds 7TV emotes and gives the chat Apple's fonts. It works on stream pages
 and on the chat-only popout.
@@ -10,7 +10,7 @@ and on the chat-only popout.
 Every feature can be switched on or off: tap the **rocket** at the top of the chat.
 Settings are grouped in four tabs: **General**, **Chat**, **Filters** and **Player**.
 
-> Kickoff is an independent project and is not affiliated with or endorsed by Kick.
+> Kickon is an independent project and is not affiliated with or endorsed by Kick.
 
 ## Features
 
@@ -44,7 +44,7 @@ Settings are grouped in four tabs: **General**, **Chat**, **Filters** and **Play
 - **iOS-style message box** on iPhone and iPad.
 
 ### Player
-- **Kickoff app player**: **Watch** in the Player tab opens the stream in the Kickoff
+- **Kickon app player**: **Watch** in the Player tab opens the stream in the Kickon
   app on Mac, iPhone and iPad, about as close to live as Kick's own player (around
   2 s behind on a fixed quality), with picture in picture, AirPlay and sound on the
   lock screen. Chat stays in Safari next to it. It jumps back to live after a stall
@@ -59,7 +59,7 @@ Settings are grouped in four tabs: **General**, **Chat**, **Filters** and **Play
 ### Kick
 - **Ad & tracker blocking** on kick.com.
 
-Kickoff speaks **English and Polish**, following your device's language.
+Kickon speaks **English and Polish**, following your device's language.
 
 ## Where it works
 
@@ -71,26 +71,26 @@ Kickoff speaks **English and Polish**, following your device's language.
 
 ## Getting started
 
-Kickoff is coming to the App Store. Website: [kickoff.smigi.net](https://kickoff.smigi.net).
+Kickon is coming to the App Store. Website: [kickon.smigi.net](https://kickon.smigi.net).
 
 **iPhone & iPad**
-1. Install Kickoff and open **Settings › Apps › Safari › Extensions** (on iOS 17:
+1. Install Kickon and open **Settings › Apps › Safari › Extensions** (on iOS 17:
    Settings › Safari › Extensions).
-2. Tap **Kickoff**, turn it on and set **kick.com** to **Allow**.
+2. Tap **Kickon**, turn it on and set **kick.com** to **Allow**.
 3. Open a stream on kick.com and tap the **rocket** at the top of the chat.
 
 **Mac**
-1. Install Kickoff, open it and click **Open Safari Settings**, then turn on
-   **Kickoff**.
-2. On kick.com, click the Kickoff button in Safari's toolbar and choose
+1. Install Kickon, open it and click **Open Safari Settings**, then turn on
+   **Kickon**.
+2. On kick.com, click the Kickon button in Safari's toolbar and choose
    **Always Allow on This Website**.
 3. Click the **rocket** at the top of the chat.
 
 ## Privacy
 
-Full policy: [kickoff.smigi.net/privacy](https://kickoff.smigi.net/privacy/).
+Full policy: [kickon.smigi.net/privacy](https://kickon.smigi.net/privacy/).
 
-Kickoff collects no data. There are no accounts, analytics or servers of its own.
+Kickon collects no data. There are no accounts, analytics or servers of its own.
 Your settings, saved messages, notes about users and mentions inbox stay in Safari's
 storage on your device. Settings (except text size), saved messages, notes about
 users and your 7TV emote usage also sync between your Mac, iPhone and iPad through
@@ -103,7 +103,7 @@ To do its job, the extension connects from your browser to:
 - **YouTube, TikTok and FxTwitter** (`api.fxtwitter.com`) for link previews;
 - the site hosting an image someone links in chat, to show its preview.
 
-The Kickoff app connects only when you open a stream in its player, and only to Kick:
+The Kickon app connects only when you open a stream in its player, and only to Kick:
 `kick.com` for stream info, `*.live-video.net` for the stream and `files.kick.com`
 for the streamer's picture on the lock screen. It remembers just its player choices
 (quality, volume, floating window) on your device.
@@ -132,7 +132,7 @@ open Kickoff.xcodeproj
   Kick's playlists to start close to live, `LivePlayback.swift` keeps it there;
   `macOS (App)/PlayerWindowController.swift` and `iOS (App)/PlayerViewController.swift`
   put it on screen).
-- Run the **Kickoff (macOS)** scheme, then enable Kickoff in Safari ▸ Settings ▸
+- Run the **Kickoff (macOS)** scheme, then enable Kickon in Safari ▸ Settings ▸
   Extensions. Local builds may need Safari ▸ Settings ▸ Developer ▸ **Allow unsigned
   extensions**.
 - Run the **Kickoff (iOS)** scheme on a device or simulator, then enable it in

@@ -1,5 +1,5 @@
 /* ---- Look and feel ----
-   One set of tokens for everything Kickoff draws: glass surfaces (translucent,
+   One set of tokens for everything Kickon draws: glass surfaces (translucent,
    blurred, a light top edge), pill-shaped controls, Kick green for what's on or
    current (a green tint with a green ring), and springy motion. On <html> so our
    elements anywhere in Kick's page can use them; all names start with --ka-. */
@@ -1731,7 +1731,7 @@ html[data-ka-font="mono"] #channel-chatroom {
     opacity: 0.6;
 }
 
-/* Settings: Kickoff's rocket at the right end of the strip. Until the panel has
+/* Settings: Kickon's rocket at the right end of the strip. Until the panel has
    been opened once it carries Kick's green dot (data-hint, set by content.js). */
 .ka-settings-button {
     position: relative;
@@ -2659,7 +2659,7 @@ html[data-ka-player] #injected-channel-player {
     }
 }
 
-/* ---- Kickoff app player row (Player tab) ---- */
+/* ---- Kickon app player row (Player tab) ---- */
 .ka-app-quality {
     height: 26px;
 }

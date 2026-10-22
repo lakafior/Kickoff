@@ -10,6 +10,8 @@
   },
   // Deploying attaches the domain (DNS record and certificate included).
   "routes": [
+    { "pattern": "kickon.smigi.net", "custom_domain": true },
+    // The old name, kept so links from before the rename still work.
     { "pattern": "kickoff.smigi.net", "custom_domain": true }
   ]
 }

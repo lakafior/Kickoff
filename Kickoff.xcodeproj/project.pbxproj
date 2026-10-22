@@ -107,13 +107,13 @@
 		48297E4B3074D2D000EC882D /* ViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewController.swift; sourceTree = "<group>"; };
 		48297E4C3074D2D000EC882D /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		48297E4E3074D2D000EC882D /* SafariWebExtensionHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SafariWebExtensionHandler.swift; sourceTree = "<group>"; };
-		48297E533074D2D000EC882D /* Kickoff.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Kickoff.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		48297E533074D2D000EC882D /* Kickon.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Kickon.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		48297E563074D2D000EC882D /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		48297E583074D2D000EC882D /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
 		48297E5B3074D2D000EC882D /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		48297E5E3074D2D000EC882D /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/Main.storyboard; sourceTree = "<group>"; };
 		48297E603074D2D000EC882D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		48297E653074D2D000EC882D /* Kickoff.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Kickoff.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		48297E653074D2D000EC882D /* Kickon.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Kickon.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		48297E673074D2D000EC882D /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		48297E6A3074D2D000EC882D /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/Main.storyboard; sourceTree = "<group>"; };
 		48297E6C3074D2D000EC882D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
@@ -215,8 +215,8 @@
 		48297E543074D2D000EC882D /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				48297E533074D2D000EC882D /* Kickoff.app */,
-				48297E653074D2D000EC882D /* Kickoff.app */,
+				48297E533074D2D000EC882D /* Kickon.app */,
+				48297E653074D2D000EC882D /* Kickon.app */,
 				48297E713074D2D000EC882D /* Kickoff Extension.appex */,
 				48297E7B3074D2D000EC882D /* Kickoff Extension.appex */,
 			);
@@ -298,7 +298,7 @@
 			);
 			name = "Kickoff (iOS)";
 			productName = "Kickoff (iOS)";
-			productReference = 48297E533074D2D000EC882D /* Kickoff.app */;
+			productReference = 48297E533074D2D000EC882D /* Kickon.app */;
 			productType = "com.apple.product-type.application";
 		};
 		48297E643074D2D000EC882D /* Kickoff (macOS) */ = {
@@ -317,7 +317,7 @@
 			);
 			name = "Kickoff (macOS)";
 			productName = "Kickoff (macOS)";
-			productReference = 48297E653074D2D000EC882D /* Kickoff.app */;
+			productReference = 48297E653074D2D000EC882D /* Kickon.app */;
 			productType = "com.apple.product-type.application";
 		};
 		48297E703074D2D000EC882D /* Kickoff Extension (iOS) */ = {
@@ -667,7 +667,7 @@
 				DEVELOPMENT_TEAM = 5TA8RF548P;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "iOS (Extension)/Info.plist";
-				INFOPLIST_KEY_CFBundleDisplayName = "Kickoff Extension";
+				INFOPLIST_KEY_CFBundleDisplayName = "Kickon Extension";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -702,7 +702,7 @@
 				DEVELOPMENT_TEAM = 5TA8RF548P;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "iOS (Extension)/Info.plist";
-				INFOPLIST_KEY_CFBundleDisplayName = "Kickoff Extension";
+				INFOPLIST_KEY_CFBundleDisplayName = "Kickon Extension";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -739,7 +739,7 @@
 				DEVELOPMENT_TEAM = 5TA8RF548P;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "iOS (App)/Info.plist";
-				INFOPLIST_KEY_CFBundleDisplayName = Kickoff;
+				INFOPLIST_KEY_CFBundleDisplayName = Kickon;
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.entertainment";
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -760,7 +760,7 @@
 					WebKit,
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = net.smigi.Kickoff;
-				PRODUCT_NAME = Kickoff;
+				PRODUCT_NAME = Kickon;
 				SDKROOT = iphoneos;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -782,7 +782,7 @@
 				DEVELOPMENT_TEAM = 5TA8RF548P;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "iOS (App)/Info.plist";
-				INFOPLIST_KEY_CFBundleDisplayName = Kickoff;
+				INFOPLIST_KEY_CFBundleDisplayName = Kickon;
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.entertainment";
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -803,7 +803,7 @@
 					WebKit,
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = net.smigi.Kickoff;
-				PRODUCT_NAME = Kickoff;
+				PRODUCT_NAME = Kickon;
 				SDKROOT = iphoneos;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -828,7 +828,7 @@
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "macOS (Extension)/Info.plist";
-				INFOPLIST_KEY_CFBundleDisplayName = "Kickoff Extension";
+				INFOPLIST_KEY_CFBundleDisplayName = "Kickon Extension";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -865,7 +865,7 @@
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "macOS (Extension)/Info.plist";
-				INFOPLIST_KEY_CFBundleDisplayName = "Kickoff Extension";
+				INFOPLIST_KEY_CFBundleDisplayName = "Kickon Extension";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -904,7 +904,7 @@
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "macOS (App)/Info.plist";
-				INFOPLIST_KEY_CFBundleDisplayName = Kickoff;
+				INFOPLIST_KEY_CFBundleDisplayName = Kickon;
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.entertainment";
 				INFOPLIST_KEY_NSMainStoryboardFile = Main;
@@ -922,7 +922,7 @@
 					WebKit,
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = net.smigi.Kickoff;
-				PRODUCT_NAME = Kickoff;
+				PRODUCT_NAME = Kickon;
 				REGISTER_APP_GROUPS = YES;
 				SDKROOT = macosx;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -948,7 +948,7 @@
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "macOS (App)/Info.plist";
-				INFOPLIST_KEY_CFBundleDisplayName = Kickoff;
+				INFOPLIST_KEY_CFBundleDisplayName = Kickon;
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.entertainment";
 				INFOPLIST_KEY_NSMainStoryboardFile = Main;
@@ -966,7 +966,7 @@
 					WebKit,
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = net.smigi.Kickoff;
-				PRODUCT_NAME = Kickoff;
+				PRODUCT_NAME = Kickon;
 				REGISTER_APP_GROUPS = YES;
 				SDKROOT = macosx;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;

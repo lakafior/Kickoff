@@ -7,7 +7,7 @@ import CoreText
 import Foundation
 
 // ---- args ----
-// Copied from Dutch (Screenshots/Tools), with Kickoff's gradients added.
+// Copied from Dutch (Screenshots/Tools), with Kickon's gradients added.
 // frame_screenshot.swift <bezel.png> <screenshot.png> <out.png> <headline> <subhead>
 //                        [bg] [tiltDeg] [widthFrac] [offsetXFrac] [offsetYFrac]
 //
@@ -265,7 +265,7 @@ ctx.interpolationQuality = .high
 func brandGradient(_ name: String) -> (CGGradient, CGPoint, CGPoint) {
     switch name {
     case "gradient-kick":
-        // Kickoff: near-black with the rocket's green coming up from one corner.
+        // Kickon: near-black with the rocket's green coming up from one corner.
         let g = CGGradient(colorsSpace: CS, colors: [
             rgb(0.13, 0.36, 0.08), rgb(0.07, 0.16, 0.06),
             rgb(0.04, 0.06, 0.06), rgb(0.03, 0.04, 0.05)

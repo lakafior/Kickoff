@@ -1,11 +1,11 @@
 {
   "extName": {
-    "message": "Kickoff"
+    "message": "Kickon"
   },
   "extDescription": {
     "message": "Lepszy czat na Kick.com: ekran nie gaśnie, czcionka SF, popout czatu, usunięte wiadomości i podgląd linków."
   },
   "actionTitle": {
-    "message": "Ustawienia Kickoff"
+    "message": "Ustawienia Kickon"
   }
 }
