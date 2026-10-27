@@ -71,7 +71,7 @@ Kickon speaks **English and Polish**, following your device's language.
 
 ## Getting started
 
-Kickon is coming to the App Store. Website: [kickon.smigi.net](https://kickon.smigi.net).
+Get Kickon on the [App Store](https://apps.apple.com/us/app/kickon-for-safari/id6820534895) — one purchase for iPhone, iPad and Mac. Website: [kickon.smigi.net](https://kickon.smigi.net).
 
 **iPhone & iPad**
 1. Install Kickon and open **Settings › Apps › Safari › Extensions** (on iOS 17:

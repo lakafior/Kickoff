@@ -122,6 +122,7 @@ nav a.lang {
 }
 
 .cta { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 26px; }
+.cta-note { margin-top: 12px; font-size: .9rem; color: var(--body); }
 .btn {
   display: inline-block;
   padding: 13px 22px;
@@ -133,8 +134,6 @@ nav a.lang {
 }
 .btn-primary { color: #0b0d0e; background: var(--green); }
 .btn-secondary { color: var(--ink); border-color: var(--line); background: var(--panel); }
-/* Until the App Store listing is live: looks like the button, isn't a link. */
-.btn-soon { color: var(--body); border-color: var(--line); background: var(--panel); cursor: default; }
 
 .hero-icon {
   display: block;
