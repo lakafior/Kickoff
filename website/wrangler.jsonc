@@ -8,10 +8,12 @@
   "assets": {
     "directory": "."
   },
-  // Deploying attaches the domain (DNS record and certificate included).
+  // Routes, not custom domains: a custom domain gets its own certificate that also covers smigi.net,
+  // and browsers reusing one connection across *.smigi.net then get 421 Misdirected Request. Routes
+  // use the zone's *.smigi.net certificate. Each host needs a proxied DNS record (AAAA 100::).
   "routes": [
-    { "pattern": "kickon.smigi.net", "custom_domain": true },
+    { "pattern": "kickon.smigi.net/*", "zone_name": "smigi.net" },
     // The old name, kept so links from before the rename still work.
-    { "pattern": "kickoff.smigi.net", "custom_domain": true }
+    { "pattern": "kickoff.smigi.net/*", "zone_name": "smigi.net" }
   ]
 }
