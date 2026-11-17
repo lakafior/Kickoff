@@ -18,7 +18,7 @@ Settings are grouped in four tabs: **General**, **Chat**, **Filters** and **Play
 - **Keep screen awake**: your Mac, iPhone or iPad won't dim or lock while you watch.
 - **Deleted messages stay visible**, greyed out, instead of “Deleted by a moderator”,
   including messages of users who were timed out or banned.
-- **Link previews** for images, YouTube, TikTok and X/Twitter links.
+- **Link previews** for images, YouTube, TikTok, Twitch clips, Imgur and X/Twitter links.
 - **7TV emotes**, with name paints and badges, an emote picker, autocomplete and
   a card that opens when you tap an emote.
 - **Mentions inbox (@)**: the messages that mention you or your chosen words, so you
@@ -100,7 +100,7 @@ To do its job, the extension connects from your browser to:
 - **Kick** (`kick.com`, `web.kick.com`, `files.kick.com`, and its video service
   `*.live-video.net`) for stream info, chat history and the video stream;
 - **7TV** (`7tv.io`) for emotes, name paints and badges;
-- **YouTube, TikTok and FxTwitter** (`api.fxtwitter.com`) for link previews;
+- **YouTube, TikTok, Twitch, Imgur and FxTwitter** (`api.fxtwitter.com`) for link previews;
 - the site hosting an image someone links in chat, to show its preview.
 
 The Kickon app connects only when you open a stream in its player, and only to Kick:

@@ -196,6 +196,11 @@
       'preview.igStory': 'Story',
       'preview.igReel': 'Reel',
       'preview.igBy': '{kind} by @{user}',
+      'preview.ttVideo': 'Video',
+      'preview.ttPhoto': 'Photos',
+      'preview.twitchClip': 'Twitch clip',
+      'preview.twitchClipBy': 'Twitch clip · {channel}',
+      'preview.imgurImages': { one: '{count} image', other: '{count} images' },
 
       // Cards (tap an emote or a message)
       'card.copy': 'Copy',
@@ -487,6 +492,11 @@
       'preview.igStory': 'Relacja',
       'preview.igReel': 'Rolka',
       'preview.igBy': '{kind} · @{user}',
+      'preview.ttVideo': 'Film',
+      'preview.ttPhoto': 'Zdjęcia',
+      'preview.twitchClip': 'Klip z Twitcha',
+      'preview.twitchClipBy': 'Klip z Twitcha · {channel}',
+      'preview.imgurImages': { one: '{count} obraz', few: '{count} obrazy', many: '{count} obrazów', other: '{count} obrazu' },
 
       'card.copy': 'Kopiuj',
       'card.copied': 'Skopiowano ✓',

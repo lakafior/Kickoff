@@ -1933,7 +1933,7 @@ html[data-ka-ios] .ka-toolbar {
 }
 
 html[data-ka-ios] .ka-toolbar-button,
-html[data-ka-ios] #chatroom-footer button:has(> svg[data-ds-icon="Settings"]) {
+html[data-ka-ios] #chatroom-footer button:has(svg[data-ds-icon="Settings"]) {
     position: relative;
     min-width: 40px !important;
     width: 40px;
@@ -1951,13 +1951,14 @@ html[data-ka-ios] .ka-toolbar-button[aria-pressed="true"] {
 }
 
 html[data-ka-ios] .ka-toolbar-button:active,
-html[data-ka-ios] #chatroom-footer button:has(> svg[data-ds-icon="Settings"]):active {
+html[data-ka-ios] #chatroom-footer button:has(svg[data-ds-icon="Settings"]):active {
     background: rgba(118, 118, 128, 0.2) !important;
 }
 
 /* Hide the old icon or text, draw ours. */
 html[data-ka-ios] :is(.ka-proxy[data-kind], .ka-messages-button, .ka-collapse-button) > *,
-html[data-ka-ios] #chatroom-footer button > svg[data-ds-icon="Settings"] {
+html[data-ka-ios] #chatroom-footer button svg[data-ds-icon="Settings"],
+html[data-ka-ios] #chatroom-footer button > [data-slot="button-adornment"]:has(svg[data-ds-icon="Settings"]) {
     display: none !important;
 }
 
@@ -1966,7 +1967,7 @@ html[data-ka-ios] :is(.ka-messages-button, .ka-collapse-button) {
 }
 
 html[data-ka-ios] :is(.ka-proxy[data-kind], .ka-messages-button, .ka-collapse-button)::before,
-html[data-ka-ios] #chatroom-footer button:has(> svg[data-ds-icon="Settings"])::before,
+html[data-ka-ios] #chatroom-footer button:has(svg[data-ds-icon="Settings"])::before,
 html[data-ka-ios] #send-message-button::before {
     content: "";
     width: 24px;
@@ -1980,7 +1981,7 @@ html[data-ka-ios] .ka-proxy[data-kind="identity"] { --ka-icon: var(--ka-icon-use
 html[data-ka-ios] .ka-proxy[data-kind="emotes"] { --ka-icon: var(--ka-icon-smile); }
 html[data-ka-ios] .ka-messages-button { --ka-icon: var(--ka-icon-bubble); }
 html[data-ka-ios] .ka-collapse-button { --ka-icon: var(--ka-icon-chevron); }
-html[data-ka-ios] #chatroom-footer button:has(> svg[data-ds-icon="Settings"]) { --ka-icon: var(--ka-icon-gear); }
+html[data-ka-ios] #chatroom-footer button:has(svg[data-ds-icon="Settings"]) { --ka-icon: var(--ka-icon-gear); }
 
 /* 7TV has no icon of its own: its name, in the row's colour. */
 html[data-ka-ios] .ka-7tv-button {
@@ -1999,7 +2000,9 @@ html[data-ka-ios] #chatroom-footer :is([data-testid="channel-points-button"], [d
     color: rgba(235, 235, 245, 0.78) !important;
 }
 
-html[data-ka-ios] #chatroom-footer :is([data-testid="channel-points-button"], [data-testid="gift-shop-button"]) > svg {
+/* Kick's own icon: an svg or an animated <img>, since its button redesign
+   wrapped in an adornment span. */
+html[data-ka-ios] #chatroom-footer :is([data-testid="channel-points-button"], [data-testid="gift-shop-button"]) > :is(svg, img, [data-slot="button-adornment"], [data-part="adornment"]) {
     display: none !important;
 }
 
@@ -2055,7 +2058,7 @@ html[data-ka-ios] #chatroom-footer div:has(> div > .ka-toolbar) {
     position: relative;
 }
 
-html[data-ka-ios] #chatroom-footer button:has(> svg[data-ds-icon="Send"]) {
+html[data-ka-ios] #chatroom-footer button:has(svg[data-ds-icon="Send"]) {
     position: absolute !important;
     right: 6px;
     bottom: calc(var(--ka-row-height) + 8px);
@@ -2068,7 +2071,7 @@ html[data-ka-ios] #chatroom-footer button:has(> svg[data-ds-icon="Send"]) {
     --ka-icon: var(--ka-icon-send);
 }
 
-html[data-ka-ios] #chatroom-footer button:has(> svg[data-ds-icon="Send"]):not(.w-0) {
+html[data-ka-ios] #chatroom-footer button:has(svg[data-ds-icon="Send"]):not(.w-0) {
     width: 32px !important;
     min-width: 32px !important;
 }
@@ -2077,11 +2080,12 @@ html[data-ka-ios] #chatroom-footer:has(svg[data-ds-icon="Send"]) #chat-input-wra
     padding-right: 42px !important;
 }
 
-html[data-ka-ios] #chatroom-footer button > svg[data-ds-icon="Send"] {
+html[data-ka-ios] #chatroom-footer button svg[data-ds-icon="Send"],
+html[data-ka-ios] #chatroom-footer button > [data-slot="button-adornment"]:has(svg[data-ds-icon="Send"]) {
     display: none !important;
 }
 
-html[data-ka-ios] #chatroom-footer button:has(> svg[data-ds-icon="Send"])::before {
+html[data-ka-ios] #chatroom-footer button:has(svg[data-ds-icon="Send"])::before {
     content: "";
     flex: 0 0 auto;
     width: 18px;
@@ -2149,7 +2153,7 @@ html[data-ka-ios] .ka-reveal::before {
     }
 
     html[data-ka-ios] .ka-toolbar-button,
-    html[data-ka-ios] #chatroom-footer button:has(> svg[data-ds-icon="Settings"]),
+    html[data-ka-ios] #chatroom-footer button:has(svg[data-ds-icon="Settings"]),
     html[data-ka-ios] #chatroom-footer [data-testid="gift-shop-button"] {
         min-width: 36px !important;
         width: 36px;
@@ -2164,7 +2168,7 @@ html[data-ka-ios] .ka-reveal::before {
     }
 
     html[data-ka-ios] :is(.ka-proxy[data-kind], .ka-messages-button, .ka-collapse-button)::before,
-    html[data-ka-ios] #chatroom-footer button:has(> svg[data-ds-icon="Settings"])::before,
+    html[data-ka-ios] #chatroom-footer button:has(svg[data-ds-icon="Settings"])::before,
     html[data-ka-ios] #chatroom-footer :is([data-testid="channel-points-button"], [data-testid="gift-shop-button"])::before {
         width: 22px;
         height: 22px;
@@ -2196,7 +2200,7 @@ html[data-ka-ios] .ka-reveal::before {
     }
 
     html[data-ka-ios] .ka-toolbar-button,
-    html[data-ka-ios] #chatroom-footer button:has(> svg[data-ds-icon="Settings"]),
+    html[data-ka-ios] #chatroom-footer button:has(svg[data-ds-icon="Settings"]),
     html[data-ka-ios] #chatroom-footer [data-testid="gift-shop-button"] {
         min-width: 30px !important;
         width: 30px;
@@ -2211,7 +2215,7 @@ html[data-ka-ios] .ka-reveal::before {
     }
 
     html[data-ka-ios] :is(.ka-proxy[data-kind], .ka-messages-button, .ka-collapse-button)::before,
-    html[data-ka-ios] #chatroom-footer button:has(> svg[data-ds-icon="Settings"])::before,
+    html[data-ka-ios] #chatroom-footer button:has(svg[data-ds-icon="Settings"])::before,
     html[data-ka-ios] #chatroom-footer :is([data-testid="channel-points-button"], [data-testid="gift-shop-button"])::before {
         width: 20px;
         height: 20px;

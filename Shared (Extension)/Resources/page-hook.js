@@ -4,7 +4,7 @@
 // full message ({ id, content, sender }). We use that to:
 //   - restore the original text of messages replaced with "Deleted by a moderator",
 //     and show again the messages Kick removes when someone is timed out or banned
-//   - add link previews (images, YouTube, X, TikTok, Kick clips, Instagram)
+//   - add link previews (images, YouTube, X, TikTok, Kick and Twitch clips, Imgur, Instagram)
 //   - show 7TV emotes (global + the channel's set), with a tap card (name, copy,
 //     insert), autocomplete and a picker
 //   - saved messages ("pastas"): a list to insert from, saved from chat or typed
@@ -672,16 +672,26 @@
       };
     },
 
+    // TikTok's oEmbed often answers with the player alone (no title, author or
+    // thumbnail), and not at all for short links; the card then falls back to
+    // what the link itself says.
     function tiktok(url) {
       if (!hostIs(url, 'tiktok.com')) return null;
-      if (!/\/video\/\d+|\/photo\/\d+/.test(url.pathname) && !hostIs(url, 'vm.tiktok.com', 'vt.tiktok.com')) return null;
+      const match = url.pathname.match(/^\/@([\w.-]+)\/(video|photo)\/\d+/);
+      const short = hostIs(url, 'vm.tiktok.com', 'vt.tiktok.com') || /^\/t\/\w+/.test(url.pathname);
+      if (!match && !short) return null;
+      const kind = match?.[2] === 'photo' ? t('preview.ttPhoto') : t('preview.ttVideo');
 
       return async () => {
-        const data = await getJson(`https://www.tiktok.com/oembed?url=${encodeURIComponent(url.href)}`);
+        let data = {};
+        try {
+          data = await getJson(`https://www.tiktok.com/oembed?url=${encodeURIComponent(url.href)}`);
+        } catch (err) { /* the labelled card is still useful */ }
+        const user = data.author_unique_id || match?.[1];
         return {
           kind: 'card',
           site: data.author_name ? `TikTok · ${data.author_name}` : 'TikTok',
-          title: '',
+          title: user ? t('preview.igBy', { kind, user }) : kind,
           text: data.title || '',
           thumb: data.thumbnail_url || ''
         };
@@ -702,6 +712,64 @@
           title: clip.title || '',
           text: clip.views != null ? t('preview.views', { count: Number(clip.views) }) : '',
           thumb: clip.thumbnail_url || ''
+        };
+      };
+    },
+
+    // Twitch has no keyless clip API; this is the one its own site uses.
+    function twitchClip(url) {
+      let slug = null;
+      if (hostIs(url, 'clips.twitch.tv')) slug = url.searchParams.get('clip') || url.pathname.split('/')[1];
+      else if (hostIs(url, 'twitch.tv')) slug = url.pathname.match(/^\/\w+\/clip\/([\w-]+)/)?.[1];
+      if (!slug || slug === 'embed' || !/^[\w-]+$/.test(slug)) return null;
+
+      return async () => {
+        const response = await fetch('https://gql.twitch.tv/gql', {
+          method: 'POST',
+          credentials: 'omit',
+          headers: { 'Client-Id': 'kimne78kx3ncx6brgo4mv6wki5h1ko' },
+          body: JSON.stringify({
+            query: `{ clip(slug: "${slug}") { title viewCount thumbnailURL broadcaster { displayName } } }`
+          })
+        });
+        if (!response.ok) throw new Error(`${response.status} Twitch clip`);
+        const clip = (await response.json()).data?.clip;
+        if (!clip) return null;
+        const channel = clip.broadcaster?.displayName;
+        return {
+          kind: 'card',
+          site: channel ? t('preview.twitchClipBy', { channel }) : t('preview.twitchClip'),
+          title: clip.title || '',
+          text: clip.viewCount != null ? t('preview.views', { count: Number(clip.viewCount) }) : '',
+          thumb: clip.thumbnailURL || ''
+        };
+      };
+    },
+
+    // Imgur pages (direct i.imgur.com images are plain images above). Albums
+    // and gallery posts become a card with the cover; a single image or video
+    // shows as the picture itself. Mature posts get no picture.
+    function imgur(url) {
+      if (!hostIs(url, 'imgur.com')) return null;
+      const post = url.pathname.match(/^\/(?:a|gallery|t\/\w+)\/(?:[\w-]*-)?([A-Za-z0-9]{5,10})\/?$/)?.[1];
+      const single = !post && url.pathname.match(/^\/([A-Za-z0-9]{5,10})(?:\.(?:gifv|mp4|webm))?\/?$/)?.[1];
+      if (!post && !single) return null;
+      const api = (kind, id) =>
+        getJson(`https://api.imgur.com/post/v1/${kind}/${id}?client_id=546c25a59c58ad7&include=media`);
+      const still = id => (id ? `https://i.imgur.com/${id}l.jpg` : '');
+
+      return async () => {
+        // A gallery link can also point at a single image.
+        const data = post ? await api('albums', post).catch(() => api('media', post)) : await api('media', single);
+        const cover = data.is_mature ? '' : still(data.cover_id || data.media?.[0]?.id);
+        const count = Number(data.image_count) || 1;
+        if (cover && count === 1 && !data.title) return { kind: 'image', src: cover };
+        return {
+          kind: 'card',
+          site: 'Imgur',
+          title: data.title || '',
+          text: count > 1 ? t('preview.imgurImages', { count }) : '',
+          thumb: cover
         };
       };
     },
