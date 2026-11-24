@@ -474,21 +474,10 @@
 
   // Kick's realtime store (its getState is in a useMemo dependency list above the
   // chat): { scope: 'chatrooms.<id>.v2', handle: { subscribe(scope, event, cb) } }.
+  // Through findStore, which only calls plain getters (see there).
   function chatRealtime() {
-    let fiber = list && rowFiber(list);
-    for (let depth = 0; fiber && depth < 80; depth++, fiber = fiber.return) {
-      for (let hook = fiber.memoizedState, n = 0; hook && n < 80; hook = hook.next, n++) {
-        const deps = Array.isArray(hook.memoizedState) && Array.isArray(hook.memoizedState[1]) ? hook.memoizedState[1] : null;
-        for (const candidate of deps || []) {
-          if (typeof candidate !== 'function' || candidate.length > 0) continue;
-          try {
-            const state = candidate();
-            if (typeof state?.scope === 'string' && typeof state.handle?.subscribe === 'function') return state;
-          } catch (err) { /* not it */ }
-        }
-      }
-    }
-    return null;
+    const getState = findStore(state => typeof state?.scope === 'string' && typeof state.handle?.subscribe === 'function');
+    return getState ? getState() : null;
   }
 
   function listenForBans() {
@@ -3922,13 +3911,27 @@
 
   // A Kick store (Zustand) getState: a 0-arg function in a useMemo dependency list
   // above the chat, whose state passes `test`.
+  // Only functions that just return a variable (Zustand's getState is
+  // `() => state`) are called: hook deps also hold Kick's actions, and calling
+  // e.g. its logout to "test" it signed people out on channel pages.
+  const PLAIN_GETTER = /^\s*(?:\(\s*\)\s*=>\s*[\w$]+|function\s*[\w$]*\s*\(\s*\)\s*\{\s*return\s+[\w$]+\s*;?\s*\})\s*$/;
+  const getterChecks = new WeakMap();
+  function isPlainGetter(fn) {
+    if (!getterChecks.has(fn)) {
+      let plain = false;
+      try { plain = PLAIN_GETTER.test(Function.prototype.toString.call(fn)); } catch (err) { /* not inspectable */ }
+      getterChecks.set(fn, plain);
+    }
+    return getterChecks.get(fn);
+  }
+
   function findStore(test) {
     let fiber = list && rowFiber(list);
     for (let depth = 0; fiber && depth < 80; depth++, fiber = fiber.return) {
       for (let hook = fiber.memoizedState, n = 0; hook && n < 80; hook = hook.next, n++) {
         const deps = Array.isArray(hook.memoizedState) && Array.isArray(hook.memoizedState[1]) ? hook.memoizedState[1] : null;
         for (const candidate of deps || []) {
-          if (typeof candidate !== 'function' || candidate.length > 0) continue;
+          if (typeof candidate !== 'function' || candidate.length > 0 || !isPlainGetter(candidate)) continue;
           try {
             if (test(candidate())) return candidate;
           } catch (err) { /* not it */ }
